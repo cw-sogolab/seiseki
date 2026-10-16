@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>내 성적</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div id="demo" class="demo" hidden>미리보기 모드입니다. 예시 번호 KM482919로 들어가 보세요. 실제 성적이 아니고, 사진도 저장되지 않습니다.</div>
+<header class="top"><div class="wrap col">
+  <div class="eyebrow">成績ノート</div>
+  <h1>내 성적</h1>
+</div></header>
+
+<main class="wrap col">
+  <section id="login" class="card">
+    <label for="sid">선생님께 받은 내 번호</label>
+    <input id="sid" type="text" class="idin" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" placeholder="KM482919" aria-describedby="loginMsg">
+    <label class="check"><input id="remember" type="checkbox"> 이 기기에서 번호 기억하기 (내 폰일 때만)</label>
+    <p id="loginMsg" class="msg err" role="alert"></p>
+    <button id="go" class="btn block" type="button">조회하기</button>
+    <p class="meta" style="margin-top:10px">영문 2자 + 숫자 6자리예요. 퇴실퀴즈에 쓰는 번호와 같아요. 대소문자와 띄어쓰기는 상관없어요. 번호를 잊었으면 선생님께 말씀해 주세요.</p>
+  </section>
+
+  <section id="app" hidden>
+    <div class="row" style="margin-top:14px;align-items:center">
+      <div><b id="nm" style="font-size:17px"></b> <span id="idshow" class="meta" style="font-family:var(--f-mono)"></span></div>
+      <div><button id="refresh" class="linkbtn" type="button">새로고침</button><button id="out" class="linkbtn" type="button">나가기</button></div>
+    </div>
+    <div id="tabs" class="tabsrow" role="tablist" aria-label="내 반"></div>
+    <div id="months" class="tabsrow" aria-label="달"></div>
+    <div id="panel"></div>
+  </section>
+</main>
+
+<script src="../assets/config.js"></script>
+<script src="assets/core.js"></script>
+<script src="assets/logic.js"></script>
+<script src="assets/mock.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/student.js"></script>
+</body>
+</html>
