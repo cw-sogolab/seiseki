@@ -202,10 +202,10 @@ function setup() {
 
 function setAdminPassword() {
   var ui = SpreadsheetApp.getUi();
-  var r = ui.prompt('관리자 비밀번호', '강사 화면에 들어갈 때 쓸 비밀번호 (8자 이상)', ui.ButtonSet.OK_CANCEL);
+  var r = ui.prompt('관리자 비밀번호', '강사 화면에 들어갈 때 쓸 비밀번호 (4자 이상)', ui.ButtonSet.OK_CANCEL);
   if (r.getSelectedButton() !== ui.Button.OK) return;
   var pw = r.getResponseText().trim();
-  if (pw.length < 8) { ui.alert('8자 이상으로 정해 주세요.'); return; }
+  if (pw.length < 4) { ui.alert('4자 이상으로 정해 주세요.'); return; }
   PropertiesService.getScriptProperties().setProperty('ADMIN_PASSWORD', pw);
   ui.alert('저장했어요. 이미 로그인한 강사 화면은 6시간 안에 자동으로 다시 로그인을 요청해요.');
 }

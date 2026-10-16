@@ -35,6 +35,8 @@ var Logic = (function () {
   var TEXT_COLS = ['일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일'];
 
   var LOGIN_FAILS = 5, LOCK_SEC = 60, GLOBAL_FAILS = 40, ADMIN_TTL = 6 * 3600;
+  // 관리자 비밀번호는 짧을 수 있어서(4자), 기기를 바꿔 가며 계속 맞혀 보는 것을 막는 전체 한도: 1시간에 20번 틀리면 1시간 막음
+  var ADMIN_GLOBAL_FAILS = 20, ADMIN_GLOBAL_SEC = 3600;
 
   function ok(data) { return { ok: true, data: data }; }
   function fail(msg) { return { ok: false, error: msg }; }
@@ -209,9 +211,11 @@ var Logic = (function () {
     var dev = S(p.dev).slice(0, 40) || 'anon';
     var locked = lockCheck(env, 'a:' + dev);
     if (locked) return fail(locked);
+    if (num(env.cache.get('agfail')) >= ADMIN_GLOBAL_FAILS) return fail('관리자 비밀번호가 여러 번 틀려서 1시간 동안 막혔어요. 그 뒤에 다시 해 주세요.');
     var pw = S(env.props.get('ADMIN_PASSWORD'));
     if (!pw) return fail('관리자 비밀번호가 아직 없어요. 구글 시트 메뉴 「성적노트 → 관리자 비밀번호 설정」에서 정해 주세요.');
     if (S(p.password) !== pw) {
+      env.cache.put('agfail', String(num(env.cache.get('agfail')) + 1), ADMIN_GLOBAL_SEC);
       var left = lockFail(env, 'a:' + dev);
       return fail(left ? '비밀번호가 달라요. (남은 기회 ' + left + '번)' : '5번 틀렸어요. 1분 뒤에 다시 해 주세요.');
     }

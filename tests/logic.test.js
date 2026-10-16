@@ -64,6 +64,12 @@ t('관리자 로그인 실패 5번이면 잠김', () => {
   assert.ok(/잠시/.test(H('adminLogin', { password: 'demo', dev: 'd1' }).error), '잠긴 동안 맞는 비번도 거절');
   const okr = H('adminLogin', { password: 'demo', dev: 'd2' }); assert.ok(okr.ok); token = okr.data.token;
 });
+t('관리자 비밀번호: 기기를 바꿔도 1시간에 20번 틀리면 모두 막힘', () => {
+  const e2 = Mock.createEnv({ now: () => new Date('2026-11-03T21:00:00+09:00') });
+  for (let i = 0; i < 20; i++) assert.ok(!Logic.handle(e2, 'adminLogin', { password: String(1000 + i), dev: 'bot' + i }).ok);
+  const r = Logic.handle(e2, 'adminLogin', { password: 'demo', dev: 'new-device' });
+  assert.ok(!r.ok && /1시간/.test(r.error), '맞는 비번이라도 거절');
+});
 t('토큰 없이 관리 요청 거절', () => { const r = H('bootstrap', {}); assert.ok(!r.ok && r.needLogin); });
 t('명단 붙여넣기: 원생명단의 번호를 그대로 쓰고, 없는 이름만 새 번호로 명단에 추가', () => {
   const r = H('importRoster', { token, text: '가학생(동작)\t개념 화목20:20\n나학생\t단풀 토일13:00/개념 화목 20:20\n다학생\t개념반 화목 20:20' });

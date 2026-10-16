@@ -19,7 +19,7 @@ with sync_playwright() as p:
         pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.route('**/fonts.googleapis.com/**', lambda r: r.abort()); pg.route('**/fonts.gstatic.com/**', lambda r: r.abort())
         print(f'student {"개발판" if isdev else "본판"} @{width}')
-        pg.goto((base / 'index.html').as_uri())
+        pg.goto((base / 'index.html').as_uri() + '?demo')  # 서버 주소가 있어도 미리보기 모드로
         check(pg.is_visible('.devbar') == isdev and pg.title().startswith('[개발판]') == isdev, '개발판 띠·제목 ' + ('있음' if isdev else '없음'))
         check(pg.is_visible('#demo'), '미리보기 안내 표시')
         pg.fill('#sid', '1234 ab'); pg.click('#go'); pg.wait_for_timeout(300)
@@ -40,7 +40,7 @@ with sync_playwright() as p:
         pg = b.new_page(viewport={'width': width, 'height': 900}); errs = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.route('**/fonts.googleapis.com/**', lambda r: r.abort()); pg.route('**/fonts.gstatic.com/**', lambda r: r.abort())
-        pg.goto((base / 'admin.html').as_uri())
+        pg.goto((base / 'admin.html').as_uri() + '?demo')
         check(pg.is_visible('.devbar') == isdev, '개발판 띠 ' + ('있음' if isdev else '없음'))
         check(not pg.is_visible('#topRight'), '로그인 전 머리띠 메뉴 숨김')
         pg.fill('#pw', 'nope'); pg.click('#go'); pg.wait_for_timeout(300)

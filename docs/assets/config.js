@@ -6,6 +6,6 @@
 window.SEISEKI_CONFIG = {
   API_URL: {
     prod: '',
-    dev: ''
+    dev: 'https://script.google.com/macros/s/AKfycbwRTtPTkc2s5W2AFriR-ARUy2YXjRudHk4Fv2YOyntm_ashG_UNisVfiTIaLwxFOe73/exec'
   }
 };
