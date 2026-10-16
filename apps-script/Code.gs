@@ -150,6 +150,12 @@ function makeEnv_() {
 }
 
 /* ---------- 시트 메뉴 ---------- */
+/** 시트에서 메뉴로 실행하면 알림창, Apps Script 편집기에서 실행하면 실행 로그에 남김 */
+function notify_(title, msg) {
+  try { var ui = SpreadsheetApp.getUi(); ui.alert(title, msg, ui.ButtonSet.OK); }
+  catch (e) { Logger.log(title + ': ' + msg); }
+}
+
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('성적노트')
     .addItem('1. 초기 설정 (시트·사진 폴더 만들기)', 'setup')
@@ -188,10 +194,10 @@ function setup() {
   var first = ss.getSheets()[0];
   if (first.getName() !== '반' && first.getLastRow() === 0) ss.deleteSheet(first); // 빈 「시트1」 정리
   var folder = photoRoot_();
-  SpreadsheetApp.getUi().alert('초기 설정 완료',
+  notify_('초기 설정 완료',
     '시트 ' + Object.keys(Logic.TABLES).length + '개와 사진 폴더 「' + folder.getName() + '」를 준비했어요.\n' +
     '「반」 시트의 반 이름·시간을 확인하고, 다음으로 「관리자 비밀번호 설정」을 해 주세요.\n' +
-    '(본판은 이어서 「3. 원생명단 시트 연결」까지. 개발판은 연결하지 않고 이 기록장 안의 「원생」 탭을 씁니다.)', SpreadsheetApp.getUi().ButtonSet.OK);
+    '(본판은 이어서 「3. 원생명단 시트 연결」까지. 개발판은 연결하지 않고 이 기록장 안의 「원생」 탭을 씁니다.)');
 }
 
 function setAdminPassword() {
@@ -211,34 +217,38 @@ function connectRoster() {
   if (r.getSelectedButton() !== ui.Button.OK) return;
   var txt = r.getResponseText().trim();
   if (!txt) { p.deleteProperty('ROSTER_ID'); ui.alert('연결을 끊었어요. 이제 이 기록장의 「원생」 탭을 씁니다. (없으면 「1. 초기 설정」을 다시 실행)'); return; }
-  var m = txt.match(/\/d\/([a-zA-Z0-9_-]{20,})/), id = m ? m[1] : txt;
+  var m = txt.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+  ui.alert(connectRosterById_(m ? m[1] : txt));
+}
+
+/** 원생명단 시트를 연결 (첫 줄이 비어 있으면 머리글을 써 넣음). 결과 문장을 돌려줌 */
+function connectRosterById_(id) {
   var sh;
-  try { sh = SpreadsheetApp.openById(id).getSheets()[0]; } catch (e) { ui.alert('그 시트를 열지 못했어요. 주소를 확인해 주세요.'); return; }
+  try { sh = SpreadsheetApp.openById(id).getSheets()[0]; } catch (e) { return '그 시트를 열지 못했어요. 주소를 확인해 주세요.'; }
   var head = sh.getRange(1, 1, 1, Math.max(5, sh.getLastColumn())).getValues()[0].map(function (h) { return String(h).trim(); });
   if (head.join('') === '') {
+    sh.getRange(1, 1, sh.getMaxRows(), 5).setNumberFormat('@');
     sh.getRange(1, 1, 1, 5).setValues([Logic.TABLES['원생']]).setFontWeight('bold');
     sh.setFrozenRows(1);
-    sh.getRange(1, 1, sh.getMaxRows(), 5).setNumberFormat('@');
   } else if (head.indexOf('일련번호') < 0 || head.indexOf('이름') < 0) {
-    ui.alert('첫 줄에 「일련번호」「이름」 칸이 있어야 해요. 지금 첫 줄: ' + head.filter(String).join(', ')); return;
+    return '첫 줄에 「일련번호」「이름」 칸이 있어야 해요. 지금 첫 줄: ' + head.filter(String).join(', ');
   }
-  p.setProperty('ROSTER_ID', id);
-  ui.alert('연결했어요: ' + SpreadsheetApp.openById(id).getName() + '\n이제 학생 이름·번호는 이 명단에서 읽고, 새 원생은 이 명단에 추가합니다.');
+  PropertiesService.getScriptProperties().setProperty('ROSTER_ID', id);
+  return '연결했어요: ' + SpreadsheetApp.openById(id).getName() + '\n이제 학생 이름·번호는 이 명단에서 읽고, 새 원생은 이 명단에 추가합니다.';
 }
 
 function toggleShowKey() {
   var p = PropertiesService.getScriptProperties(), on = p.getProperty('SHOW_KEY') === 'Y';
   p.setProperty('SHOW_KEY', on ? 'N' : 'Y');
-  SpreadsheetApp.getUi().alert(on ? '학생 화면에서 정답을 숨겼어요. (틀린 번호만 보임)' : '학생 화면에 틀린 문항의 정답과 내 답이 보여요.');
+  notify_('정답 공개', on ? '학생 화면에서 정답을 숨겼어요. (틀린 번호만 보임)' : '학생 화면에 틀린 문항의 정답과 내 답이 보여요.');
 }
 
 function showStatus() {
   var p = PropertiesService.getScriptProperties();
-  SpreadsheetApp.getUi().alert('설정 상태',
+  notify_('설정 상태',
     '기록장 시트: ' + (p.getProperty('SHEET_ID') ? '연결됨' : '초기 설정 필요') + '\n' +
     '사진 폴더: ' + (p.getProperty('PHOTO_FOLDER_ID') ? '있음' : '초기 설정 필요') + '\n' +
     '관리자 비밀번호: ' + (p.getProperty('ADMIN_PASSWORD') ? '설정됨' : '없음') + '\n' +
     '원생명단: ' + (p.getProperty('ROSTER_ID') ? '연결됨 (' + SpreadsheetApp.openById(p.getProperty('ROSTER_ID')).getName() + ')' : '연결 안 함 — 기록장의 「원생」 탭 사용') + '\n' +
-    '학생 화면 정답 공개: ' + (p.getProperty('SHOW_KEY') === 'Y' ? '켜짐' : '꺼짐'),
-    SpreadsheetApp.getUi().ButtonSet.OK);
+    '학생 화면 정답 공개: ' + (p.getProperty('SHOW_KEY') === 'Y' ? '켜짐' : '꺼짐'));
 }
