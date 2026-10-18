@@ -5,7 +5,7 @@
  */
 window.SEISEKI_CONFIG = {
   API_URL: {
-    prod: '',
+    prod: 'https://script.google.com/macros/s/AKfycbxuRR-RrgYh3F8__JPOF-qaC3RCwTiiGgOdYMw4kJ3KvQr_QVCQ-BUJqh8DSfFZCHjOEg/exec',
     dev: 'https://script.google.com/macros/s/AKfycbwRTtPTkc2s5W2AFriR-ARUy2YXjRudHk4Fv2YOyntm_ashG_UNisVfiTIaLwxFOe73/exec'
   }
 };
