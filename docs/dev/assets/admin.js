@@ -42,6 +42,15 @@
   function cls(code) { return D.classes.filter(function (c) { return c.code === code; })[0] || { code: code, name: code, kind: '', time: '' }; }
   function stu(code) { return D.students.filter(function (s) { return s.code === code; })[0]; }
   function members(c) { return D.students.filter(function (s) { return s.active && s.classes.indexOf(c) >= 0; }).sort(function (a, b) { return a.name.localeCompare(b.name, 'ko'); }); }
+  /** 그 반·그 달의 명단: 기록(시험결과·숙제제출)이 있는 학생 + (이번 달이면) 지금 듣는 학생 */
+  function rosterFor(c, m) {
+    var codes = {};
+    D.exams.forEach(function (e) { if (e.cls === c && e.month === m) D.results.forEach(function (r) { if (r.exam === e.id) codes[r.code] = 1; }); });
+    D.homework.forEach(function (h) { if (h.cls === c && h.month === m) D.hwSubs.forEach(function (x) { if (x.hw === h.id) codes[x.code] = 1; }); });
+    if (m === D.today.slice(0, 7)) members(c).forEach(function (s) { codes[s.code] = 1; });
+    return D.students.filter(function (s) { return codes[s.code]; }).sort(function (a, b) { return a.name.localeCompare(b.name, 'ko'); });
+  }
+  function pages(h) { return (h.book ? esc(h.book) + ' ' : '') + (h.p0 ? 'p.' + h.p0 + '~' + h.p1 : ''); }
   function examsOfMonth() { return D.exams.filter(function (e) { return e.month === month; }).sort(function (a, b) { return (a.cls + a.date).localeCompare(b.cls + b.date); }); }
   function hwOfMonth() { return D.homework.filter(function (h) { return h.month === month; }); }
   function resultOf(exam, code) { return D.results.filter(function (r) { return r.exam === exam && r.code === code; })[0]; }
@@ -82,7 +91,7 @@
       '<p class="meta" id="exMeta"></p>' +
       '<label for="stIn">학생 (이름 또는 번호)</label><input id="stIn" type="text" list="stList" autocomplete="off"><datalist id="stList"></datalist>' +
       '<div class="hit" id="hit"></div>' +
-      '<label for="ansIn">답안 (1~4를 이어서, 무응답은 0)</label><input id="ansIn" class="ans" type="text" inputmode="numeric" autocomplete="off">' +
+      '<label for="ansIn">답안 (고른 번호를 이어서, 무응답은 0)</label><input id="ansIn" class="ans" type="text" inputmode="numeric" autocomplete="off">' +
       '<p class="meta" id="cnt"></p><div id="prev"></div>' +
       '<button type="button" class="btn" id="save">저장하고 다음 학생 (Enter)</button><p id="emsg" class="msg" role="status"></p>' +
       '</div><div class="card"><h2>입력 현황</h2><div id="roster"></div></div></div>';
@@ -150,7 +159,7 @@
       '<div><label for="nL">이름</label><input id="nL" type="text" placeholder="예: 3주차 소테스트"></div>' +
       '<div><label for="nD">시험일</label><input id="nD" type="date" value="' + esc(D.today) + '"></div>' +
       '<div><label for="nT">문항 수</label><input id="nT" type="number" min="1" max="80" value="15"></div></div>' +
-      '<label for="nA">정답 (1~4를 이어서)</label><input id="nA" class="ans" type="text" inputmode="numeric" autocomplete="off">' +
+      '<label for="nA">정답 (번호를 이어서)</label><input id="nA" class="ans" type="text" inputmode="numeric" autocomplete="off">' +
       '<p class="meta" id="nCnt"></p><button type="button" class="btn" id="nAdd">시험 등록</button><p id="nMsg" class="msg" role="status"></p></div>' +
       '<div class="card"><h2>등록된 시험</h2>' + (exs.length ? '<div class="tw"><table><thead><tr><th>반</th><th>이름</th><th>종류</th><th>시험일</th><th class="num">문항</th><th class="num">입력</th><th>정답</th><th></th></tr></thead><tbody>' +
       exs.map(function (e) {
@@ -196,11 +205,11 @@
       '<button type="button" class="btn" id="hAdd">숙제 등록</button><p id="hMsg" class="msg" role="status"></p></details></div>';
     if (!hws.length) { $('#view').innerHTML = add + '<div class="card"><p class="empty">이 달에 등록된 숙제가 없어요.</p></div>'; bindAdd(); return; }
     if (!hws.some(function (h) { return h.id === curHw; })) curHw = hws[hws.length - 1].id;
-    var hw = hws.filter(function (h) { return h.id === curHw; })[0], mem = members(hw.cls);
+    var hw = hws.filter(function (h) { return h.id === curHw; })[0], mem = rosterFor(hw.cls, hw.month);
     var done = mem.filter(function (s) { return subOf(hw.id, s.code); });
     $('#view').innerHTML =
       '<div class="card"><label for="hSel">숙제</label><select id="hSel">' + hws.map(function (h) { return '<option value="' + esc(h.id) + '"' + (h.id === curHw ? ' selected' : '') + '>' + esc(cls(h.cls).name) + ' · ' + esc(h.label) + '</option>'; }).join('') + '</select>' +
-      '<p class="meta" style="margin-top:8px">' + esc(hw.book) + ' p.' + hw.p0 + '~' + hw.p1 + (hw.total ? ' · ' + hw.total + '문' : '') + ' · 제출 ' + done.length + ' / ' + mem.length + '명 · 확인 ' + done.filter(function (s) { return subOf(hw.id, s.code).checked; }).length + '명</p>' +
+      '<p class="meta" style="margin-top:8px">' + pages(hw) + (hw.total ? ' · ' + hw.total + '문' : '') + ' · 제출 ' + done.length + ' / ' + mem.length + '명 · 확인 ' + done.filter(function (s) { return subOf(hw.id, s.code).checked; }).length + '명</p>' +
       '<div class="tw" style="margin-top:10px"><table><thead><tr><th>이름</th><th>번호</th><th>상태</th><th class="num">맞은 개수</th><th class="num">사진</th><th>확인</th><th></th></tr></thead><tbody>' +
       mem.map(function (s) {
         var u = subOf(hw.id, s.code);
@@ -329,7 +338,7 @@
     var hws = D.homework.filter(function (h) { return h.cls === cc && h.month === month; });
     var head = ['이름', '학생평가'].concat(hws.map(function (h) { return h.label + (h.total ? '(' + h.total + '문)' : ''); }),
       exs.map(function (e) { return e.label + (real ? '(개수/환산)' : '(' + e.total + '문)'); }), ['평균', '숙제 제출']);
-    var rows = members(cc).map(function (s) {
+    var rows = rosterFor(cc, month).map(function (s) {
       var hc = hws.map(function (h) { var u = subOf(h.id, s.code); return u ? (u.count !== null ? String(u.count) : '제출') : '-'; });
       var useConv = real && exs.length && exs.every(function (e) { var r = resultOf(e.id, s.code); return !r || r.conv !== null; });
       var vals = [];
@@ -357,7 +366,7 @@
       (T.rows.length ? T.rows.map(function (r) {
         return '<tr><td>' + esc(r.s.name) + '</td><td><textarea class="cm" rows="2" data-ev="' + esc(r.s.code) + '" aria-label="' + esc(r.s.name) + ' 학생평가">' + esc(r.eval) + '</textarea></td>' +
           r.cells.map(function (v, i) { return '<td class="num">' + (i === r.cells.length - 2 ? '<b>' + esc(v) + '</b>' : esc(v)) + '</td>'; }).join('') + '</tr>';
-      }).join('') : '<tr><td colspan="' + T.head.length + '" class="empty">이 반에 재원 학생이 없어요.</td></tr>') + '</tbody></table></div></div>';
+      }).join('') : '<tr><td colspan="' + T.head.length + '" class="empty">이 달 이 반에 기록이 있는 학생이 없어요.</td></tr>') + '</tbody></table></div></div>';
     $('#mC').onchange = function () { monthCls = this.value; vMonth(); };
     all('#view [data-ev]').forEach(function (t) {
       t.onchange = function () {

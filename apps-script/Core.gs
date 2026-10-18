@@ -42,11 +42,11 @@ var Core = (function () {
     throw new Error('새 번호를 만들지 못했어요. 다시 시도해 주세요.');
   }
 
-  /** 답안 정리: 0~4만 남김(0 = 무응답), 문항 수까지 자름 */
-  function cleanAnswers(s, total) { return S(s).replace(/[^0-4]/g, '').slice(0, total); }
+  /** 답안 정리: 숫자 0~9만 남김(0 = 무응답), 문항 수까지 자름. EJU 는 보기가 5~8개인 문항도 있어서 4보다 큰 번호도 받음 */
+  function cleanAnswers(s, total) { return S(s).replace(/[^0-9]/g, '').slice(0, total); }
 
-  /** 정답: 1~4만 */
-  function cleanKey(s) { return S(s).replace(/[^1-4]/g, ''); }
+  /** 정답: 1~9 */
+  function cleanKey(s) { return S(s).replace(/[^1-9]/g, ''); }
 
   function padAnswers(a, total) { a = S(a); while (a.length < total) a += '0'; return a.slice(0, total); }
 

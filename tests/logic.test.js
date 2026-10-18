@@ -32,7 +32,9 @@ t('번호 발급: 중복 없음, 형식·확인숫자 맞음', () => {
 t('채점: 무응답·짧은 입력', () => {
   const g = Core.grade('1234', '12');
   assert.strictEqual(g.score, 2); assert.deepStrictEqual(g.wrong.map(w => w.n), [3, 4]); assert.strictEqual(g.wrong[0].ans, '0');
-  assert.strictEqual(Core.cleanAnswers('1 2-3x4 05', 10), '12340', '5 이상은 버림');
+  assert.strictEqual(Core.cleanAnswers('1 2-3x4 05', 10), '123405', '5지 이상 문항(EJU)도 받음');
+  assert.strictEqual(Core.cleanKey('1,2 6/0'), '126', '정답에서 0은 버림');
+  assert.strictEqual(Core.grade('126', '116').score, 2);
 });
 t('명단 파싱: 시간·종류로 반 찾기, 여러 반, 모르는 반', () => {
   const classes = [{ code: 'GN-HM', name: '개념반 화목 20:20', kind: '개념', time: '화목 20:20' }, { code: 'SJ-D', name: '실전문풀 D', kind: '실전', time: '토일 10:00' },
@@ -125,6 +127,16 @@ t('반을 비워도 기록이 있는 반은 「지난 반」으로 계속 보임
   assert.ok(gn && gn.current === false && gn.tests[0].score === 3);
   assert.strictEqual(v.classes[0].code, 'DP-SS', '지금 듣는 반이 먼저');
   H('setClasses', { token, code: 'TR520615', classes: ['GN-HM', 'DP-SS'] });
+});
+t('지난 달은 본 시험만, 이번 달은 듣는 반 시험 전부 보임', () => {
+  const old = H('addExam', { token, cls: 'GN-HM', label: '10월 월말', total: 2, key: '12', kind: '월말테스트', month: '2026-10', date: '2026-10-30' }).data;
+  const now = H('addExam', { token, cls: 'GN-HM', label: '2주차', total: 2, key: '12', kind: '소테스트', month: '2026-11', date: '2026-11-10' }).data;
+  let v = H('login', { code: 'TR520615', dev: 's3' }).data, ids = v.classes.filter(c => c.code === 'GN-HM')[0].tests.map(x => x.id);
+  assert.ok(!ids.includes(old.id), '지난 달·미응시 → 안 보임'); assert.ok(ids.includes(now.id), '이번 달 → 보임');
+  H('saveResult', { token, exam: old.id, code: 'TR520615', answers: '11' });
+  v = H('login', { code: 'TR520615', dev: 's3' }).data; ids = v.classes.filter(c => c.code === 'GN-HM')[0].tests.map(x => x.id);
+  assert.ok(ids.includes(old.id), '지난 달이라도 본 시험은 보임');
+  H('deleteResult', { token, exam: old.id, code: 'TR520615' }); H('deleteExam', { token, exam: old.id }); H('deleteExam', { token, exam: now.id });
 });
 let hw;
 t('숙제 등록·사진 제출·마무리·확인', () => {

@@ -120,6 +120,7 @@ var Logic = (function () {
     var showKey = S(env.props.get('SHOW_KEY')) === 'Y';
     var cls = classes(env), ex = exams(env), rs = results(env), hw = homework(env), subs = hwSubs(env);
     // 지금 듣는 반 + 예전에 기록이 있는 반 (반이 매달 바뀌어도 지난 성적이 보이게)
+    var curMonth = C.monthOf(env.now());
     var mine = stu.classes.slice();
     function add(c) { if (c && mine.indexOf(c) < 0) mine.push(c); }
     rs.forEach(function (r) { if (r.code === stu.code) ex.forEach(function (e) { if (e.id === r.exam) add(e.cls); }); });
@@ -141,12 +142,15 @@ var Logic = (function () {
             conv: mine ? mine.conv : null, convAvg: C.mean(convs), wrong: mine ? mine.wrong : [] };
           if (showKey && mine) t.wrongDetail = C.grade(e.key, mine.answers).wrong;
           return t;
+        }).filter(function (t) {
+          // 지난 달은 본 시험만, 이번 달은 지금 듣는 반의 시험 전부 (반이 달마다 바뀌어도 남의 달 시험이 「미응시」로 쌓이지 않게)
+          return t.score !== null || (t.month >= curMonth && stu.classes.indexOf(c.code) >= 0);
         });
         var hws = hw.filter(function (h) { return h.cls === c.code; }).map(function (h) {
           var s = subs.filter(function (x) { return x.hw === h.id && x.code === stu.code; })[0];
           return { id: h.id, month: h.month, label: h.label, book: h.book, p0: h.p0, p1: h.p1, total: h.total,
             done: !!s, count: s ? s.count : null, photos: s ? s.photos : 0, checked: s ? s.checked : false };
-        });
+        }).filter(function (w) { return w.done || (w.month >= curMonth && stu.classes.indexOf(c.code) >= 0); });
         return { code: c.code, name: c.name, kind: c.kind, time: c.time, current: stu.classes.indexOf(c.code) >= 0, tests: tests, hw: hws };
       })
     };
