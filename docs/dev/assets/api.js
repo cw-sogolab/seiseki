@@ -35,6 +35,7 @@ var Api = (function () {
 
   if (env === 'dev') {
     document.title = '[개발판] ' + document.title;
+    var ic = document.querySelector('link[rel=icon]'); if (ic) ic.href = ic.getAttribute('href').replace('favicon.svg', 'favicon-dev.svg');
     var bar = document.createElement('div');
     bar.className = 'devbar';
     bar.textContent = '개발판 — 새 기능 확인용입니다. 학생에게는 본판 주소를 알려 주세요.' + (demo ? (url ? ' (?demo — 미리보기 데이터로 열림)' : ' (개발판 웹앱 주소가 없어 미리보기 데이터로 열림)') : '');

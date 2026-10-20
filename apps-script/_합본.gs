@@ -162,10 +162,12 @@ var Logic = (function () {
     '숙제': ['숙제ID', '반코드', '월', '이름', '교재', '시작쪽', '끝쪽', '문항수', '등록일'],
     '숙제제출': ['숙제ID', '번호', '맞은개수', '사진수', '확인', '대리입력', '최종제출일'],
     '숙제사진': ['숙제ID', '번호', '순서', '파일ID', '올린시각'],
-    '평가': ['월', '번호', '코멘트', '수정일']
+    '평가': ['월', '번호', '코멘트', '수정일'],
+    // 시험지: 수업 폴더 답지에서 뽑은 정답·문항 수 (강사 화면에서 시험·숙제 등록 때 골라 씀). 학생에게는 보내지 않음
+    '시험지': ['시험지ID', '반종류', '과목', '종류', '회차', '이름', '문항수', '정답', '출처']
   };
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
-  var TEXT_COLS = ['일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일'];
+  var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일'];
 
   var LOGIN_FAILS = 5, LOCK_SEC = 60, GLOBAL_FAILS = 40, ADMIN_TTL = 6 * 3600;
   // 관리자 비밀번호는 짧을 수 있어서(4자), 기기를 바꿔 가며 계속 맞혀 보는 것을 막는 전체 한도: 1시간에 20번 틀리면 1시간 막음
@@ -228,6 +230,15 @@ var Logic = (function () {
   }
   function evals(env) {
     return env.store.all('평가').map(function (r) { return { month: S(r['월']), code: S(r['번호']), text: S(r['코멘트']) }; });
+  }
+  /** 시험지 목록 (탭이 아직 없는 기록장이면 빈 목록) */
+  function papers(env) {
+    var rows;
+    try { rows = env.store.all('시험지'); } catch (e) { return []; }
+    return rows.map(function (r) {
+      return { id: S(r['시험지ID']), ban: S(r['반종류']), subj: S(r['과목']), kind: S(r['종류']), round: num(r['회차']),
+        label: S(r['이름']), total: num(r['문항수']), key: C.cleanKey(r['정답']), src: S(r['출처']) };
+    }).filter(function (p) { return p.id && p.label && p.total > 0; });
   }
   function findStudent(env, code) {
     return students(env).filter(function (s) { return s.code === code; })[0] || null;
@@ -364,7 +375,7 @@ var Logic = (function () {
 
   function bootstrap(env) {
     return ok({ classes: classes(env), students: students(env), exams: exams(env), results: results(env),
-      homework: homework(env), hwSubs: hwSubs(env), evals: evals(env), today: C.dateOf(env.now()) });
+      homework: homework(env), hwSubs: hwSubs(env), evals: evals(env), papers: papers(env), today: C.dateOf(env.now()) });
   }
 
   function saveResult(env, p) {

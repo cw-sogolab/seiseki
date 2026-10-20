@@ -69,6 +69,27 @@
   function subOf(hw, code) { return D.hwSubs.filter(function (s) { return s.hw === hw && s.code === code; })[0]; }
   function replace(list, pred, item) { var i = list.findIndex(pred); if (i >= 0) list[i] = item; else list.push(item); }
   function classOptions(sel) { return D.classes.filter(function (c) { return c.active; }).map(function (c) { return '<option value="' + esc(c.code) + '"' + (c.code === sel ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join(''); }
+  /** 시험지(수업 폴더 답지에서 뽑은 것) 고르기 칸. kinds: 보여 줄 종류, 반 종류(개념·단풀·실전)가 같은 것을 위에 */
+  var KIND_ORDER = { '소테스트': 1, '일문일답': 1, '월말테스트': 2, '모의고사': 3 };
+  function paperPick(id, clsCode, kinds, used) {
+    var ps = (D.papers || []).filter(function (p) { return kinds.indexOf(p.kind) >= 0; });
+    if (!ps.length) return '';
+    var kind = cls(clsCode).kind;
+    ps.sort(function (a, b) { return ((a.ban === kind ? '0' : '1') + a.ban + a.subj).localeCompare((b.ban === kind ? '0' : '1') + b.ban + b.subj, 'ko') || (KIND_ORDER[a.kind] || 9) - (KIND_ORDER[b.kind] || 9) || a.round - b.round; });
+    var groups = [], last = '';
+    ps.forEach(function (p) {
+      var g = p.ban + '반 · ' + p.subj;
+      if (g !== last) { groups.push({ g: g, items: [] }); last = g; }
+      groups[groups.length - 1].items.push(p);
+    });
+    return '<div class="pick"><label for="' + id + '">수업 폴더 답지에서 고르기</label><select id="' + id + '"><option value="">직접 입력</option>' +
+      groups.map(function (x) {
+        return '<optgroup label="' + esc(x.g) + '">' + x.items.map(function (p) {
+          return '<option value="' + esc(p.id) + '">' + esc(p.label) + ' · ' + p.total + '문' + (used(p) ? ' · 이 달 등록됨' : '') + '</option>';
+        }).join('') + '</optgroup>';
+      }).join('') + '</select><p class="meta">고르면 이름·문항 수' + (kinds.indexOf('일문일답') < 0 ? '·정답' : '') + '이 채워져요. 답지가 바뀌면 기록장 「시험지」 탭을 고치면 돼요.</p></div>';
+  }
+  function paper(id) { return (D.papers || []).filter(function (p) { return p.id === id; })[0]; }
   function msg(el, ok, text) { el.className = 'msg ' + (ok ? 'ok' : 'err'); el.textContent = text; }
   function twoStep(btn, label, fn) {
     btn.onclick = function () {
@@ -162,11 +183,12 @@
   }
 
   /* ---------- 시험 ---------- */
+  var newCls = '';
   function vExams() {
     var exs = examsOfMonth();
     $('#view').innerHTML =
       '<div class="card"><h2>' + esc(UI.monthLabel(month)) + ' 시험 등록</h2><div class="fields">' +
-      '<div><label for="nC">반</label><select id="nC">' + classOptions() + '</select></div>' +
+      '<div><label for="nC">반</label><select id="nC">' + classOptions(newCls) + '</select></div></div><div id="nPick"></div><div class="fields">' +
       '<div><label for="nK">종류</label><select id="nK"><option>소테스트</option><option>월말테스트</option><option>모의고사</option></select></div>' +
       '<div><label for="nL">시험 이름 <span class="opt">(학생 화면·월말 표 제목)</span></label><input id="nL" type="text" placeholder="비우면 「종류 월/일」"></div>' +
       '<div><label for="nD">시험일</label><input id="nD" type="date" value="' + esc(D.today) + '"></div>' +
@@ -180,6 +202,17 @@
           '<td><input type="text" class="ans" style="font-size:13px!important;padding:4px 6px;width:' + Math.max(8, e.total * 0.75) + 'em" data-key="' + esc(e.id) + '" value="' + esc(e.key) + '" aria-label="' + esc(e.label) + ' 정답"> <button class="btn sub sm" type="button" data-savekey="' + esc(e.id) + '">정답 저장</button></td>' +
           '<td>' + (n ? '' : '<button class="btn sub sm danger" type="button" data-del="' + esc(e.id) + '">삭제</button>') + '</td></tr>';
       }).join('') + '</tbody></table></div><p class="meta" style="margin-top:8px">정답을 고쳐 저장하면 이미 입력한 답안을 새 정답으로 다시 채점합니다.</p>' : '<p class="empty">아직 없어요.</p>') + '<p id="xMsg" class="msg" role="status"></p></div>';
+    function pick() {
+      var c = $('#nC').value;
+      $('#nPick').innerHTML = paperPick('nP', c, ['소테스트', '월말테스트', '모의고사'], function (p) { return exs.some(function (e) { return e.cls === c && e.label === p.label; }); });
+      if (!$('#nP')) return;
+      $('#nP').onchange = function () {
+        var p = paper(this.value); if (!p) return;
+        $('#nK').value = p.kind; $('#nL').value = p.label; $('#nT').value = p.total; $('#nA').value = p.key; cnt();
+      };
+    }
+    $('#nC').onchange = function () { newCls = this.value; pick(); };
+    pick();
     function cnt() { var t = +$('#nT').value || 0; $('#nA').value = Core.cleanKey($('#nA').value).slice(0, t); $('#nCnt').textContent = '정답 ' + $('#nA').value.length + ' / ' + t; }
     $('#nA').oninput = cnt; $('#nT').oninput = cnt; cnt();
     $('#nAdd').onclick = function () {
@@ -209,7 +242,7 @@
   function vHw() {
     var hws = hwOfMonth();
     var add = '<div class="card"><details' + (hws.length ? '' : ' open') + '><summary>' + esc(UI.monthLabel(month)) + ' 숙제 등록</summary><div class="fields">' +
-      '<div><label for="hC">반</label><select id="hC">' + classOptions() + '</select></div>' +
+      '<div><label for="hC">반</label><select id="hC">' + classOptions(newCls) + '</select></div></div><div id="hPick"></div><div class="fields">' +
       '<div><label for="hL">숙제 이름</label><input id="hL" type="text" placeholder="예: 4주차 숙제"></div>' +
       '<div><label for="hB">교재 <span class="opt">(선택)</span></label><input id="hB" type="text"></div>' +
       '<div><label for="hP0">시작 쪽 <span class="opt">(선택)</span></label><input id="hP0" type="number" min="1"></div>' +
@@ -254,6 +287,14 @@
     });
     bindAdd();
     function bindAdd() {
+      function pick() {
+        var c = $('#hC').value;
+        $('#hPick').innerHTML = paperPick('hP', c, ['일문일답'], function (p) { return hws.some(function (h) { return h.cls === c && h.label === p.label; }); });
+        if (!$('#hP')) return;
+        $('#hP').onchange = function () { var p = paper(this.value); if (!p) return; $('#hL').value = p.label; $('#hT').value = p.total; };
+      }
+      $('#hC').onchange = function () { newCls = this.value; pick(); };
+      pick();
       $('#hAdd').onclick = function () {
         var b = this; b.disabled = true;
         req('addHomework', { cls: $('#hC').value, label: $('#hL').value, book: $('#hB').value, p0: $('#hP0').value, p1: $('#hP1').value, total: $('#hT').value, month: month }).then(function (r) {

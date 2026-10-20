@@ -171,6 +171,18 @@ t('평가 저장(덮어쓰기)·대리 입력', () => {
   assert.strictEqual(env._tables['평가'].length, 1);
   assert.ok(H('proxyHw', { token, hw: hw.id, code: codes['다학생'], count: 30 }).ok);
 });
+t('시험지: 강사 bootstrap 에만 오고, 탭이 없어도 동작', () => {
+  env._tables['시험지'] = [{ '시험지ID': 'GN-경제-T1', '반종류': '개념', '과목': '경제', '종류': '소테스트', '회차': '1', '이름': '경제 1주차', '문항수': '3', '정답': "'123", '출처': 'x' }];
+  const b = H('bootstrap', { token });
+  assert.ok(b.ok, b.error); assert.strictEqual(b.data.papers.length, 1); assert.strictEqual(b.data.papers[0].key, '123');
+  const s = H('login', { code: codes['나학생'], dev: 'p' });
+  assert.ok(!/123"|papers/.test(JSON.stringify(s)), '학생 응답에 시험지 없음');
+  const e3 = Mock.createEnv(); delete e3._tables['시험지'];
+  const orig = e3.store.all; e3.store.all = (t) => { if (t === '시험지') throw new Error('시트 「시험지」가 없어요'); return orig(t); };
+  const tk = Logic.handle(e3, 'adminLogin', { password: 'demo', dev: 'q' }).data.token;
+  const r = Logic.handle(e3, 'bootstrap', { token: tk }); assert.ok(r.ok, r.error); assert.deepStrictEqual(r.data.papers, []);
+  env._tables['시험지'] = [];
+});
 t('예시 데이터로 학생 화면 만들기', () => {
   const r = Logic.handle(Mock.seed(Mock.createEnv()), 'login', { code: 'KM482919', dev: 'z' });
   assert.ok(r.ok, r.error); assert.strictEqual(r.data.classes.length, 2);
