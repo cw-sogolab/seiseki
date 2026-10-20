@@ -14,25 +14,37 @@
       return r;
     });
   }
+  function busy(on, text) {
+    var btn = $('#go'); btn.disabled = on; btn.textContent = on ? text : '들어가기';
+    var ll = $('#loadline'); if (ll) ll.remove();
+    if (on) { ll = document.createElement('div'); ll.id = 'loadline'; ll.className = 'loadline'; ll.innerHTML = '<i></i>'; btn.after(ll); }
+  }
   function login() {
-    var btn = $('#go'); btn.disabled = true; btn.textContent = '확인하는 중…';
-    Api.call('adminLogin', { password: $('#pw').value }).then(function (r) {
-      btn.disabled = false; btn.textContent = '들어가기';
-      if (!r.ok) { $('#loginMsg').textContent = r.error; return; }
+    if ($('#go').disabled) return;
+    var pw = $('#pw').value.trim();
+    if (!pw) { $('#loginMsg').textContent = '비밀번호를 넣어 주세요.'; $('#pw').focus(); return; }
+    $('#loginMsg').textContent = ''; busy(true, '확인하는 중…');
+    Api.call('adminLogin', { password: pw }).then(function (r) {
+      if (!r.ok) { busy(false); $('#loginMsg').textContent = r.error; $('#pw').select(); return; }
       token = r.data.token; UI.store.set('seiseki.token', token, sessionStorage); $('#pw').value = '';
-      load();
+      load(true);
     });
   }
   function logout(msg) {
     token = ''; D = null; UI.store.del('seiseki.token', sessionStorage);
+    document.body.classList.add('locked'); busy(false);
     $('#view').hidden = true; $('#nav').hidden = true; $('#topRight').hidden = true; $('#login').hidden = false;
     $('#loginMsg').textContent = msg || '';
   }
-  function load() {
-    req('bootstrap').then(function (r) {
-      if (!r.ok) { if (!r.needLogin) $('#loginMsg').textContent = r.error; return; }
-      D = r.data;
+  /** 기록을 불러와 화면을 엶. 방금 로그인했으면 토큰이 서버에 막 저장된 참이라, 한 번은 다시 물어봄 */
+  function load(justLoggedIn, retried) {
+    busy(true, '기록을 불러오는 중…');
+    Api.call('bootstrap', { token: token }).then(function (r) {
+      if (!r.ok && r.needLogin && justLoggedIn && !retried) { setTimeout(function () { load(true, true); }, 800); return; }
+      if (!r.ok) { if (r.needLogin) logout('다시 로그인해 주세요.'); else { busy(false); $('#loginMsg').textContent = r.error; } return; }
+      D = r.data; busy(false);
       if (!month) month = D.today.slice(0, 7);
+      document.body.classList.remove('locked');
       $('#login').hidden = true; $('#view').hidden = false; $('#nav').hidden = false; $('#topRight').hidden = false;
       renderMonths(); renderNav(); render();
     });
@@ -156,7 +168,7 @@
       '<div class="card"><h2>' + esc(UI.monthLabel(month)) + ' 시험 등록</h2><div class="fields">' +
       '<div><label for="nC">반</label><select id="nC">' + classOptions() + '</select></div>' +
       '<div><label for="nK">종류</label><select id="nK"><option>소테스트</option><option>월말테스트</option><option>모의고사</option></select></div>' +
-      '<div><label for="nL">이름</label><input id="nL" type="text" placeholder="예: 3주차 소테스트"></div>' +
+      '<div><label for="nL">시험 이름 <span class="opt">(학생 화면·월말 표 제목)</span></label><input id="nL" type="text" placeholder="비우면 「종류 월/일」"></div>' +
       '<div><label for="nD">시험일</label><input id="nD" type="date" value="' + esc(D.today) + '"></div>' +
       '<div><label for="nT">문항 수</label><input id="nT" type="number" min="1" max="80" value="15"></div></div>' +
       '<label for="nA">정답 (번호를 이어서)</label><input id="nA" class="ans" type="text" inputmode="numeric" autocomplete="off">' +
@@ -172,7 +184,8 @@
     $('#nA').oninput = cnt; $('#nT').oninput = cnt; cnt();
     $('#nAdd').onclick = function () {
       var b = this; b.disabled = true;
-      req('addExam', { cls: $('#nC').value, kind: $('#nK').value, label: $('#nL').value, total: $('#nT').value, key: $('#nA').value, date: $('#nD').value, month: month }).then(function (r) {
+      var label = $('#nL').value.trim() || ($('#nK').value + ' ' + UI.dateLabel($('#nD').value || D.today));
+      req('addExam', { cls: $('#nC').value, kind: $('#nK').value, label: label, total: $('#nT').value, key: $('#nA').value, date: $('#nD').value, month: month }).then(function (r) {
         b.disabled = false;
         if (!r.ok) return msg($('#nMsg'), false, r.error);
         D.exams.push(r.data); curExam = r.data.id; vExams(); msg($('#nMsg'), true, '등록했어요. 「답안 입력」에서 바로 입력할 수 있어요.');
@@ -197,11 +210,11 @@
     var hws = hwOfMonth();
     var add = '<div class="card"><details' + (hws.length ? '' : ' open') + '><summary>' + esc(UI.monthLabel(month)) + ' 숙제 등록</summary><div class="fields">' +
       '<div><label for="hC">반</label><select id="hC">' + classOptions() + '</select></div>' +
-      '<div><label for="hL">이름</label><input id="hL" type="text" placeholder="예: 4주차 숙제"></div>' +
-      '<div><label for="hB">교재</label><input id="hB" type="text"></div>' +
-      '<div><label for="hP0">시작 쪽</label><input id="hP0" type="number" min="1"></div>' +
+      '<div><label for="hL">숙제 이름</label><input id="hL" type="text" placeholder="예: 4주차 숙제"></div>' +
+      '<div><label for="hB">교재 <span class="opt">(선택)</span></label><input id="hB" type="text"></div>' +
+      '<div><label for="hP0">시작 쪽 <span class="opt">(선택)</span></label><input id="hP0" type="number" min="1"></div>' +
       '<div><label for="hP1">끝 쪽</label><input id="hP1" type="number" min="1"></div>' +
-      '<div><label for="hT">문항 수</label><input id="hT" type="number" min="1"></div></div>' +
+      '<div><label for="hT">문항 수 <span class="opt">(선택)</span></label><input id="hT" type="number" min="1"></div></div>' +
       '<button type="button" class="btn" id="hAdd">숙제 등록</button><p id="hMsg" class="msg" role="status"></p></details></div>';
     if (!hws.length) { $('#view').innerHTML = add + '<div class="card"><p class="empty">이 달에 등록된 숙제가 없어요.</p></div>'; bindAdd(); return; }
     if (!hws.some(function (h) { return h.id === curHw; })) curHw = hws[hws.length - 1].id;
@@ -403,9 +416,12 @@
   }
 
   /* ---------- 시작 ---------- */
-  $('#go').onclick = login;
-  $('#pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
+  $('#loginForm').onsubmit = function (e) { e.preventDefault(); login(); };
+  $('#pwShow').onclick = function () {
+    var show = $('#pw').type === 'password'; $('#pw').type = show ? 'text' : 'password';
+    this.textContent = show ? '숨기기' : '보기'; this.setAttribute('aria-pressed', String(show)); $('#pw').focus();
+  };
   $('#logout').onclick = function () { logout(''); };
   $('#month').onchange = function () { month = this.value; render(); };
-  if (token) load();
+  if (token) load(); else $('#pw').focus();
 })();

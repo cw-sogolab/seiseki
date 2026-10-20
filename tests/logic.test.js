@@ -155,6 +155,12 @@ t('정답 수정 → 다시 채점', () => {
   const r = H('updateExamKey', { token, exam: exam.id, key: '21341' }); assert.ok(r.ok, r.error);
   assert.strictEqual(r.data.results.filter(x => x.code === codes['나학생'])[0].score, 5);
 });
+t('숙제는 쪽 범위 없이도 등록 (교재·문항 수만)', () => {
+  const r = H('addHomework', { token, cls: 'GN-HM', label: '단어 숙제', total: 30, month: '2026-11' });
+  assert.ok(r.ok, r.error); assert.strictEqual(r.data.p0, 0);
+  assert.ok(!H('addHomework', { token, cls: 'GN-HM', label: 'x', p0: 30, p1: 20 }).ok, '거꾸로 된 범위는 막음');
+  H('deleteHomework', { token, hw: r.data.id });
+});
 t('결과 있는 시험·제출 있는 숙제는 삭제 불가', () => {
   assert.ok(!H('deleteExam', { token, exam: exam.id }).ok);
   assert.ok(!H('deleteHomework', { token, hw: hw.id }).ok);

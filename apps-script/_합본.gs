@@ -349,9 +349,9 @@ var Logic = (function () {
     var locked = lockCheck(env, 'a:' + dev);
     if (locked) return fail(locked);
     if (num(env.cache.get('agfail')) >= ADMIN_GLOBAL_FAILS) return fail('관리자 비밀번호가 여러 번 틀려서 1시간 동안 막혔어요. 그 뒤에 다시 해 주세요.');
-    var pw = S(env.props.get('ADMIN_PASSWORD'));
+    var pw = S(env.props.get('ADMIN_PASSWORD')).trim();
     if (!pw) return fail('관리자 비밀번호가 아직 없어요. 구글 시트 메뉴 「성적노트 → 관리자 비밀번호 설정」에서 정해 주세요.');
-    if (S(p.password) !== pw) {
+    if (S(p.password).trim() !== pw) {   // 휴대폰 자동완성이 붙이는 앞뒤 빈칸은 무시
       env.cache.put('agfail', String(num(env.cache.get('agfail')) + 1), ADMIN_GLOBAL_SEC);
       var left = lockFail(env, 'a:' + dev);
       return fail(left ? '비밀번호가 달라요. (남은 기회 ' + left + '번)' : '5번 틀렸어요. 1분 뒤에 다시 해 주세요.');
@@ -425,10 +425,10 @@ var Logic = (function () {
   function addHomework(env, p) {
     if (!S(p.label).trim()) return fail('숙제 이름을 적어 주세요.');
     if (!classes(env).some(function (c) { return c.code === S(p.cls); })) return fail('반을 골라 주세요.');
-    var p0 = num(p.p0), p1 = num(p.p1), total = num(p.total);
-    if (!p0 || !p1 || p1 < p0) return fail('쪽 범위를 확인해 주세요.');
+    var p0 = num(p.p0), p1 = num(p.p1) || num(p.p0), total = num(p.total);
+    if ((p0 || num(p.p1)) && (!p0 || p1 < p0)) return fail('쪽 범위를 확인해 주세요. (쓰지 않아도 돼요)');
     var h = { '숙제ID': newId(env, 'H'), '반코드': S(p.cls), '월': S(p.month) || C.monthOf(env.now()), '이름': S(p.label).trim(),
-      '교재': S(p.book).trim(), '시작쪽': p0, '끝쪽': p1, '문항수': total || '', '등록일': stamp(env) };
+      '교재': S(p.book).trim(), '시작쪽': p0 || '', '끝쪽': p0 ? p1 : '', '문항수': total || '', '등록일': stamp(env) };
     env.store.append('숙제', h);
     return ok(homework(env).filter(function (x) { return x.id === h['숙제ID']; })[0]);
   }
@@ -570,11 +570,14 @@ function doPost(e) {
     lock = LockService.getScriptLock();
     if (!lock.tryLock(20000)) return json_({ ok: false, error: '지금 저장하는 사람이 많아요. 잠시 뒤에 다시 눌러 주세요.' });
   }
+  var write = !!lock;
   try {
-    return json_(Logic.handle(makeEnv_(), action, payload));
+    // 쓰기 요청은 시트를 직접 읽음(행 위치가 정확해야 하므로). 읽기 요청은 캐시를 씀
+    return json_(Logic.handle(makeEnv_(!write), action, payload));
   } catch (err) {
     return json_({ ok: false, error: String(err && err.message || err) });
   } finally {
+    if (write) bumpDataVer_();
     if (lock) lock.releaseLock();
   }
 }
@@ -583,6 +586,37 @@ function json_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
 
+/* ---------- 캐시: 시트를 매번 다 읽지 않도록 ----------
+ * 읽은 표를 CacheService 에 최대 6시간 보관. 키에 「데이터 버전」이 들어가서
+ * 화면에서 저장하거나(doPost 쓰기) 시트를 손으로 고치면(onEdit) 버전이 바뀌고, 다음 조회 때 새로 읽음.
+ * 원생명단은 퇴실퀴즈도 고치는 시트라 10분만 보관. 메뉴 「캐시 비우기」로 바로 비울 수도 있음. */
+var CACHE_SEC = 21600, ROSTER_CACHE_SEC = 600, CACHE_CHUNK = 30000;  // 한 칸 100KB 제한 → 한글 3바이트 고려해 3만 자씩
+function dataVer_() {
+  var p = PropertiesService.getScriptProperties(), v = p.getProperty('DATA_VER');
+  if (!v) { v = String(Date.now()); p.setProperty('DATA_VER', v); }
+  return v;
+}
+function bumpDataVer_() {
+  try { PropertiesService.getScriptProperties().setProperty('DATA_VER', String(Date.now()) + String(Math.floor(Math.random() * 1000))); } catch (e) { /* 다음 요청에서 다시 */ }
+}
+function cachePutBig_(key, str, sec) {
+  var n = Math.max(1, Math.ceil(str.length / CACHE_CHUNK)), o = {};
+  for (var i = 0; i < n; i++) o[key + ':' + i] = str.substr(i * CACHE_CHUNK, CACHE_CHUNK);
+  o[key + ':n'] = String(n);
+  try { CacheService.getScriptCache().putAll(o, sec); } catch (e) { /* 캐시에 못 넣어도 동작은 함 */ }
+}
+function cacheGetBig_(key) {
+  var c = CacheService.getScriptCache(), n = Number(c.get(key + ':n'));
+  if (!n) return null;
+  var ks = []; for (var i = 0; i < n; i++) ks.push(key + ':' + i);
+  var m = c.getAll(ks), s = '';
+  for (i = 0; i < n; i++) { if (m[ks[i]] === undefined || m[ks[i]] === null) return null; s += m[ks[i]]; }
+  return s;
+}
+/** 시트를 손으로 고치면 캐시를 버림 (단순 트리거 — 따로 설정할 것 없음) */
+function onEdit() { bumpDataVer_(); }
+function clearCache() { bumpDataVer_(); notify_('캐시 비우기', '다음 조회부터 시트를 새로 읽어요.'); }
+
 /* ---------- 저장소: 구글 시트 ---------- */
 function spreadsheet_() {
   var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
@@ -590,10 +624,21 @@ function spreadsheet_() {
 }
 
 /** getSheet(t) → 시트. 첫 줄이 비어 있으면 Logic.TABLES 의 머리글을 써 넣음 */
-function sheetStore_(getSheet) {
+function sheetStore_(getSheet, cacheOpt) {
   var mem = {};
-  function load(t) {
-    if (mem[t]) return mem[t];
+  /** fresh=true 이면 캐시를 쓰지 않고 시트에서 읽음 (쓰기 직전) */
+  function load(t, fresh) {
+    if (mem[t] && !(fresh && mem[t].cached)) return mem[t];
+    var key = cacheOpt ? cacheOpt.prefix + t : '';
+    if (key && !fresh) {
+      var hit = null;
+      try { hit = JSON.parse(cacheGetBig_(key) || 'null'); } catch (e) { hit = null; }
+      if (hit) {
+        var rowsC = hit.d.map(function (r) { var o = {}; hit.h.forEach(function (h, i) { o[h] = r[i]; }); return o; });
+        mem[t] = { sh: null, head: hit.h, rows: rowsC, cached: true };
+        return mem[t];
+      }
+    }
     var sh = getSheet(t);
     if (!sh) throw new Error('시트 「' + t + '」가 없어요. 시트 메뉴 「성적노트 → 1. 초기 설정」을 먼저 실행해 주세요.');
     var values = sh.getDataRange().getValues();
@@ -606,13 +651,14 @@ function sheetStore_(getSheet) {
       var o = {}; head.forEach(function (h, i) { o[h] = r[i] === null ? '' : String(r[i]); }); return o;
     });
     mem[t] = { sh: sh, head: head, rows: rows };
+    if (key) cachePutBig_(key, JSON.stringify({ h: head, d: rows.map(function (o) { return head.map(function (h) { return o[h]; }); }) }), cacheOpt.sec);
     return mem[t];
   }
   function toRow(c, o) { return c.head.map(function (h) { return o[h] === undefined || o[h] === null ? '' : String(o[h]); }); }
   return {
     all: function (t) { return load(t).rows.map(function (r) { return Object.assign({}, r); }); },
     append: function (t, o) {
-      var c = load(t), row = toRow(c, o), r = c.sh.getLastRow() + 1;
+      var c = load(t, true), row = toRow(c, o), r = c.sh.getLastRow() + 1;
       var range = c.sh.getRange(r, 1, 1, c.head.length);
       range.setNumberFormat('@');           // 0으로 시작하는 답안·번호가 숫자로 바뀌지 않게
       range.setValues([row]);
@@ -620,7 +666,7 @@ function sheetStore_(getSheet) {
       c.rows.push(copy);
     },
     update: function (t, pred, patch) {
-      var c = load(t), n = 0;
+      var c = load(t, true), n = 0;
       c.rows.forEach(function (r, i) {
         if (!pred(r)) return;
         Object.keys(patch).forEach(function (k) { if (c.head.indexOf(k) >= 0) r[k] = String(patch[k] === null ? '' : patch[k]); });
@@ -632,7 +678,7 @@ function sheetStore_(getSheet) {
       return n;
     },
     remove: function (t, pred) {
-      var c = load(t), idx = [];
+      var c = load(t, true), idx = [];
       c.rows.forEach(function (r, i) { if (pred(r)) idx.push(i); });
       for (var k = idx.length - 1; k >= 0; k--) { c.sh.deleteRow(idx[k] + 2); c.rows.splice(idx[k], 1); }
       return idx.length;
@@ -642,10 +688,11 @@ function sheetStore_(getSheet) {
 
 /** 원생명단(퇴실퀴즈와 같이 쓰는 시트)이 연결돼 있으면 「원생」은 그 시트의 첫 탭, 아니면 기록장 안의 「원생」 탭 */
 function rosterId_() { return PropertiesService.getScriptProperties().getProperty('ROSTER_ID') || ''; }
-function makeStore_() {
-  var ss = spreadsheet_(), rid = rosterId_();
-  var main = sheetStore_(function (t) { return ss.getSheetByName(t); });
-  var roster = rid ? sheetStore_(function () { return SpreadsheetApp.openById(rid).getSheets()[0]; }) : null;
+function makeStore_(useCache) {
+  var ss = null, rid = rosterId_(), ver = useCache ? dataVer_() : '';
+  function book() { return ss || (ss = spreadsheet_()); }   // 캐시로 다 되면 시트 파일을 열지도 않음
+  var main = sheetStore_(function (t) { return book().getSheetByName(t); }, useCache ? { prefix: 'tbl:' + ver + ':', sec: CACHE_SEC } : null);
+  var roster = rid ? sheetStore_(function () { return SpreadsheetApp.openById(rid).getSheets()[0]; }, useCache ? { prefix: 'ros:' + ver + ':', sec: ROSTER_CACHE_SEC } : null) : null;
   function pick(t) { return t === '원생' && roster ? roster : main; }
   return {
     all: function (t) { return pick(t).all(t); },
@@ -676,10 +723,10 @@ function saveImage_(o) {
 }
 
 /* ---------- env 조립 ---------- */
-function makeEnv_() {
+function makeEnv_(useCache) {
   var cache = CacheService.getScriptCache(), props = PropertiesService.getScriptProperties();
   return {
-    store: makeStore_(),
+    store: makeStore_(!!useCache),
     cache: {
       get: function (k) { return cache.get(k); },
       put: function (k, v, sec) { cache.put(k, String(v), Math.min(21600, Math.max(1, sec))); },
@@ -707,6 +754,7 @@ function onOpen() {
     .addItem('3. 원생명단 시트 연결', 'connectRoster')
     .addSeparator()
     .addItem('학생 화면에 정답 보이기 켜기/끄기', 'toggleShowKey')
+    .addItem('캐시 비우기 (시트를 고쳤는데 화면에 안 보일 때)', 'clearCache')
     .addItem('설정 상태 보기', 'showStatus')
     .addToUi();
 }
@@ -738,6 +786,7 @@ function setup() {
   var first = ss.getSheets()[0];
   if (first.getName() !== '반' && first.getLastRow() === 0) ss.deleteSheet(first); // 빈 「시트1」 정리
   var folder = photoRoot_();
+  bumpDataVer_();
   notify_('초기 설정 완료',
     '시트 ' + Object.keys(Logic.TABLES).length + '개와 사진 폴더 「' + folder.getName() + '」를 준비했어요.\n' +
     '「반」 시트의 반 이름·시간을 확인하고, 다음으로 「관리자 비밀번호 설정」을 해 주세요.\n' +
@@ -778,6 +827,7 @@ function connectRosterById_(id) {
     return '첫 줄에 「일련번호」「이름」 칸이 있어야 해요. 지금 첫 줄: ' + head.filter(String).join(', ');
   }
   PropertiesService.getScriptProperties().setProperty('ROSTER_ID', id);
+  bumpDataVer_();
   return '연결했어요: ' + SpreadsheetApp.openById(id).getName() + '\n이제 학생 이름·번호는 이 명단에서 읽고, 새 원생은 이 명단에 추가합니다.';
 }
 

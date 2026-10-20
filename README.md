@@ -84,6 +84,8 @@ Apps Script 를 고쳤다면 개발 기록장의 Apps Script 에 먼저 붙여�
 | 수시로 | 제출 사진 보고 「확인」 체크, 미제출자 확인 | 「숙제」 |
 | 월말 | 학생평가 한마디 쓰기 → **엑셀 내려받기** 또는 **표 복사** 로 학원 양식에 붙여넣기 | 「월말 표」 |
 
+**시트를 직접 고쳤을 때**: 화면은 읽은 기록을 최대 6시간 기억해 둡니다(빠르게 열리도록). 시트에서 손으로 고치면 자동으로 새로 읽지만, 화면에 바로 안 보이면 시트 메뉴 **성적노트 → 캐시 비우기**. 반코드·번호 칸은 고치지 마세요.
+
 시트 메뉴 **성적노트 → 학생 화면에 정답 보이기** 를 켜면 학생 화면의 틀린 문항에 정답과 내 답이 함께 보입니다 (기본은 틀린 번호만).
 
 ## 수업계획서 만들기
@@ -104,6 +106,7 @@ python3 class_plan.py --month 2026-11 \
 
 ```bash
 node tests/logic.test.js      # 채점·번호·명단·조회·숙제 규칙 (개발판 기준)
+node tests/gas.test.js        # Code.gs 를 가짜 구글 서비스 위에서 (캐시·쓰기)
 python3 tests/smoke.py        # 미리보기 모드로 본판·개발판 화면 클릭 테스트 (playwright 필요)
 sh tools/sync-gas.sh          # docs/dev/assets 의 core.js·logic.js 를 apps-script 로 복사
 sh tools/promote.sh           # 개발판(docs/dev) → 본판(docs) 반영 (config.js 제외)

@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/app.css">
 </head>
-<body>
+<body class="locked">
 <div id="demo" class="demo" hidden>미리보기 모드입니다. 비밀번호 demo로 들어가세요. 예시 데이터이며, 새로고침하면 처음 상태로 돌아갑니다.</div>
 <header class="top tabs"><div class="wrap">
   <div class="row" style="align-items:flex-end">
@@ -25,12 +25,43 @@
 </div></header>
 
 <main class="wrap">
-  <section id="login" class="card" style="max-width:420px">
-    <h2>강사 로그인</h2>
-    <label for="pw">관리자 비밀번호</label>
-    <input id="pw" type="password" autocomplete="current-password">
-    <p id="loginMsg" class="msg err" role="alert"></p>
-    <button id="go" class="btn block" type="button">들어가기</button>
+  <section id="login" class="gate" aria-labelledby="gateTitle">
+    <div class="gate-art" aria-hidden="true">
+      <div class="gate-word">성적<br>노트</div>
+      <svg class="gate-sheet" viewBox="0 0 240 292" focusable="false">
+        <g transform="rotate(-4 120 146)">
+          <rect x="18" y="14" width="204" height="264" class="sh-paper"/>
+          <text x="38" y="46" class="sh-head">번호</text><text x="98" y="46" class="sh-head">답</text>
+          <text x="196" y="50" class="sh-score" text-anchor="end">4/6</text>
+          <g class="sh-rows">
+            <line x1="30" y1="62" x2="210" y2="62"/><line x1="30" y1="96" x2="210" y2="96"/><line x1="30" y1="130" x2="210" y2="130"/>
+            <line x1="30" y1="164" x2="210" y2="164"/><line x1="30" y1="198" x2="210" y2="198"/><line x1="30" y1="232" x2="210" y2="232"/>
+          </g>
+          <g class="sh-num"><text x="42" y="86">1</text><text x="42" y="120">2</text><text x="42" y="154">3</text><text x="42" y="188">4</text><text x="42" y="222">5</text><text x="42" y="256">6</text></g>
+          <g class="sh-ans"><text x="100" y="86">3</text><text x="100" y="120">1</text><text x="100" y="154">4</text><text x="100" y="188">2</text><text x="100" y="222">2</text><text x="100" y="256">6</text></g>
+          <g class="sh-pen">
+            <ellipse cx="105" cy="79" rx="17" ry="14" style="--d:0"/>
+            <path d="M88 120 L124 100" style="--d:1"/><text x="134" y="121" class="sh-fix">4</text>
+            <ellipse cx="105" cy="147" rx="17" ry="14" style="--d:2"/>
+            <ellipse cx="105" cy="181" rx="17" ry="14" style="--d:3"/>
+            <path d="M88 222 L124 202" style="--d:4"/><text x="134" y="223" class="sh-fix">3</text>
+            <ellipse cx="105" cy="249" rx="17" ry="14" style="--d:5"/>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <form class="gate-form" id="loginForm" novalidate>
+      <h2 id="gateTitle">선생님 화면</h2>
+      <p class="meta">답안 입력, 시험·숙제 등록, 월말 표는 여기서 해요.</p>
+      <label for="pw">관리자 비밀번호</label>
+      <div class="pwrow">
+        <input id="pw" type="password" class="pin" autocomplete="current-password" aria-describedby="loginMsg">
+        <button id="pwShow" class="linkbtn" type="button" aria-pressed="false">보기</button>
+      </div>
+      <p id="loginMsg" class="msg err" role="alert"></p>
+      <button id="go" class="btn block" type="submit">들어가기</button>
+      <p class="meta gate-alt"><a href="./">학생 화면 열기</a></p>
+    </form>
   </section>
   <section id="view" hidden></section>
 </main>

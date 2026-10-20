@@ -216,9 +216,9 @@ var Logic = (function () {
     var locked = lockCheck(env, 'a:' + dev);
     if (locked) return fail(locked);
     if (num(env.cache.get('agfail')) >= ADMIN_GLOBAL_FAILS) return fail('관리자 비밀번호가 여러 번 틀려서 1시간 동안 막혔어요. 그 뒤에 다시 해 주세요.');
-    var pw = S(env.props.get('ADMIN_PASSWORD'));
+    var pw = S(env.props.get('ADMIN_PASSWORD')).trim();
     if (!pw) return fail('관리자 비밀번호가 아직 없어요. 구글 시트 메뉴 「성적노트 → 관리자 비밀번호 설정」에서 정해 주세요.');
-    if (S(p.password) !== pw) {
+    if (S(p.password).trim() !== pw) {   // 휴대폰 자동완성이 붙이는 앞뒤 빈칸은 무시
       env.cache.put('agfail', String(num(env.cache.get('agfail')) + 1), ADMIN_GLOBAL_SEC);
       var left = lockFail(env, 'a:' + dev);
       return fail(left ? '비밀번호가 달라요. (남은 기회 ' + left + '번)' : '5번 틀렸어요. 1분 뒤에 다시 해 주세요.');
@@ -292,10 +292,10 @@ var Logic = (function () {
   function addHomework(env, p) {
     if (!S(p.label).trim()) return fail('숙제 이름을 적어 주세요.');
     if (!classes(env).some(function (c) { return c.code === S(p.cls); })) return fail('반을 골라 주세요.');
-    var p0 = num(p.p0), p1 = num(p.p1), total = num(p.total);
-    if (!p0 || !p1 || p1 < p0) return fail('쪽 범위를 확인해 주세요.');
+    var p0 = num(p.p0), p1 = num(p.p1) || num(p.p0), total = num(p.total);
+    if ((p0 || num(p.p1)) && (!p0 || p1 < p0)) return fail('쪽 범위를 확인해 주세요. (쓰지 않아도 돼요)');
     var h = { '숙제ID': newId(env, 'H'), '반코드': S(p.cls), '월': S(p.month) || C.monthOf(env.now()), '이름': S(p.label).trim(),
-      '교재': S(p.book).trim(), '시작쪽': p0, '끝쪽': p1, '문항수': total || '', '등록일': stamp(env) };
+      '교재': S(p.book).trim(), '시작쪽': p0 || '', '끝쪽': p0 ? p1 : '', '문항수': total || '', '등록일': stamp(env) };
     env.store.append('숙제', h);
     return ok(homework(env).filter(function (x) { return x.id === h['숙제ID']; })[0]);
   }
