@@ -529,25 +529,72 @@
     function aoa() { return [T.head].concat(T.rows.map(function (r) { return [r.s.name, r.eval.replace(/[\t\r\n]+/g, ' ')].concat(r.cells); })); }
     $('#mCp').onclick = function () { UI.copy(aoa().map(function (row) { return row.join('\t'); }).join('\n'), $('#mOut')); };
     $('#mX').onclick = function () {
-      loadXlsx().then(function (X) {
-        var data = [['종합과목 ' + T.c.name + ' · ' + UI.monthLabel(month)], []].concat(aoa());
-        var ws = X.utils.aoa_to_sheet(data);
-        ws['!cols'] = T.head.map(function (h, i) { return { wch: i === 1 ? 40 : Math.max(8, h.length + 4) }; });
-        var wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, T.c.name.slice(0, 28).replace(/[\\\/?*\[\]:]/g, ' '));
-        X.writeFile(wb, month.replace('-', '').slice(2) + '_' + T.c.name.replace(/[\\\/:*?"<>|]/g, ' ') + '_월말.xlsx');
-      }).catch(function () { $('#mOut').innerHTML = '<p class="msg err">엑셀 도구를 불러오지 못했어요. 인터넷 연결을 확인하거나 「표 복사」를 써 주세요.</p>'; });
+      var b = this; b.disabled = true; b.textContent = '만드는 중…';
+      loadExcel().then(function (X) {
+        var m = monthModel(monthCls);
+        return MonthXlsx.build(X, m).xlsx.writeBuffer().then(function (buf) {
+          var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = m.file + '.xlsx';
+          document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+          $('#mOut').innerHTML = '<p class="msg ok">' + esc(m.file) + '.xlsx 를 내려받았어요.</p>';
+        });
+      }).catch(function () { $('#mOut').innerHTML = '<p class="msg err">엑셀 도구를 불러오지 못했어요. 인터넷 연결을 확인하거나 「표 복사」를 써 주세요.</p>'; })
+        .then(function () { b.disabled = false; b.textContent = '엑셀 내려받기'; });
     };
   }
-  var xlsxP = null;
-  function loadXlsx() {
-    if (window.XLSX) return Promise.resolve(window.XLSX);
-    if (!xlsxP) xlsxP = new Promise(function (res, rej) {
+
+  /** 학원 제출 양식(2609 개념·단풀·실전문풀 파일)에 맞춘 월말 엑셀 내용 */
+  function monthModel(cc) {
+    var c = cls(cc), kind = c.kind, time = String(c.time || '').replace(/\s+/g, '');
+    var yymm = month.slice(2, 4) + month.slice(5, 7);
+    var exs = D.exams.filter(function (e) { return e.cls === cc && e.month === month; }).sort(function (a, b) { return (a.date + a.created).localeCompare(b.date + b.created); });
+    var hws = D.homework.filter(function (h) { return h.cls === cc && h.month === month; });
+    var subj = '';
+    exs.concat(hws).some(function (x) { subj = subjOf(x.label); return !!subj; });
+    var full = subj === '현사' ? '현대사회' : subj;
+    var people = rosterFor(cc, month);
+    function evalOf(s) { var ev = D.evals.filter(function (x) { return x.month === month && x.code === s.code; })[0]; return ev ? ev.text : ''; }
+    if (kind === '실전') {
+      var sfx = realSuffix(cc), n = 0;
+      var cols = exs.filter(function (e) { return e.kind !== '월말테스트'; }).map(function (e) { n++; return { head: '모의고사' + n + '회(개수/환산점수)', e: e }; })
+        .concat(exs.filter(function (e) { return e.kind === '월말테스트'; }).map(function (e) { return { head: '월말테스트(개수/환산점수)', e: e }; }));
+      return { kind: '실전', title: '종합과목 실전문풀' + sfx + (time ? '(' + time + ')' : ''), sheet: '실전문풀' + sfx, file: yymm + '실전문풀' + sfx,
+        cols: cols, rows: people.map(function (s) {
+          return { name: s.name, eval: evalOf(s), vals: cols.map(function (col) { var r = resultOf(col.e.id, s.code); return r ? [r.score, r.conv] : null; }) };
+        }) };
+    }
+    // 개념·단풀: 숙제·주차 테스트를 주차 순서대로(숙제 먼저), 그 뒤 월말
+    function week(label) { var m = /(\d+)\s*주차/.exec(label); return m ? +m[1] : 99; }
+    var items = hws.map(function (h, i) { return { type: 'hw', x: h, w: week(h.label), o: i }; })
+      .concat(exs.filter(function (e) { return e.kind !== '월말테스트'; }).map(function (e, i) { return { type: 'test', x: e, w: week(e.label), o: 100 + i }; }))
+      .sort(function (a, b) { return a.w - b.w || (a.type === b.type ? a.o - b.o : (a.type === 'hw' ? -1 : 1)); })
+      .concat(exs.filter(function (e) { return e.kind === '월말테스트'; }).map(function (e) { return { type: 'final', x: e }; }));
+    var cols2 = items.map(function (it) {
+      var t = it.x.total;
+      if (it.type === 'hw') return { type: 'hw', head: '숙제' + (t ? '(' + t + '문)' : ''), it: it };
+      if (it.type === 'final') return { type: 'final', head: kind === '개념' ? '(' + t + '문)' : t + '문', it: it };
+      var nm = it.w < 99 ? it.w + '주차' : String(it.x.label).replace(new RegExp('^' + subj + '\\s*'), '');
+      return { type: 'test', head: nm + '(' + t + '문)', it: it };
+    });
+    return { kind: kind, sheet: full || kind, file: yymm + subj + kind,
+      title: kind === '단풀' ? '종합과목 ' + full + '단풀' + (time ? '(' + time + ')' : '') : '종합과목 ' + kind + (full ? '(' + full + ')' : '') + (time ? '(' + time + ')' : ''),
+      cols: cols2, rows: people.map(function (s) {
+        return { name: s.name, eval: evalOf(s), vals: cols2.map(function (col) {
+          if (col.type === 'hw') { var u = subOf(col.it.x.id, s.code); return u ? (u.count !== null ? u.count : '제출') : null; }
+          var r = resultOf(col.it.x.id, s.code); return r ? r.score : null;
+        }) };
+      }) };
+  }
+  var excelP = null;
+  function loadExcel() {
+    if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+    if (!excelP) excelP = new Promise(function (res, rej) {
       var s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-      s.onload = function () { window.XLSX ? res(window.XLSX) : rej(); }; s.onerror = function () { xlsxP = null; rej(); };
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+      s.onload = function () { window.ExcelJS ? res(window.ExcelJS) : rej(); }; s.onerror = function () { excelP = null; rej(); };
       document.head.appendChild(s);
     });
-    return xlsxP;
+    return excelP;
   }
 
   /* ---------- 시작 ---------- */
