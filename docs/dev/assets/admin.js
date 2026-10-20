@@ -112,15 +112,40 @@
   }
   function render() { ({ entry: vEntry, exams: vExams, hw: vHw, stu: vStu, month: vMonth })[tab](); }
 
+  /** 틀린 문항을 시험지에 체크하기 쉽게: 문항 / 정답 / 학생 세 줄 표 (10문항씩 끊음) */
+  function wrongTable(wrong) {
+    if (!wrong.length) return '<p class="allok">전부 맞았어요</p>';
+    var h = '';
+    for (var i = 0; i < wrong.length; i += 10) {
+      var part = wrong.slice(i, i + 10);
+      h += '<table class="wt"><tbody>' +
+        '<tr class="n"><th>문항</th>' + part.map(function (w) { return '<td>' + w.n + '</td>'; }).join('') + '</tr>' +
+        '<tr class="k"><th>정답</th>' + part.map(function (w) { return '<td>' + w.key + '</td>'; }).join('') + '</tr>' +
+        '<tr class="a"><th>학생</th>' + part.map(function (w) { return '<td>' + (w.ans === '0' ? '–' : w.ans) + '</td>'; }).join('') + '</tr>' +
+        '</tbody></table>';
+    }
+    return '<div class="wtw">' + h + '</div>';
+  }
+
   /* ---------- 답안 입력 ---------- */
+  var KINDS = [['개념', '개념반'], ['단풀', '단풀반'], ['실전', '실전반']], entryKind = '';
   function vEntry() {
-    var exs = examsOfMonth();
-    if (!exs.length) { $('#view').innerHTML = '<div class="card"><p class="empty">' + esc(UI.monthLabel(month)) + '에 등록된 시험이 없어요. 「시험」 탭에서 먼저 정답을 등록해 주세요.</p></div>'; return; }
+    var all_ = examsOfMonth();
+    if (!all_.length) { $('#view').innerHTML = '<div class="card"><p class="empty">' + esc(UI.monthLabel(month)) + '에 등록된 시험이 없어요. 「시험」 탭에서 먼저 정답을 등록해 주세요.</p></div>'; return; }
+    function kindOf(e) { return cls(e.cls).kind; }
+    var has = {}; all_.forEach(function (e) { has[kindOf(e)] = 1; });
+    var cx = all_.filter(function (e) { return e.id === curExam; })[0];
+    if (cx) entryKind = kindOf(cx);
+    if (!has[entryKind]) entryKind = (KINDS.filter(function (k) { return has[k[0]]; })[0] || [kindOf(all_[0])])[0];
+    var exs = all_.filter(function (e) { return kindOf(e) === entryKind; });
     if (!exs.some(function (e) { return e.id === curExam; })) curExam = exs[exs.length - 1].id;
     var ex = exs.filter(function (e) { return e.id === curExam; })[0], mem = members(ex.cls), cur = null;
     $('#view').innerHTML =
       '<div class="grid2" style="margin-top:12px"><div class="card">' +
-      '<label for="exSel">시험</label><select id="exSel">' + exs.map(function (e) { return '<option value="' + esc(e.id) + '"' + (e.id === curExam ? ' selected' : '') + '>' + esc(cls(e.cls).name) + ' · ' + esc(e.label) + ' (' + esc(UI.dateLabel(e.date)) + ')</option>'; }).join('') + '</select>' +
+      '<div class="seg" role="tablist" aria-label="반 종류">' + KINDS.map(function (k) {
+        return '<button type="button" role="tab" data-k="' + k[0] + '" aria-selected="' + (k[0] === entryKind) + '"' + (has[k[0]] ? '' : ' disabled title="이 달 시험 없음"') + '>' + k[1] + '</button>';
+      }).join('') + '</div>' +
+      '<label for="exSel">시험</label><select id="exSel">' + exs.map(function (e) { return '<option value="' + esc(e.id) + '"' + (e.id === curExam ? ' selected' : '') + '>' + esc(cls(e.cls).name) + ' · ' + esc(e.label) + '</option>'; }).join('') + '</select>' +
       '<p class="meta" id="exMeta"></p>' +
       '<label for="stIn">학생 (이름 또는 번호)</label><input id="stIn" type="text" list="stList" autocomplete="off"><datalist id="stList"></datalist>' +
       '<div class="hit" id="hit"></div>' +
@@ -129,6 +154,7 @@
       '<button type="button" class="btn" id="save">저장하고 다음 학생 (Enter)</button><p id="emsg" class="msg" role="status"></p>' +
       '</div><div class="card"><h2>입력 현황</h2><div id="roster"></div></div></div>';
     $('#exSel').onchange = function () { curExam = this.value; vEntry(); };
+    all('#view .seg button').forEach(function (b) { b.onclick = function () { entryKind = b.getAttribute('data-k'); curExam = ''; vEntry(); }; });
     function meta() { $('#exMeta').textContent = ex.total + '문항 · ' + cls(ex.cls).time + ' · 입력 ' + mem.filter(function (s) { return resultOf(ex.id, s.code); }).length + ' / ' + mem.length + '명'; }
     meta();
     $('#stList').innerHTML = mem.map(function (s) { return '<option value="' + esc(s.name) + '" label="' + Core.fmtCode(s.code) + '"></option>'; }).join('');
@@ -148,7 +174,7 @@
       if (!v) { $('#prev').innerHTML = ''; return; }
       var g = Core.grade(ex.key, v);
       $('#prev').innerHTML = '<div class="result"><b>' + g.score + ' / ' + ex.total + '</b><span class="meta">틀린 문항 ' + g.wrong.length + '개</span></div>' +
-        '<div class="chips">' + g.wrong.map(function (w) { return '<span class="chip">' + w.n + '번 정답 ' + w.key + ' 학생 ' + (w.ans === '0' ? '무응답' : w.ans) + '</span>'; }).join('') + '</div>';
+        wrongTable(g.wrong);
     }
     function roster() {
       $('#roster').innerHTML = '<div class="tw"><table><thead><tr><th>이름</th><th>번호</th><th class="num">점수</th><th>상태</th></tr></thead><tbody>' +

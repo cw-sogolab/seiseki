@@ -211,3 +211,20 @@ input[type=file]::file-selector-button{border:0;background:var(--surface);color:
 .item>.row>.pill,.item>.row>.btn{flex:0 0 auto}
 .item>.linkbtn{margin:6px 0 0 -10px}
 @media (max-width:480px){.fields>div{flex-basis:130px}}
+
+/* 반 종류 고르기 (세그먼트) */
+.seg{display:flex;background:var(--fill);border-radius:12px;padding:4px;gap:4px}
+.seg button{flex:1;border:0;background:transparent;color:var(--muted);font-size:15px;font-weight:700;padding:10px 6px;border-radius:9px;cursor:pointer;transition:background .15s,color .15s}
+.seg button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,23,51,.1)}
+.seg button[disabled]{opacity:.35;cursor:default}
+.seg+label{margin-top:18px}
+/* 틀린 문항 표: 문항 / 정답(파랑) / 학생(빨강) */
+.wtw{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:6px;max-width:100%;overflow-x:auto}
+table.wt{width:auto;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+table.wt th,table.wt td{border:0;padding:7px 0;text-align:center;white-space:nowrap}
+table.wt th{width:52px;padding-left:12px;padding-right:8px;text-align:left;font-size:12.5px;font-weight:700;color:var(--muted);background:var(--fill)}
+table.wt td{width:38px;font-size:17px;font-weight:800}
+table.wt tr.n td{font-size:13px;font-weight:600;color:var(--faint);border-bottom:1px solid var(--line2)}
+table.wt tr.k td{color:var(--blue-ink);background:var(--blue-soft)}
+table.wt tr.a td{color:var(--red);background:var(--red-soft)}
+.allok{display:inline-block;margin:6px 0 0;padding:6px 12px;border-radius:10px;background:var(--green-soft);color:var(--green);font-weight:700;font-size:14px}
