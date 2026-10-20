@@ -269,3 +269,8 @@ input.keyin{font-size:13px!important;padding:6px 8px!important;letter-spacing:.0
 .chiprow.years .tab[aria-selected="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
 .pickedname{margin:12px 0 0;font-size:17px;font-weight:800}
 .pickedname .meta{font-weight:500;margin-left:4px}
+.chiprow.decs{margin-top:8px}
+.chiprow.decs .tab{font-size:13px;padding:6px 12px}
+.chiprow.years .tab.has{border-color:var(--blue);color:var(--blue);font-weight:600}
+.chiprow.years .tab.has[aria-selected="true"]{color:#fff}
+.chiprow.years .tab.has::after{content:" ✓"}

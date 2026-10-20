@@ -145,7 +145,34 @@
 
   /* ---------- 답안 입력 ---------- */
   var KINDS = [['개념', '개념반'], ['단풀', '단풀반'], ['실전', '실전반']], entryKind = '';
-  var entrySub = '';
+  var entrySub = '', entryRound = '', entryDecade = '', decFor = '';
+  function ejuOf(label) { var m = /EJU\s*(\d{4})\s*\((\d)\)/.exec(label); return m ? { y: m[1], r: m[2] } : null; }
+  function decadeOf(y) { return String(y).slice(0, 3) + '0'; }
+  /** 요청을 하나씩 차례로 (시트 잠금 때문에 동시에 보내지 않음) */
+  function seq(tasks, done) {
+    var i = 0, okN = 0, err = '';
+    (function next() { if (i >= tasks.length) return done(okN, err); tasks[i++]().then(function (r) { if (r.ok) okN++; else err = r.error; next(); }); })();
+  }
+  /** 실전 기출 고르기: 1회·2회(·그 밖의 시험) → 2020·2010·2000년대 → 연도 내림차순
+   *  pre: 'e'(답안 입력) / 'x'(시험 탭), has(p): 이미 등록된 시험, others: EJU 가 아닌 이 달 시험 */
+  function realPicker(pre, round, decade, has, curLabel, others, curId) {
+    var ps = (D.papers || []).filter(function (p) { return p.ban === '실전' && ejuOf(p.label); });
+    var rounds = ['1', '2'].concat(others && others.length ? ['기타'] : []);
+    var h = '<div class="chiprow" aria-label="회차">' + rounds.map(function (r) {
+      return '<button type="button" class="tab" data-' + pre + 'r="' + r + '" aria-selected="' + (r === round) + '">' + (r === '기타' ? '그 밖의 시험' : r + '회') + '</button>';
+    }).join('') + '</div>';
+    if (round === '기타') {
+      return h + '<div class="chiprow years">' + others.map(function (e) { return '<button type="button" class="tab" data-pick="' + esc(e.id) + '" aria-selected="' + (e.id === curId) + '">' + esc(e.label) + '</button>'; }).join('') + '</div>';
+    }
+    var decs = ['2020', '2010', '2000'];
+    h += '<div class="chiprow decs" aria-label="연대">' + decs.map(function (d) { return '<button type="button" class="tab" data-' + pre + 'd="' + d + '" aria-selected="' + (d === decade) + '">' + d + '년대</button>'; }).join('') + '</div>';
+    var list = ps.filter(function (p) { var j = ejuOf(p.label); return j.r === round && decadeOf(j.y) === decade; })
+      .sort(function (a, b) { return ejuOf(b.label).y - ejuOf(a.label).y; });
+    return h + '<div class="chiprow years" aria-label="연도">' + (list.length ? list.map(function (p) {
+      var on = has(p);
+      return '<button type="button" class="tab' + (on ? ' has' : '') + '" data-' + pre + 'y="' + esc(p.id) + '" aria-selected="' + (p.label === curLabel) + '" title="' + (on ? '이 달에 등록됨' : '누르면 이 달 시험으로 등록') + '">' + ejuOf(p.label).y + '년</button>';
+    }).join('') : '<span class="meta">이 연대의 ' + round + '회 기출이 없어요.</span>') + '</div>';
+  }
   function entrySubOf(e) { var c = cls(e.cls); return c.kind === '실전' ? realSuffix(c.code) : (subjOf(e.label) || '기타'); }
   function vEntry() {
     var all_ = examsOfMonth();
@@ -167,35 +194,63 @@
       all('#view .seg button').forEach(function (b) { b.onclick = function () { entryKind = b.getAttribute('data-k'); entrySub = ''; curExam = ''; vEntry(); }; });
       all('#view [data-sub]').forEach(function (b) { b.onclick = function () { entrySub = b.getAttribute('data-sub'); curExam = ''; vEntry(); }; });
     }
-    if (!ofKind.length) {
-      $('#view').innerHTML = '<div class="card">' + head + '<p class="empty">' + esc(UI.monthLabel(month)) + '에 등록된 ' + kindName(entryKind) + ' 시험이 없어요.</p>' +
-        '<button type="button" class="btn sub" id="goExams">「시험」 탭에서 등록하기</button></div>';
-      bindHead(); $('#goExams').onclick = function () { tab = 'exams'; examKind = entryKind; renderNav(); render(); };
-      return;
-    }
-    var exs = ofKind.filter(function (e) { return entrySubOf(e) === entrySub; });
-    if (!exs.some(function (e) { return e.id === curExam; })) curExam = exs[exs.length - 1].id;
-    var ex = exs.filter(function (e) { return e.id === curExam; })[0], mem = members(ex.cls), cur = null;
-    var picker;
+    var exs, ex, picker = '';
     if (entryKind === '실전') {
-      // 실전: 회차(1회·2회) → 연도. EJU 기출이 아닌 시험(啓程 등)은 「그 밖의 시험」
-      var ejuOf = function (e) { var m = /EJU\s*(\d{4})\s*\((\d)\)/.exec(e.label); return m ? { y: m[1], r: m[2] } : null; };
-      var cj = ejuOf(ex), rounds = [], years = [];
-      exs.forEach(function (e) { var j = ejuOf(e), r = j ? j.r : '기타'; if (rounds.indexOf(r) < 0) rounds.push(r); });
-      rounds.sort();
-      var curR = cj ? cj.r : '기타';
-      var inR = exs.filter(function (e) { var j = ejuOf(e); return curR === '기타' ? !j : j && j.r === curR; });
-      picker = '<div class="chiprow" aria-label="회차">' + rounds.map(function (r) {
-          var first = exs.filter(function (e) { var j = ejuOf(e); return r === '기타' ? !j : j && j.r === r; }).slice(-1)[0];
-          return '<button type="button" class="tab" data-pick="' + esc(first.id) + '" aria-selected="' + (r === curR) + '">' + (r === '기타' ? '그 밖의 시험' : r + '회') + '</button>';
+      // 실전: D·E → 1회·2회 → 연대 → 연도(내림차순). 이 달에 안 넣은 기출을 고르면 D·E 둘 다에 바로 등록
+      var realCls = D.classes.filter(function (c) { return c.active && c.kind === '실전'; });
+      var rsubs = realCls.map(function (c) { return realSuffix(c.code); });
+      if (rsubs.indexOf(entrySub) < 0) entrySub = rsubs[0] || '';
+      head = '<div class="seg" role="tablist" aria-label="반 종류">' + KINDS.map(function (k) {
+          return '<button type="button" role="tab" data-k="' + k[0] + '" aria-selected="' + (k[0] === entryKind) + '">' + k[1] + '</button>';
         }).join('') + '</div>' +
-        '<div class="chiprow years" aria-label="연도">' + inR.slice().sort(function (a, b) { return b.label.localeCompare(a.label); }).map(function (e) {
-          var j = ejuOf(e);
-          return '<button type="button" class="tab" data-pick="' + esc(e.id) + '" aria-selected="' + (e.id === ex.id) + '">' + esc(j ? j.y + '년' : e.label) + '</button>';
-        }).join('') + '</div>' +
-        '<p class="pickedname">' + esc(ex.label) + ' <span class="meta">' + esc(ex.kind) + '</span></p>';
+        '<div class="chiprow" aria-label="반">' + rsubs.map(function (x) { return '<button type="button" class="tab" data-sub="' + esc(x) + '" aria-selected="' + (x === entrySub) + '">실전반 ' + esc(x) + '</button>'; }).join('') + '</div>';
+      var code = (realCls.filter(function (c) { return realSuffix(c.code) === entrySub; })[0] || {}).code;
+      exs = all_.filter(function (e) { return e.cls === code; });
+      ex = exs.filter(function (e) { return e.id === curExam; })[0] || null;
+      if (!ex && !entryRound) ex = exs[exs.length - 1] || null;
+      var ej = ex ? ejuOf(ex.label) : null;
+      if (ex) { entryRound = ej ? ej.r : '기타'; if (ej && decFor !== ex.id) { entryDecade = decadeOf(ej.y); decFor = ex.id; } }
+      if (!entryRound) entryRound = '1';
+      if (!entryDecade) entryDecade = '2020';
+      var others = exs.filter(function (e) { return !ejuOf(e.label); });
+      picker = realPicker('e', entryRound, entryDecade, function (p) { return exs.filter(function (e) { return e.label === p.label; })[0]; }, ex ? ex.label : '', others, ex ? ex.id : '');
+      if (!ex) {
+        $('#view').innerHTML = '<div class="card">' + head + picker + '<p class="empty">연도를 고르면 바로 입력할 수 있어요. (이 달에 처음 고르는 기출은 D·E에 같이 등록돼요)</p><p id="emsg" class="msg" role="status"></p></div>';
+        bindHead(); bindReal(); return;
+      }
+      picker += '<p class="pickedname">' + esc(ex.label) + ' <span class="meta">' + esc(ex.kind) + '</span></p>';
     } else {
+      if (!ofKind.length) {
+        $('#view').innerHTML = '<div class="card">' + head + '<p class="empty">' + esc(UI.monthLabel(month)) + '에 등록된 ' + kindName(entryKind) + ' 시험이 없어요.</p>' +
+          '<button type="button" class="btn sub" id="goExams">「시험」 탭에서 준비하기</button></div>';
+        bindHead(); $('#goExams').onclick = function () { tab = 'exams'; examKind = entryKind; renderNav(); render(); };
+        return;
+      }
+      exs = ofKind.filter(function (e) { return entrySubOf(e) === entrySub; });
+      if (!exs.some(function (e) { return e.id === curExam; })) curExam = exs[exs.length - 1].id;
+      ex = exs.filter(function (e) { return e.id === curExam; })[0];
       picker = '<label for="exSel">시험</label><select id="exSel">' + exs.map(function (e) { return '<option value="' + esc(e.id) + '"' + (e.id === curExam ? ' selected' : '') + '>' + esc(e.label) + ' · ' + esc(e.kind) + '</option>'; }).join('') + '</select>';
+    }
+    curExam = ex.id;
+    var mem = rosterFor(ex.cls, ex.month), cur = null;
+    function bindReal() {
+      all('#view [data-er]').forEach(function (b) { b.onclick = function () { entryRound = b.getAttribute('data-er'); curExam = ''; vEntry(); }; });
+      all('#view [data-ed]').forEach(function (b) { b.onclick = function () { entryDecade = b.getAttribute('data-ed'); vEntry(); }; });
+      all('#view [data-pick]').forEach(function (b) { b.onclick = function () { curExam = b.getAttribute('data-pick'); vEntry(); }; });
+      all('#view [data-ey]').forEach(function (b) {
+        b.onclick = function () {
+          var p = paper(b.getAttribute('data-ey')); if (!p) return;
+          var got = exs.filter(function (e) { return e.label === p.label; })[0];
+          if (got) { curExam = got.id; vEntry(); return; }
+          b.disabled = true; b.textContent = '등록 중…';
+          var targets = D.classes.filter(function (c) { return c.active && c.kind === '실전' && !examsOfMonth().some(function (e) { return e.cls === c.code && e.label === p.label; }); });
+          seq(targets.map(function (c) { return function () { return req('addExam', { cls: c.code, month: month, kind: p.kind, label: p.label, total: p.total, key: p.key }).then(function (r) { if (r.ok) D.exams.push(r.data); return r; }); }; }), function (okN, err) {
+            if (err) { b.disabled = false; return msg($('#emsg'), false, err); }
+            var mineNow = examsOfMonth().filter(function (e) { return e.cls === code && e.label === p.label; })[0];
+            curExam = mineNow ? mineNow.id : ''; vEntry();
+          });
+        };
+      });
     }
     $('#view').innerHTML =
       '<div class="grid2" style="margin-top:12px"><div class="card">' + head + picker +
@@ -208,7 +263,7 @@
       '</div><div class="card"><h2>입력 현황</h2><div id="roster"></div></div></div>';
     if ($('#exSel')) $('#exSel').onchange = function () { curExam = this.value; vEntry(); };
     all('#view [data-pick]').forEach(function (b) { b.onclick = function () { curExam = b.getAttribute('data-pick'); vEntry(); }; });
-    bindHead();
+    bindHead(); bindReal();
     function meta() { $('#exMeta').textContent = ex.total + '문항 · 입력 ' + mem.filter(function (s) { return resultOf(ex.id, s.code); }).length + ' / ' + mem.length + '명'; }
     meta();
     $('#stList').innerHTML = mem.map(function (s) { return '<option value="' + esc(s.name) + '" label="' + Core.fmtCode(s.code) + '"></option>'; }).join('');
@@ -264,7 +319,7 @@
 
   /* ---------- 시험 ---------- */
   // 반 종류 → (개념·단풀) 과목 / (실전) D·E → 수업 폴더 답지 목록에서 바로 등록. 시험일·시간대는 안 씀 (해마다·달마다 바뀜)
-  var examKind = '';
+  var examKind = '', examRound = '1', examDecade = '2020';
   function kindName(k) { return k + '반'; }
   function realSuffix(code) { return String(code).split('-').pop(); }
   function examGroup(e) {
@@ -295,13 +350,17 @@
         }).join('') : '<p class="empty">이 반 종류의 반이 없어요. 기록장 「반」 탭에서 활성을 Y로 해 주세요.</p>') + '</div>';
     } else {
       // 실전: D·E 는 같은 시험 — 한 번 등록하면 두 반 모두
-      var list = papers.filter(function (p) { return p.ban === '실전'; }).sort(function (a, b) { return b.id.localeCompare(a.id); });
+      // 1회·2회 → 2020·2010·2000년대 → 연도(내림차순)
+      var list = papers.filter(function (p) { var j = p.ban === '실전' && ejuOf(p.label); return j && j.r === examRound && decadeOf(j.y) === examDecade; })
+        .sort(function (a, b) { return ejuOf(b.label).y - ejuOf(a.label).y; });
       h += '<p class="meta" style="margin-top:12px">실전반 D·E는 같은 시험을 봐서 한 번 등록하면 두 반에 같이 들어가요.</p>' +
-        (list.length ? '<div class="plist scroll">' + list.map(function (p) {
+        '<div class="chiprow" aria-label="회차">' + ['1', '2'].map(function (r) { return '<button type="button" class="tab" data-xr="' + r + '" aria-selected="' + (r === examRound) + '">' + r + '회</button>'; }).join('') + '</div>' +
+        '<div class="chiprow decs" aria-label="연대">' + ['2020', '2010', '2000'].map(function (d) { return '<button type="button" class="tab" data-xd="' + d + '" aria-selected="' + (d === examDecade) + '">' + d + '년대</button>'; }).join('') + '</div>' +
+        (list.length ? '<div class="plist">' + list.map(function (p) {
           var done = activeCls.length && activeCls.every(function (c) { return hasPaper(c.code, p); });
-          return '<div class="prow"><div><b>' + esc(p.label) + '</b><span class="meta">' + p.total + '문</span></div>' +
+          return '<div class="prow"><div><b>' + ejuOf(p.label).y + '년 ' + examRound + '회</b><span class="meta">' + esc(p.label) + ' · ' + p.total + '문</span></div>' +
             (done ? '<span class="pill ok">등록됨</span>' : '<button type="button" class="btn soft sm" data-reg="' + esc(p.id) + '"' + (activeCls.length ? '' : ' disabled') + '>등록</button>') + '</div>';
-        }).join('') + '</div>' : '<p class="empty">실전반 시험지가 아직 없어요.</p>');
+        }).join('') + '</div>' : '<p class="empty">이 연대의 ' + examRound + '회 기출이 없어요.</p>');
     }
     h += '<p id="nMsg" class="msg" role="status"></p>' +
       '<details class="manual"><summary>목록에 없는 시험 직접 등록</summary><div class="fields">' +
@@ -346,6 +405,8 @@
     $('#view').innerHTML = h;
 
     all('#view [data-ek]').forEach(function (b) { b.onclick = function () { examKind = b.getAttribute('data-ek'); vExams(); }; });
+    all('#view [data-xr]').forEach(function (b) { b.onclick = function () { examRound = b.getAttribute('data-xr'); vExams(); }; });
+    all('#view [data-xd]').forEach(function (b) { b.onclick = function () { examDecade = b.getAttribute('data-xd'); vExams(); }; });
     function chain(tasks, done) {   // 요청을 하나씩 (시트 잠금 때문에 동시에 보내지 않음)
       var i = 0, okN = 0, err = '';
       (function next() {
