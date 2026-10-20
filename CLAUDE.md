@@ -11,7 +11,7 @@
 - **수업계획서 도구** `tools/class-plan/class_plan.py`: 지난달 워드 계획서 폴더 + 연간 계획표 JSON → 다음 달 워드·요약 엑셀.
 - **배포**: GitHub Pages (`/docs` 폴더). 저장소 `cw-sogolab/seiseki` (2026-10-17 만듦, Public). push 는 kitaku 와 같은 GitHub 인증을 쓰기로 사용자가 허락함(2026-10-17). **토큰을 화면에 출력하거나 이 저장소의 파일·원격 주소에 넣지 말 것.**
 - **본판 / 개발판** (2026-10-17, 퇴실퀴즈와 같은 방식): 본판 `docs/`, 개발판 `docs/dev/`(빨간 띠, 제목 앞 [개발판], 폰 저장 키 `seiseki-dev.*`, 웹앱 주소 `API_URL.dev`). 기록장도 두 개 — 개발 기록장은 원생명단에 연결하지 않고 자기 「원생」 탭을 씀(가짜 학생이 진짜 명단에 섞이지 않게).
-  작업 순서: **`docs/dev/` 만 고침** → `sh tools/sync-gas.sh` → 테스트 → 푸시 → 사용자가 개발판 확인 → `sh tools/promote.sh`(config.js 제외 복사) → 푸시. Apps Script 도 개발 기록장 먼저, 확인 후 본판 기록장.
+  작업 순서: **`docs/dev/` 만 고침** → `sh tools/sync-gas.sh` → 테스트 → `sh tools/bump-ver.sh`(css·js 주소의 ?v= 갱신 — 안 하면 브라우저가 옛 css 와 새 html 을 섞어 화면이 깨짐) → 푸시 → 사용자가 개발판 확인 → `sh tools/promote.sh`(config.js 제외 복사) → 푸시. Apps Script 도 개발 기록장 먼저, 확인 후 본판 기록장.
 - 기획 결정과 남은 일: `PLAN.md`.
 
 ## 2. 파일 구성
