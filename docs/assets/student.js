@@ -26,7 +26,7 @@
     if (cur >= view.classes.length) cur = 0;
     $('#nm').textContent = view.name;
     $('#idshow').textContent = Core.fmtCode(view.code);
-    $('#login').hidden = true; $('#app').hidden = false;
+    $('#login').hidden = true; $('#app').hidden = false; $('#acts').hidden = false;
     renderTabs();
   }
 
@@ -41,7 +41,7 @@
     var tabs = $('#tabs');
     if (!view.classes.length) { tabs.innerHTML = ''; $('#months').innerHTML = ''; $('#panel').innerHTML = '<div class="card"><p class="empty">아직 등록된 반이 없어요. 선생님께 말씀해 주세요.</p></div>'; return; }
     tabs.innerHTML = view.classes.map(function (c, i) {
-      return '<button class="tab" type="button" role="tab" data-i="' + i + '" aria-selected="' + (i === cur) + '">' + esc(c.name) + '<small>' + esc(c.time) + (c.current === false ? ' · 지난 반' : '') + '</small></button>';
+      return '<button class="tab" type="button" role="tab" data-i="' + i + '" aria-selected="' + (i === cur) + '">' + esc(c.name) + (c.name.indexOf(c.time) >= 0 ? (c.current === false ? '<small>지난 반</small>' : '') : '<small>' + esc(c.time) + (c.current === false ? ' · 지난 반' : '') + '</small>') + '</button>';
     }).join('');
     UI.all('#tabs .tab').forEach(function (b) { b.onclick = function () { cur = +b.getAttribute('data-i'); month = ''; renderTabs(); }; });
     var ms = monthsOf(view.classes[cur]);
@@ -58,7 +58,7 @@
   function chart(tests) {
     var pts = tests.filter(function (t) { return t.score !== null; });
     if (!pts.length) return '<p class="empty">아직 입력된 점수가 없어요.</p>';
-    var W = 300, H = 130, L = 28, R = 10, T = 10, B = 22, n = pts.length;
+    var W = 300, H = 130, L = 28, R = 18, T = 10, B = 22, n = pts.length;
     function x(i) { return n === 1 ? L + (W - L - R) / 2 : L + i * (W - L - R) / (n - 1); }
     function y(p) { return T + (100 - p) * (H - T - B) / 100; }
     var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="시험별 내 정답률과 반 평균">';
@@ -90,7 +90,7 @@
     var taken = tests.filter(function (t) { return t.score !== null; });
     var avg = taken.length ? Math.round(taken.reduce(function (s, t) { return s + t.score / t.total; }, 0) / taken.length * 100) : null;
     var done = hws.filter(function (h) { return h.done; }).length;
-    var h = '<div class="tiles"><div class="tile"><span>' + esc(UI.monthLabel(month)) + ' 테스트 평균</span><b>' + (avg === null ? '-' : avg + '<small style="font-size:14px;font-family:var(--f-body)">%</small>') + '</b></div>' +
+    var h = '<div class="tiles"><div class="tile hi"><span>' + (month ? (+month.slice(5)) + '월 ' : '') + '테스트 평균</span><b>' + (avg === null ? '-' : avg + '<small style="font-size:14px;font-family:var(--f-body)">%</small>') + '</b></div>' +
       '<div class="tile"><span>숙제 제출</span><b>' + (hws.length ? done + ' / ' + hws.length : '-') + '</b></div></div>';
     h += '<div class="card"><h2>점수 추이 (정답률 %)</h2>' + chart(c.tests) + '</div>';
     h += '<div class="card"><h2>테스트 결과</h2>';
@@ -185,7 +185,7 @@
 
   $('#go').onclick = function () { login($('#sid').value); };
   $('#sid').addEventListener('keydown', function (e) { if (e.key === 'Enter') login($('#sid').value); });
-  $('#out').onclick = function () { UI.store.del('seiseki.code'); view = null; code = ''; cur = 0; month = ''; $('#app').hidden = true; $('#login').hidden = false; $('#sid').value = ''; };
+  $('#out').onclick = function () { UI.store.del('seiseki.code'); view = null; code = ''; cur = 0; month = ''; $('#app').hidden = true; $('#acts').hidden = true; $('#login').hidden = false; $('#sid').value = ''; };
   $('#refresh').onclick = function () { if (code) login(code); };
 
   var saved = UI.store.get('seiseki.code');

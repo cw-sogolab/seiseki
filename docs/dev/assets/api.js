@@ -59,11 +59,11 @@ var UI = {
   },
   monthLabel: function (m) { var p = String(m).split('-'); return p.length === 2 ? p[0] + '년 ' + (+p[1]) + '월' : m; },
   dateLabel: function (d) { var p = String(d).split('-'); return p.length >= 3 ? (+p[1]) + '/' + (+p[2]) : d; },
-  copy: function (text, out) {
+  copy: function (text, out, okText) {
     function fb() {
       out.innerHTML = '<p class="meta">자동 복사가 막혀 있어요. 아래 내용을 선택해 복사해 주세요.</p><textarea readonly class="tsv">' + UI.esc(text) + '</textarea>';
       var t = out.querySelector('textarea'); t.focus(); t.select();
     }
-    try { navigator.clipboard.writeText(text).then(function () { out.innerHTML = '<p class="msg ok">복사했어요. 엑셀에 붙여넣으세요.</p>'; }, fb); } catch (e) { fb(); }
+    try { navigator.clipboard.writeText(text).then(function () { out.innerHTML = '<p class="msg ok">' + (okText || '복사했어요. 엑셀에 붙여넣으세요.') + '</p>'; }, fb); } catch (e) { fb(); }
   }
 };

@@ -33,7 +33,7 @@
   function logout(msg) {
     token = ''; D = null; UI.store.del('seiseki.token', sessionStorage);
     document.body.classList.add('locked'); busy(false);
-    $('#view').hidden = true; $('#nav').hidden = true; $('#topRight').hidden = true; $('#login').hidden = false;
+    $('#view').hidden = true; $('#period').hidden = true; $('#nav').hidden = true; $('#topRight').hidden = true; $('#login').hidden = false;
     $('#loginMsg').textContent = msg || '';
   }
   /** 기록을 불러와 화면을 엶. 방금 로그인했으면 토큰이 서버에 막 저장된 참이라, 한 번은 다시 물어봄 */
@@ -45,7 +45,7 @@
       D = r.data; busy(false);
       if (!month) month = D.today.slice(0, 7);
       document.body.classList.remove('locked');
-      $('#login').hidden = true; $('#view').hidden = false; $('#nav').hidden = false; $('#topRight').hidden = false;
+      $('#login').hidden = true; $('#view').hidden = false; $('#period').hidden = false; $('#nav').hidden = false; $('#topRight').hidden = false;
       renderMonths(); renderNav(); render();
     });
   }
@@ -62,6 +62,12 @@
     if (m === D.today.slice(0, 7)) members(c).forEach(function (s) { codes[s.code] = 1; });
     return D.students.filter(function (s) { return codes[s.code]; }).sort(function (a, b) { return a.name.localeCompare(b.name, 'ko'); });
   }
+  var SUBJS = ['경제', '정치', '지리', '현사', '현대사회', '세계사', '역사', '일본사'];
+  function subjOf(label) { var w = String(label).split(' ')[0]; return SUBJS.indexOf(w) >= 0 ? (w === '현대사회' ? '현사' : w) : ''; }
+  /** 시간대 없이 반 이름: 개념반·단풀반 / 실전반 D·E */
+  function clsShort(code) { var c = cls(code); return c.kind === '실전' ? '실전반 ' + String(c.code).split('-').pop() : (c.kind ? c.kind + '반' : c.name); }
+  /** 학원 제출·월말 표의 환산점수 = 맞은 개수 / 문항 수 × 200 (득점등화는 학생 개인 성적표에서만) */
+  function conv200(score, total) { return total ? Math.round(score / total * 2000) / 10 : null; }
   function pages(h) { return (h.book ? esc(h.book) + ' ' : '') + (h.p0 ? 'p.' + h.p0 + '~' + h.p1 : ''); }
   function examsOfMonth() { return D.exams.filter(function (e) { return e.month === month; }).sort(function (a, b) { return (a.cls + a.date).localeCompare(b.cls + b.date); }); }
   function hwOfMonth() { return D.homework.filter(function (h) { return h.month === month; }); }
@@ -69,6 +75,27 @@
   function subOf(hw, code) { return D.hwSubs.filter(function (s) { return s.hw === hw && s.code === code; })[0]; }
   function replace(list, pred, item) { var i = list.findIndex(pred); if (i >= 0) list[i] = item; else list.push(item); }
   function classOptions(sel) { return D.classes.filter(function (c) { return c.active; }).map(function (c) { return '<option value="' + esc(c.code) + '"' + (c.code === sel ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join(''); }
+  /** 시험지(수업 폴더 답지에서 뽑은 것) 고르기 칸. kinds: 보여 줄 종류, 반 종류(개념·단풀·실전)가 같은 것을 위에 */
+  var KIND_ORDER = { '소테스트': 1, '일문일답': 1, '월말테스트': 2, '모의고사': 3 };
+  function paperPick(id, clsCode, kinds, used) {
+    var ps = (D.papers || []).filter(function (p) { return kinds.indexOf(p.kind) >= 0; });
+    if (!ps.length) return '';
+    var kind = cls(clsCode).kind;
+    ps.sort(function (a, b) { return ((a.ban === kind ? '0' : '1') + a.ban + a.subj).localeCompare((b.ban === kind ? '0' : '1') + b.ban + b.subj, 'ko') || (KIND_ORDER[a.kind] || 9) - (KIND_ORDER[b.kind] || 9) || a.round - b.round; });
+    var groups = [], last = '';
+    ps.forEach(function (p) {
+      var g = p.ban + '반 · ' + p.subj;
+      if (g !== last) { groups.push({ g: g, items: [] }); last = g; }
+      groups[groups.length - 1].items.push(p);
+    });
+    return '<div class="pick"><label for="' + id + '">수업 폴더 답지에서 고르기</label><select id="' + id + '"><option value="">직접 입력</option>' +
+      groups.map(function (x) {
+        return '<optgroup label="' + esc(x.g) + '">' + x.items.map(function (p) {
+          return '<option value="' + esc(p.id) + '">' + esc(p.label) + ' · ' + p.total + '문' + (used(p) ? ' · 이 달 등록됨' : '') + '</option>';
+        }).join('') + '</optgroup>';
+      }).join('') + '</select><p class="meta">고르면 이름·문항 수' + (kinds.indexOf('일문일답') < 0 ? '·정답' : '') + '이 채워져요. 답지가 바뀌면 기록장 「시험지」 탭을 고치면 돼요.</p></div>';
+  }
+  function paper(id) { return (D.papers || []).filter(function (p) { return p.id === id; })[0]; }
   function msg(el, ok, text) { el.className = 'msg ' + (ok ? 'ok' : 'err'); el.textContent = text; }
   function twoStep(btn, label, fn) {
     btn.onclick = function () {
@@ -89,17 +116,89 @@
     $('#nav').innerHTML = TABS.map(function (t) { return '<button type="button" role="tab" data-t="' + t[0] + '" aria-selected="' + (t[0] === tab) + '">' + t[1] + '</button>'; }).join('');
     all('#nav button').forEach(function (b) { b.onclick = function () { tab = b.getAttribute('data-t'); renderNav(); render(); }; });
   }
-  function render() { ({ entry: vEntry, exams: vExams, hw: vHw, stu: vStu, month: vMonth })[tab](); }
+  /** 모든 탭 위에 「2026년 10월」 + 앞뒤 달 이동 (계속 쓰는 기록이라 지금 보는 달이 늘 보이게) */
+  function renderPeriod() {
+    var ms = Array.prototype.map.call($('#month').options, function (o) { return o.value; }).sort();
+    var i = ms.indexOf(month);
+    $('#period').innerHTML = '<button type="button" class="pv" data-mv="-1" aria-label="이전 달"' + (i <= 0 ? ' disabled' : '') + '>‹</button>' +
+      '<b>' + esc(UI.monthLabel(month)) + '</b>' +
+      '<button type="button" class="pv" data-mv="1" aria-label="다음 달"' + (i >= ms.length - 1 ? ' disabled' : '') + '>›</button>' +
+      (month === D.today.slice(0, 7) ? '<span class="pill blue">이번 달</span>' : '');
+    all('#period [data-mv]').forEach(function (b) { b.onclick = function () { var j = i + (+b.getAttribute('data-mv')); if (ms[j]) { month = ms[j]; $('#month').value = month; render(); } }; });
+  }
+  function render() { renderPeriod(); ({ entry: vEntry, exams: vExams, hw: vHw, stu: vStu, month: vMonth })[tab](); }
+
+  /** 틀린 문항을 시험지에 체크하기 쉽게: 문항 / 정답 / 학생 세 줄 표 (10문항씩 끊음) */
+  function wrongTable(wrong) {
+    if (!wrong.length) return '<p class="allok">전부 맞았어요</p>';
+    var h = '';
+    for (var i = 0; i < wrong.length; i += 10) {
+      var part = wrong.slice(i, i + 10);
+      h += '<table class="wt"><tbody>' +
+        '<tr class="n"><th>문항</th>' + part.map(function (w) { return '<td>' + w.n + '</td>'; }).join('') + '</tr>' +
+        '<tr class="k"><th>정답</th>' + part.map(function (w) { return '<td>' + w.key + '</td>'; }).join('') + '</tr>' +
+        '<tr class="a"><th>학생</th>' + part.map(function (w) { return '<td>' + (w.ans === '0' ? '–' : w.ans) + '</td>'; }).join('') + '</tr>' +
+        '</tbody></table>';
+    }
+    return '<div class="wtw">' + h + '</div>';
+  }
 
   /* ---------- 답안 입력 ---------- */
+  var KINDS = [['개념', '개념반'], ['단풀', '단풀반'], ['실전', '실전반']], entryKind = '';
+  var entrySub = '';
+  function entrySubOf(e) { var c = cls(e.cls); return c.kind === '실전' ? realSuffix(c.code) : (subjOf(e.label) || '기타'); }
   function vEntry() {
-    var exs = examsOfMonth();
-    if (!exs.length) { $('#view').innerHTML = '<div class="card"><p class="empty">' + esc(UI.monthLabel(month)) + '에 등록된 시험이 없어요. 「시험」 탭에서 먼저 정답을 등록해 주세요.</p></div>'; return; }
+    var all_ = examsOfMonth();
+    function kindOf(e) { return cls(e.cls).kind; }
+    var cx = all_.filter(function (e) { return e.id === curExam; })[0];
+    if (cx) { entryKind = kindOf(cx); entrySub = entrySubOf(cx); }
+    if (!entryKind) entryKind = (KINDS.filter(function (k) { return all_.some(function (e) { return kindOf(e) === k[0]; }); })[0] || ['개념'])[0];
+    var ofKind = all_.filter(function (e) { return kindOf(e) === entryKind; });
+    var subs = []; ofKind.forEach(function (e) { var x = entrySubOf(e); if (subs.indexOf(x) < 0) subs.push(x); });
+    subs.sort();
+    if (subs.indexOf(entrySub) < 0) entrySub = subs[0] || '';
+    var head = '<div class="seg" role="tablist" aria-label="반 종류">' + KINDS.map(function (k) {
+        return '<button type="button" role="tab" data-k="' + k[0] + '" aria-selected="' + (k[0] === entryKind) + '">' + k[1] + '</button>';
+      }).join('') + '</div>' +
+      (subs.length ? '<div class="chiprow" role="tablist" aria-label="' + (entryKind === '실전' ? '반' : '과목') + '">' + subs.map(function (x) {
+        return '<button type="button" class="tab" data-sub="' + esc(x) + '" aria-selected="' + (x === entrySub) + '">' + esc(entryKind === '실전' ? '실전반 ' + x : x) + '</button>';
+      }).join('') + '</div>' : '');
+    function bindHead() {
+      all('#view .seg button').forEach(function (b) { b.onclick = function () { entryKind = b.getAttribute('data-k'); entrySub = ''; curExam = ''; vEntry(); }; });
+      all('#view [data-sub]').forEach(function (b) { b.onclick = function () { entrySub = b.getAttribute('data-sub'); curExam = ''; vEntry(); }; });
+    }
+    if (!ofKind.length) {
+      $('#view').innerHTML = '<div class="card">' + head + '<p class="empty">' + esc(UI.monthLabel(month)) + '에 등록된 ' + kindName(entryKind) + ' 시험이 없어요.</p>' +
+        '<button type="button" class="btn sub" id="goExams">「시험」 탭에서 등록하기</button></div>';
+      bindHead(); $('#goExams').onclick = function () { tab = 'exams'; examKind = entryKind; renderNav(); render(); };
+      return;
+    }
+    var exs = ofKind.filter(function (e) { return entrySubOf(e) === entrySub; });
     if (!exs.some(function (e) { return e.id === curExam; })) curExam = exs[exs.length - 1].id;
     var ex = exs.filter(function (e) { return e.id === curExam; })[0], mem = members(ex.cls), cur = null;
+    var picker;
+    if (entryKind === '실전') {
+      // 실전: 회차(1회·2회) → 연도. EJU 기출이 아닌 시험(啓程 등)은 「그 밖의 시험」
+      var ejuOf = function (e) { var m = /EJU\s*(\d{4})\s*\((\d)\)/.exec(e.label); return m ? { y: m[1], r: m[2] } : null; };
+      var cj = ejuOf(ex), rounds = [], years = [];
+      exs.forEach(function (e) { var j = ejuOf(e), r = j ? j.r : '기타'; if (rounds.indexOf(r) < 0) rounds.push(r); });
+      rounds.sort();
+      var curR = cj ? cj.r : '기타';
+      var inR = exs.filter(function (e) { var j = ejuOf(e); return curR === '기타' ? !j : j && j.r === curR; });
+      picker = '<div class="chiprow" aria-label="회차">' + rounds.map(function (r) {
+          var first = exs.filter(function (e) { var j = ejuOf(e); return r === '기타' ? !j : j && j.r === r; }).slice(-1)[0];
+          return '<button type="button" class="tab" data-pick="' + esc(first.id) + '" aria-selected="' + (r === curR) + '">' + (r === '기타' ? '그 밖의 시험' : r + '회') + '</button>';
+        }).join('') + '</div>' +
+        '<div class="chiprow years" aria-label="연도">' + inR.slice().sort(function (a, b) { return b.label.localeCompare(a.label); }).map(function (e) {
+          var j = ejuOf(e);
+          return '<button type="button" class="tab" data-pick="' + esc(e.id) + '" aria-selected="' + (e.id === ex.id) + '">' + esc(j ? j.y + '년' : e.label) + '</button>';
+        }).join('') + '</div>' +
+        '<p class="pickedname">' + esc(ex.label) + ' <span class="meta">' + esc(ex.kind) + '</span></p>';
+    } else {
+      picker = '<label for="exSel">시험</label><select id="exSel">' + exs.map(function (e) { return '<option value="' + esc(e.id) + '"' + (e.id === curExam ? ' selected' : '') + '>' + esc(e.label) + ' · ' + esc(e.kind) + '</option>'; }).join('') + '</select>';
+    }
     $('#view').innerHTML =
-      '<div class="grid2" style="margin-top:12px"><div class="card">' +
-      '<label for="exSel">시험</label><select id="exSel">' + exs.map(function (e) { return '<option value="' + esc(e.id) + '"' + (e.id === curExam ? ' selected' : '') + '>' + esc(cls(e.cls).name) + ' · ' + esc(e.label) + ' (' + esc(UI.dateLabel(e.date)) + ')</option>'; }).join('') + '</select>' +
+      '<div class="grid2" style="margin-top:12px"><div class="card">' + head + picker +
       '<p class="meta" id="exMeta"></p>' +
       '<label for="stIn">학생 (이름 또는 번호)</label><input id="stIn" type="text" list="stList" autocomplete="off"><datalist id="stList"></datalist>' +
       '<div class="hit" id="hit"></div>' +
@@ -107,8 +206,10 @@
       '<p class="meta" id="cnt"></p><div id="prev"></div>' +
       '<button type="button" class="btn" id="save">저장하고 다음 학생 (Enter)</button><p id="emsg" class="msg" role="status"></p>' +
       '</div><div class="card"><h2>입력 현황</h2><div id="roster"></div></div></div>';
-    $('#exSel').onchange = function () { curExam = this.value; vEntry(); };
-    function meta() { $('#exMeta').textContent = ex.total + '문항 · ' + cls(ex.cls).time + ' · 입력 ' + mem.filter(function (s) { return resultOf(ex.id, s.code); }).length + ' / ' + mem.length + '명'; }
+    if ($('#exSel')) $('#exSel').onchange = function () { curExam = this.value; vEntry(); };
+    all('#view [data-pick]').forEach(function (b) { b.onclick = function () { curExam = b.getAttribute('data-pick'); vEntry(); }; });
+    bindHead();
+    function meta() { $('#exMeta').textContent = ex.total + '문항 · 입력 ' + mem.filter(function (s) { return resultOf(ex.id, s.code); }).length + ' / ' + mem.length + '명'; }
     meta();
     $('#stList').innerHTML = mem.map(function (s) { return '<option value="' + esc(s.name) + '" label="' + Core.fmtCode(s.code) + '"></option>'; }).join('');
     $('#ansIn').maxLength = ex.total;
@@ -127,7 +228,7 @@
       if (!v) { $('#prev').innerHTML = ''; return; }
       var g = Core.grade(ex.key, v);
       $('#prev').innerHTML = '<div class="result"><b>' + g.score + ' / ' + ex.total + '</b><span class="meta">틀린 문항 ' + g.wrong.length + '개</span></div>' +
-        '<div class="chips">' + g.wrong.map(function (w) { return '<span class="chip">' + w.n + '번 정답 ' + w.key + ' 학생 ' + (w.ans === '0' ? '무응답' : w.ans) + '</span>'; }).join('') + '</div>';
+        wrongTable(g.wrong);
     }
     function roster() {
       $('#roster').innerHTML = '<div class="tw"><table><thead><tr><th>이름</th><th>번호</th><th class="num">점수</th><th>상태</th></tr></thead><tbody>' +
@@ -162,54 +263,164 @@
   }
 
   /* ---------- 시험 ---------- */
+  // 반 종류 → (개념·단풀) 과목 / (실전) D·E → 수업 폴더 답지 목록에서 바로 등록. 시험일·시간대는 안 씀 (해마다·달마다 바뀜)
+  var examKind = '';
+  function kindName(k) { return k + '반'; }
+  function realSuffix(code) { return String(code).split('-').pop(); }
+  function examGroup(e) {
+    var c = cls(e.cls);
+    return { kind: c.kind, sub: c.kind === '실전' ? '실전반 ' + realSuffix(c.code) : (subjOf(e.label) || '기타') };
+  }
   function vExams() {
-    var exs = examsOfMonth();
-    $('#view').innerHTML =
-      '<div class="card"><h2>' + esc(UI.monthLabel(month)) + ' 시험 등록</h2><div class="fields">' +
-      '<div><label for="nC">반</label><select id="nC">' + classOptions() + '</select></div>' +
-      '<div><label for="nK">종류</label><select id="nK"><option>소테스트</option><option>월말테스트</option><option>모의고사</option></select></div>' +
-      '<div><label for="nL">시험 이름 <span class="opt">(학생 화면·월말 표 제목)</span></label><input id="nL" type="text" placeholder="비우면 「종류 월/일」"></div>' +
-      '<div><label for="nD">시험일</label><input id="nD" type="date" value="' + esc(D.today) + '"></div>' +
-      '<div><label for="nT">문항 수</label><input id="nT" type="number" min="1" max="80" value="15"></div></div>' +
+    var exs = examsOfMonth(), papers = D.papers || [];
+    if (!KINDS.some(function (k) { return k[0] === examKind; })) examKind = entryKind || '개념';
+    var real = examKind === '실전';
+    var activeCls = D.classes.filter(function (c) { return c.active && c.kind === examKind; });
+    var h = '<div class="card"><h2>' + esc(UI.monthLabel(month)) + ' 시험 준비</h2>' +
+      '<div class="seg" role="tablist" aria-label="반 종류">' + KINDS.map(function (k) { return '<button type="button" role="tab" data-ek="' + k[0] + '" aria-selected="' + (k[0] === examKind) + '">' + k[1] + '</button>'; }).join('') + '</div>';
+    function subjNow(code) {   // 이 달 그 반의 과목 (등록된 시험·숙제 이름에서)
+      var x = exs.concat(hwOfMonth()).filter(function (e) { return e.cls === code && subjOf(e.label); })[0];
+      return x ? subjOf(x.label) : '';
+    }
+    var subjects = []; papers.forEach(function (p) { if (p.ban === examKind && p.subj && subjects.indexOf(p.subj) < 0) subjects.push(p.subj); });
+    if (!real) {
+      // 개념·단풀: 과목마다 소테스트·월말(개념은 일문일답 숙제까지)이 정해져 있으니, 반의 이 달 과목만 고르면 한꺼번에 준비
+      h += '<p class="meta" style="margin-top:12px">반마다 이번 달 과목을 고르면 그 과목의 ' + (examKind === '개념' ? '주차별 소테스트·월말테스트·일문일답 숙제' : '월말테스트') + '가 정답·문항 수까지 한꺼번에 준비돼요.</p>' +
+        '<div class="plist">' + (activeCls.length ? activeCls.map(function (c) {
+          var cur = subjNow(c.code), set = papers.filter(function (p) { return p.ban === examKind && p.subj === cur && (p.kind === '소테스트' || p.kind === '월말테스트' || (examKind === '개념' && p.kind === '일문일답')); });
+          var missing = set.filter(function (p) { return !hasPaper(c.code, p); }).length;
+          return '<div class="prow"><div><b>' + esc(c.name) + '</b><span class="meta">' + (cur ? '이번 달 ' + esc(cur) + ' · 시험 ' + exs.filter(function (e) { return e.cls === c.code; }).length + '개 · 숙제 ' + hwOfMonth().filter(function (x) { return x.cls === c.code; }).length + '개' : '아직 과목을 안 정했어요') + '</span></div>' +
+            '<div class="pickrow"><select data-subsel="' + esc(c.code) + '" aria-label="' + esc(c.name) + ' 과목"><option value="">과목 고르기</option>' + subjects.map(function (x) { return '<option' + (x === cur ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select>' +
+            (cur && !missing ? '<span class="pill ok">준비됨</span>' : '<button type="button" class="btn soft sm" data-prep="' + esc(c.code) + '">' + (cur && missing ? '빠진 ' + missing + '개 채우기' : '준비하기') + '</button>') + '</div></div>';
+        }).join('') : '<p class="empty">이 반 종류의 반이 없어요. 기록장 「반」 탭에서 활성을 Y로 해 주세요.</p>') + '</div>';
+    } else {
+      // 실전: D·E 는 같은 시험 — 한 번 등록하면 두 반 모두
+      var list = papers.filter(function (p) { return p.ban === '실전'; }).sort(function (a, b) { return b.id.localeCompare(a.id); });
+      h += '<p class="meta" style="margin-top:12px">실전반 D·E는 같은 시험을 봐서 한 번 등록하면 두 반에 같이 들어가요.</p>' +
+        (list.length ? '<div class="plist scroll">' + list.map(function (p) {
+          var done = activeCls.length && activeCls.every(function (c) { return hasPaper(c.code, p); });
+          return '<div class="prow"><div><b>' + esc(p.label) + '</b><span class="meta">' + p.total + '문</span></div>' +
+            (done ? '<span class="pill ok">등록됨</span>' : '<button type="button" class="btn soft sm" data-reg="' + esc(p.id) + '"' + (activeCls.length ? '' : ' disabled') + '>등록</button>') + '</div>';
+        }).join('') + '</div>' : '<p class="empty">실전반 시험지가 아직 없어요.</p>');
+    }
+    h += '<p id="nMsg" class="msg" role="status"></p>' +
+      '<details class="manual"><summary>목록에 없는 시험 직접 등록</summary><div class="fields">' +
+      (real ? '' : '<div><label for="nC">반</label><select id="nC">' + activeCls.map(function (c) { return '<option value="' + esc(c.code) + '">' + esc(c.name) + '</option>'; }).join('') + '</select></div>') +
+      '<div><label for="nK">종류</label><select id="nK">' + (real ? '<option>모의고사</option><option>월말테스트</option>' : '<option>소테스트</option><option>월말테스트</option>') + '</select></div>' +
+      '<div><label for="nL">시험 이름 <span class="opt">(학생 화면·월말 표에 나와요)</span></label><input id="nL" type="text" placeholder="' + (real ? '예: 啓程 11회' : '예: 경제 1주차') + '"></div>' +
+      '<div><label for="nT">문항 수</label><input id="nT" type="number" min="1" max="80" value="' + (real ? 38 : 15) + '"></div></div>' +
       '<label for="nA">정답 (번호를 이어서)</label><input id="nA" class="ans" type="text" inputmode="numeric" autocomplete="off">' +
-      '<p class="meta" id="nCnt"></p><button type="button" class="btn" id="nAdd">시험 등록</button><p id="nMsg" class="msg" role="status"></p></div>' +
-      '<div class="card"><h2>등록된 시험</h2>' + (exs.length ? '<div class="tw"><table><thead><tr><th>반</th><th>이름</th><th>종류</th><th>시험일</th><th class="num">문항</th><th class="num">입력</th><th>정답</th><th></th></tr></thead><tbody>' +
-      exs.map(function (e) {
-        var n = D.results.filter(function (r) { return r.exam === e.id; }).length;
-        return '<tr><td>' + esc(cls(e.cls).name) + '</td><td>' + esc(e.label) + '</td><td>' + esc(e.kind) + '</td><td>' + esc(UI.dateLabel(e.date)) + '</td><td class="num">' + e.total + '</td><td class="num">' + n + '명</td>' +
-          '<td><input type="text" class="ans" style="font-size:13px!important;padding:4px 6px;width:' + Math.max(8, e.total * 0.75) + 'em" data-key="' + esc(e.id) + '" value="' + esc(e.key) + '" aria-label="' + esc(e.label) + ' 정답"> <button class="btn sub sm" type="button" data-savekey="' + esc(e.id) + '">정답 저장</button></td>' +
-          '<td>' + (n ? '' : '<button class="btn sub sm danger" type="button" data-del="' + esc(e.id) + '">삭제</button>') + '</td></tr>';
-      }).join('') + '</tbody></table></div><p class="meta" style="margin-top:8px">정답을 고쳐 저장하면 이미 입력한 답안을 새 정답으로 다시 채점합니다.</p>' : '<p class="empty">아직 없어요.</p>') + '<p id="xMsg" class="msg" role="status"></p></div>';
+      '<p class="meta" id="nCnt"></p><button type="button" class="btn" id="nAdd"' + (activeCls.length ? '' : ' disabled') + '>시험 등록</button></details></div>';
+
+    // 등록된 시험: 개념·단풀은 반(과목)별, 실전은 D·E 를 한 줄로
+    h += '<div class="card"><h2>' + esc(UI.monthLabel(month)) + ' 등록된 시험</h2>';
+    if (!exs.length) h += '<p class="empty">아직 없어요.</p>';
+    function keyCell(ids, e) { return '<td><input type="text" class="ans keyin" style="width:' + Math.max(8, e.total * 0.72) + 'em" data-key="' + esc(ids.join(',')) + '" value="' + esc(e.key) + '" aria-label="' + esc(e.label) + ' 정답"> <button class="btn sub sm" type="button" data-savekey="' + esc(ids.join(',')) + '">정답 저장</button></td>'; }
+    KINDS.forEach(function (k) {
+      var ofKind = exs.filter(function (e) { return cls(e.cls).kind === k[0]; });
+      if (!ofKind.length) return;
+      h += '<h3 class="grp">' + k[1] + '</h3>';
+      if (k[0] === '실전') {
+        var labels = []; ofKind.forEach(function (e) { if (labels.indexOf(e.label) < 0) labels.push(e.label); });
+        h += '<div class="tw"><table><thead><tr><th>시험</th><th>종류</th><th class="num">문항</th><th>입력</th><th>정답</th><th></th></tr></thead><tbody>' + labels.map(function (lb) {
+          var es = ofKind.filter(function (e) { return e.label === lb; }), ids = es.map(function (e) { return e.id; });
+          var cnt = es.map(function (e) { return realSuffix(e.cls) + ' ' + D.results.filter(function (r) { return r.exam === e.id; }).length + '명'; }).join(' · ');
+          var any = es.some(function (e) { return D.results.some(function (r) { return r.exam === e.id; }); });
+          return '<tr><td><b>' + esc(lb) + '</b></td><td>' + esc(es[0].kind) + '</td><td class="num">' + es[0].total + '</td><td>' + cnt + '</td>' + keyCell(ids, es[0]) +
+            '<td>' + (any ? '' : '<button class="btn sm danger" type="button" data-del="' + esc(ids.join(',')) + '">삭제</button>') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+        return;
+      }
+      var cl = []; ofKind.forEach(function (e) { if (cl.indexOf(e.cls) < 0) cl.push(e.cls); });
+      cl.forEach(function (code) {
+        h += '<p class="sub">' + esc(cls(code).name) + (subjNow(code) ? ' · ' + esc(subjNow(code)) : '') + '</p><div class="tw"><table><thead><tr><th>시험</th><th>종류</th><th class="num">문항</th><th class="num">입력</th><th>정답</th><th></th></tr></thead><tbody>' +
+          ofKind.filter(function (e) { return e.cls === code; }).map(function (e) {
+            var n = D.results.filter(function (r) { return r.exam === e.id; }).length;
+            return '<tr><td><b>' + esc(e.label) + '</b></td><td>' + esc(e.kind) + '</td><td class="num">' + e.total + '</td><td class="num">' + n + '명</td>' + keyCell([e.id], e) +
+              '<td>' + (n ? '' : '<button class="btn sm danger" type="button" data-del="' + esc(e.id) + '">삭제</button>') + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+      });
+    });
+    if (exs.length) h += '<p class="meta" style="margin-top:10px">정답을 고쳐 저장하면 이미 입력한 답안을 새 정답으로 다시 채점해요.</p>';
+    h += '<p id="xMsg" class="msg" role="status"></p></div>';
+    $('#view').innerHTML = h;
+
+    all('#view [data-ek]').forEach(function (b) { b.onclick = function () { examKind = b.getAttribute('data-ek'); vExams(); }; });
+    function chain(tasks, done) {   // 요청을 하나씩 (시트 잠금 때문에 동시에 보내지 않음)
+      var i = 0, okN = 0, err = '';
+      (function next() {
+        if (i >= tasks.length) return done(okN, err);
+        tasks[i++]().then(function (r) { if (r.ok) okN++; else err = r.error; next(); });
+      })();
+    }
+    function addExamTo(code, p) { return function () { return req('addExam', { cls: code, month: month, kind: p.kind, label: p.label, total: p.total, key: p.key }).then(function (r) { if (r.ok) D.exams.push(r.data); return r; }); }; }
+    function addHwTo(code, p) { return function () { return req('addHomework', { cls: code, month: month, label: p.label, total: p.total }).then(function (r) { if (r.ok) D.homework.push(r.data); return r; }); }; }
+    function finish(okN, err) { vExams(); msg($('#nMsg'), !err, err ? err : okN + '개 준비했어요. 「답안 입력」에서 바로 입력할 수 있어요.'); }
+    all('#view [data-prep]').forEach(function (b) {
+      b.onclick = function () {
+        var code = b.getAttribute('data-prep'), subj = $('#view [data-subsel="' + code + '"]').value;
+        if (!subj) return msg($('#nMsg'), false, '과목을 먼저 골라 주세요.');
+        var other = activeCls.filter(function (c) { return c.code !== code && subjNow(c.code) === subj; })[0];
+        if (other && !b.getAttribute('data-armed')) { b.setAttribute('data-armed', '1'); b.textContent = other.name + '도 ' + subj + '예요. 그래도 준비'; return; }
+        var set = papers.filter(function (p) { return p.ban === examKind && p.subj === subj; });
+        var tasks = [];
+        set.forEach(function (p) {
+          if (hasPaper(code, p)) return;
+          if (p.kind === '일문일답') { if (examKind === '개념') tasks.push(addHwTo(code, p)); }
+          else if (p.kind === '소테스트' || p.kind === '월말테스트') tasks.push(addExamTo(code, p));
+        });
+        if (!tasks.length) return msg($('#nMsg'), true, '이미 다 준비돼 있어요.');
+        b.disabled = true; b.textContent = '준비하는 중…';
+        chain(tasks, finish);
+      };
+    });
+    all('#view [data-subsel]').forEach(function (sel) {
+      sel.onchange = function () { var b = $('#view [data-prep="' + sel.getAttribute('data-subsel') + '"]'); if (b) { b.removeAttribute('data-armed'); b.textContent = '준비하기'; } };
+    });
+    all('#view [data-reg]').forEach(function (b) {
+      b.onclick = function () {
+        var p = paper(b.getAttribute('data-reg')); if (!p) return;
+        b.disabled = true; b.textContent = '등록 중…';
+        chain(activeCls.filter(function (c) { return !hasPaper(c.code, p); }).map(function (c) { return addExamTo(c.code, p); }), finish);
+      };
+    });
     function cnt() { var t = +$('#nT').value || 0; $('#nA').value = Core.cleanKey($('#nA').value).slice(0, t); $('#nCnt').textContent = '정답 ' + $('#nA').value.length + ' / ' + t; }
     $('#nA').oninput = cnt; $('#nT').oninput = cnt; cnt();
     $('#nAdd').onclick = function () {
-      var b = this; b.disabled = true;
-      var label = $('#nL').value.trim() || ($('#nK').value + ' ' + UI.dateLabel($('#nD').value || D.today));
-      req('addExam', { cls: $('#nC').value, kind: $('#nK').value, label: label, total: $('#nT').value, key: $('#nA').value, date: $('#nD').value, month: month }).then(function (r) {
-        b.disabled = false;
-        if (!r.ok) return msg($('#nMsg'), false, r.error);
-        D.exams.push(r.data); curExam = r.data.id; vExams(); msg($('#nMsg'), true, '등록했어요. 「답안 입력」에서 바로 입력할 수 있어요.');
-      });
+      var b = this, label = $('#nL').value.trim();
+      if (!label) return msg($('#nMsg'), false, '시험 이름을 적어 주세요.');
+      var p = { kind: $('#nK').value, label: label, total: $('#nT').value, key: $('#nA').value };
+      var targets = real ? activeCls.map(function (c) { return c.code; }) : [$('#nC').value];
+      b.disabled = true;
+      chain(targets.map(function (code) { return addExamTo(code, p); }), function (okN, err) { b.disabled = false; finish(okN, err); });
     };
     all('#view [data-savekey]').forEach(function (b) {
       b.onclick = function () {
-        var id = b.getAttribute('data-savekey'), v = $('#view [data-key="' + id + '"]').value;
-        req('updateExamKey', { exam: id, key: v }).then(function (r) { if (!r.ok) return msg($('#xMsg'), false, r.error); D = r.data; vExams(); msg($('#xMsg'), true, '정답을 고치고 다시 채점했어요.'); });
+        var ids = b.getAttribute('data-savekey').split(','), v = $('#view [data-key="' + b.getAttribute('data-savekey') + '"]').value, last = null;
+        chain(ids.map(function (id) { return function () { return req('updateExamKey', { exam: id, key: v }).then(function (r) { if (r.ok) last = r.data; return r; }); }; }), function (okN, err) {
+          if (last) D = last; vExams(); msg($('#xMsg'), !err, err || '정답을 고치고 다시 채점했어요.');
+        });
       };
     });
     all('#view [data-del]').forEach(function (b) {
       twoStep(b, '삭제', function () {
-        var id = b.getAttribute('data-del');
-        req('deleteExam', { exam: id }).then(function (r) { if (!r.ok) return msg($('#xMsg'), false, r.error); D.exams = D.exams.filter(function (e) { return e.id !== id; }); vExams(); });
+        var ids = b.getAttribute('data-del').split(',');
+        chain(ids.map(function (id) { return function () { return req('deleteExam', { exam: id }).then(function (r) { if (r.ok) D.exams = D.exams.filter(function (e) { return e.id !== id; }); return r; }); }; }), function (okN, err) { vExams(); if (err) msg($('#xMsg'), false, err); });
       });
     });
   }
+  /** 그 반·이 달에 이 시험지(이름이 같은 시험 또는 숙제)가 이미 있는지 */
+  function hasPaper(code, p) {
+    var pool = p.kind === '일문일답' ? hwOfMonth() : examsOfMonth();
+    return pool.some(function (x) { return x.cls === code && x.label === p.label; });
+  }
 
   /* ---------- 숙제 ---------- */
+  var newCls = '';
   function vHw() {
     var hws = hwOfMonth();
     var add = '<div class="card"><details' + (hws.length ? '' : ' open') + '><summary>' + esc(UI.monthLabel(month)) + ' 숙제 등록</summary><div class="fields">' +
-      '<div><label for="hC">반</label><select id="hC">' + classOptions() + '</select></div>' +
+      '<div><label for="hC">반</label><select id="hC">' + classOptions(newCls) + '</select></div></div><div id="hPick"></div><div class="fields">' +
       '<div><label for="hL">숙제 이름</label><input id="hL" type="text" placeholder="예: 4주차 숙제"></div>' +
       '<div><label for="hB">교재 <span class="opt">(선택)</span></label><input id="hB" type="text"></div>' +
       '<div><label for="hP0">시작 쪽 <span class="opt">(선택)</span></label><input id="hP0" type="number" min="1"></div>' +
@@ -221,8 +432,9 @@
     var hw = hws.filter(function (h) { return h.id === curHw; })[0], mem = rosterFor(hw.cls, hw.month);
     var done = mem.filter(function (s) { return subOf(hw.id, s.code); });
     $('#view').innerHTML =
-      '<div class="card"><label for="hSel">숙제</label><select id="hSel">' + hws.map(function (h) { return '<option value="' + esc(h.id) + '"' + (h.id === curHw ? ' selected' : '') + '>' + esc(cls(h.cls).name) + ' · ' + esc(h.label) + '</option>'; }).join('') + '</select>' +
+      '<div class="card"><label for="hSel">숙제</label><select id="hSel">' + hws.map(function (h) { return '<option value="' + esc(h.id) + '"' + (h.id === curHw ? ' selected' : '') + '>' + esc(clsShort(h.cls)) + ' · ' + esc(h.label) + '</option>'; }).join('') + '</select>' +
       '<p class="meta" style="margin-top:8px">' + pages(hw) + (hw.total ? ' · ' + hw.total + '문' : '') + ' · 제출 ' + done.length + ' / ' + mem.length + '명 · 확인 ' + done.filter(function (s) { return subOf(hw.id, s.code).checked; }).length + '명</p>' +
+      missBox(hw, mem) +
       '<div class="tw" style="margin-top:10px"><table><thead><tr><th>이름</th><th>번호</th><th>상태</th><th class="num">맞은 개수</th><th class="num">사진</th><th>확인</th><th></th></tr></thead><tbody>' +
       mem.map(function (s) {
         var u = subOf(hw.id, s.code);
@@ -232,10 +444,10 @@
           '<td>' + (u && u.photos ? '<button type="button" class="btn sub sm" data-ph="' + esc(s.code) + '">사진 보기</button>' : '') +
           (u ? '' : '<input type="number" min="0" style="width:5.5em;padding:4px 6px;font-size:13px" data-pxv="' + esc(s.code) + '" placeholder="개수" aria-label="' + esc(s.name) + ' 맞은 개수"> <button type="button" class="btn sub sm" data-px="' + esc(s.code) + '">대신 입력</button>') + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
-      '<p class="meta" style="margin-top:10px">미제출: ' + (mem.filter(function (s) { return !subOf(hw.id, s.code); }).map(function (s) { return esc(s.name); }).join(', ') || '없음') + '</p>' +
       (D.hwSubs.some(function (s) { return s.hw === hw.id; }) ? '' : '<button type="button" class="btn sub sm danger" id="hDel" style="margin-top:10px">이 숙제 삭제</button>') +
       '<p id="hwMsg" class="msg" role="status"></p></div>' + add;
     $('#hSel').onchange = function () { curHw = this.value; vHw(); };
+    bindMiss(hw, mem);
     all('#view [data-ck]').forEach(function (c) {
       c.onchange = function () {
         var code = c.getAttribute('data-ck');
@@ -254,6 +466,14 @@
     });
     bindAdd();
     function bindAdd() {
+      function pick() {
+        var c = $('#hC').value;
+        $('#hPick').innerHTML = paperPick('hP', c, ['일문일답'], function (p) { return hws.some(function (h) { return h.cls === c && h.label === p.label; }); });
+        if (!$('#hP')) return;
+        $('#hP').onchange = function () { var p = paper(this.value); if (!p) return; $('#hL').value = p.label; $('#hT').value = p.total; };
+      }
+      $('#hC').onchange = function () { newCls = this.value; pick(); };
+      pick();
       $('#hAdd').onclick = function () {
         var b = this; b.disabled = true;
         req('addHomework', { cls: $('#hC').value, label: $('#hL').value, book: $('#hB').value, p0: $('#hP0').value, p1: $('#hP1').value, total: $('#hT').value, month: month }).then(function (r) {
@@ -263,6 +483,33 @@
         });
       };
     }
+  }
+
+
+  /* 숙제 미제출 안내 문자 — 문구는 이 기기에 저장, {숙제} {이름} {인원} {주소} {마감} 가 바뀜 */
+  var HW_TPL = '[성적노트] {숙제} 미제출 안내\n아직 제출하지 않은 학생: {이름} ({인원}명)\n문제집 쪽 사진과 맞은 개수를 성적노트에 올려 주세요.\n{주소}';
+  function hwTpl() { return UI.store.get('seiseki.hwTpl') || HW_TPL; }
+  function studentUrl() { return location.origin + location.pathname.replace(/admin(\.html)?$/, ''); }
+  function missText(hw, miss) {
+    return hwTpl().replace(/\{숙제\}/g, clsShort(hw.cls) + ' ' + hw.label).replace(/\{이름\}/g, miss.map(function (s) { return s.name; }).join(', '))
+      .replace(/\{인원\}/g, String(miss.length)).replace(/\{주소\}/g, studentUrl());
+  }
+  function missBox(hw, mem) {
+    var miss = mem.filter(function (s) { return !subOf(hw.id, s.code); });
+    if (!miss.length) return '<div class="miss ok"><b>모두 냈어요</b></div>';
+    return '<div class="miss"><div class="row"><b>미제출 ' + miss.length + '명</b><button type="button" class="btn sm" id="mCopy">안내 문자 복사</button></div>' +
+      '<p class="names">' + miss.map(function (s) { return esc(s.name); }).join(', ') + '</p>' +
+      '<textarea class="tsv msgout" id="mText" rows="5" aria-label="안내 문자">' + esc(missText(hw, miss)) + '</textarea>' +
+      '<details class="tpl"><summary>문구 고치기</summary><p class="meta">{숙제} {이름} {인원} {주소} 는 자동으로 바뀌어요. 고친 문구는 이 기기에 저장돼요.</p>' +
+      '<textarea class="tsv" id="mTpl" rows="5" aria-label="안내 문자 문구">' + esc(hwTpl()) + '</textarea>' +
+      '<button type="button" class="btn sub sm" id="mTplReset">처음 문구로</button></details><div id="mOut2"></div></div>';
+  }
+  function bindMiss(hw, mem) {
+    if (!$('#mCopy')) return;
+    var miss = mem.filter(function (s) { return !subOf(hw.id, s.code); });
+    $('#mCopy').onclick = function () { UI.copy($('#mText').value, $('#mOut2'), '복사했어요. 카톡·문자에 붙여넣으세요.'); };
+    $('#mTpl').oninput = function () { UI.store.set('seiseki.hwTpl', this.value); $('#mText').value = missText(hw, miss); };
+    $('#mTplReset').onclick = function () { UI.store.del('seiseki.hwTpl'); $('#mTpl').value = HW_TPL; $('#mText').value = missText(hw, miss); };
   }
 
   function photos(hw, s) {
@@ -353,12 +600,11 @@
       exs.map(function (e) { return e.label + (real ? '(개수/환산)' : '(' + e.total + '문)'); }), ['평균', '숙제 제출']);
     var rows = rosterFor(cc, month).map(function (s) {
       var hc = hws.map(function (h) { var u = subOf(h.id, s.code); return u ? (u.count !== null ? String(u.count) : '제출') : '-'; });
-      var useConv = real && exs.length && exs.every(function (e) { var r = resultOf(e.id, s.code); return !r || r.conv !== null; });
       var vals = [];
       var ec = exs.map(function (e) {
         var r = resultOf(e.id, s.code); if (!r) return '-';
-        vals.push(useConv && r.conv !== null ? r.conv : r.score);
-        return real ? r.score + (r.conv !== null ? ' / ' + r.conv : '') : String(r.score);
+        vals.push(real ? conv200(r.score, e.total) : r.score);
+        return real ? r.score + ' / ' + conv200(r.score, e.total) : String(r.score);
       });
       var avg = vals.length ? (vals.reduce(function (a, b) { return a + b; }, 0) / vals.length).toFixed(1) : '-';
       var sub = hws.length ? hws.filter(function (h) { return subOf(h.id, s.code); }).length + '/' + hws.length : '-';
@@ -374,7 +620,7 @@
     var T = monthTable(monthCls);
     $('#view').innerHTML = '<div class="card"><div class="fields"><div><label for="mC">반</label><select id="mC">' + opts.map(function (c) { return '<option value="' + esc(c.code) + '"' + (c.code === monthCls ? ' selected' : '') + '>' + esc(c.name) + (used[c.code] ? '' : ' (이 달 기록 없음)') + '</option>'; }).join('') + '</select></div>' +
       '<div style="flex:0 0 auto"><button type="button" class="btn sub" id="mCp">표 복사</button> <button type="button" class="btn sub" id="mX">엑셀 내려받기</button></div></div>' +
-      '<p class="meta" style="margin-top:8px">' + esc(UI.monthLabel(month)) + ' · 평균은 테스트(소테스트·월말·모의고사)만으로 계산하고 숙제는 따로 둡니다.' + (T.real ? ' 환산점수가 모두 있으면 평균은 환산점수 기준입니다.' : '') + ' 학생평가는 칸을 벗어나면 저장돼요.</p><div id="mOut"></div>' +
+      '<p class="meta" style="margin-top:8px">' + esc(UI.monthLabel(month)) + ' · 평균은 테스트(소테스트·월말·모의고사)만으로 계산하고 숙제는 따로 둡니다.' + (T.real ? ' 실전반 환산점수는 맞은 개수 ÷ 문항 수 × 200 (득점등화는 학생 개인 성적표에만), 평균은 환산점수 기준이에요.' : '') + ' 학생평가는 칸을 벗어나면 저장돼요.</p><div id="mOut"></div>' +
       '<div class="tw" style="margin-top:10px"><table><thead><tr>' + T.head.map(function (h, i) { return '<th' + (i > 1 ? ' class="num"' : '') + '>' + esc(h) + '</th>'; }).join('') + '</tr></thead><tbody>' +
       (T.rows.length ? T.rows.map(function (r) {
         return '<tr><td>' + esc(r.s.name) + '</td><td><textarea class="cm" rows="2" data-ev="' + esc(r.s.code) + '" aria-label="' + esc(r.s.name) + ' 학생평가">' + esc(r.eval) + '</textarea></td>' +
@@ -394,25 +640,72 @@
     function aoa() { return [T.head].concat(T.rows.map(function (r) { return [r.s.name, r.eval.replace(/[\t\r\n]+/g, ' ')].concat(r.cells); })); }
     $('#mCp').onclick = function () { UI.copy(aoa().map(function (row) { return row.join('\t'); }).join('\n'), $('#mOut')); };
     $('#mX').onclick = function () {
-      loadXlsx().then(function (X) {
-        var data = [['종합과목 ' + T.c.name + ' · ' + UI.monthLabel(month)], []].concat(aoa());
-        var ws = X.utils.aoa_to_sheet(data);
-        ws['!cols'] = T.head.map(function (h, i) { return { wch: i === 1 ? 40 : Math.max(8, h.length + 4) }; });
-        var wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, T.c.name.slice(0, 28).replace(/[\\\/?*\[\]:]/g, ' '));
-        X.writeFile(wb, month.replace('-', '').slice(2) + '_' + T.c.name.replace(/[\\\/:*?"<>|]/g, ' ') + '_월말.xlsx');
-      }).catch(function () { $('#mOut').innerHTML = '<p class="msg err">엑셀 도구를 불러오지 못했어요. 인터넷 연결을 확인하거나 「표 복사」를 써 주세요.</p>'; });
+      var b = this; b.disabled = true; b.textContent = '만드는 중…';
+      loadExcel().then(function (X) {
+        var m = monthModel(monthCls);
+        return MonthXlsx.build(X, m).xlsx.writeBuffer().then(function (buf) {
+          var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = m.file + '.xlsx';
+          document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+          $('#mOut').innerHTML = '<p class="msg ok">' + esc(m.file) + '.xlsx 를 내려받았어요.</p>';
+        });
+      }).catch(function () { $('#mOut').innerHTML = '<p class="msg err">엑셀 도구를 불러오지 못했어요. 인터넷 연결을 확인하거나 「표 복사」를 써 주세요.</p>'; })
+        .then(function () { b.disabled = false; b.textContent = '엑셀 내려받기'; });
     };
   }
-  var xlsxP = null;
-  function loadXlsx() {
-    if (window.XLSX) return Promise.resolve(window.XLSX);
-    if (!xlsxP) xlsxP = new Promise(function (res, rej) {
+
+  /** 학원 제출 양식(2609 개념·단풀·실전문풀 파일)에 맞춘 월말 엑셀 내용 */
+  function monthModel(cc) {
+    var c = cls(cc), kind = c.kind, time = String(c.time || '').replace(/\s+/g, '');
+    var yymm = month.slice(2, 4) + month.slice(5, 7);
+    var exs = D.exams.filter(function (e) { return e.cls === cc && e.month === month; }).sort(function (a, b) { return (a.date + a.created).localeCompare(b.date + b.created); });
+    var hws = D.homework.filter(function (h) { return h.cls === cc && h.month === month; });
+    var subj = '';
+    exs.concat(hws).some(function (x) { subj = subjOf(x.label); return !!subj; });
+    var full = subj === '현사' ? '현대사회' : subj;
+    var people = rosterFor(cc, month);
+    function evalOf(s) { var ev = D.evals.filter(function (x) { return x.month === month && x.code === s.code; })[0]; return ev ? ev.text : ''; }
+    if (kind === '실전') {
+      var sfx = realSuffix(cc), n = 0;
+      var cols = exs.filter(function (e) { return e.kind !== '월말테스트'; }).map(function (e) { n++; return { head: '모의고사' + n + '회(개수/환산점수)', e: e }; })
+        .concat(exs.filter(function (e) { return e.kind === '월말테스트'; }).map(function (e) { return { head: '월말테스트(개수/환산점수)', e: e }; }));
+      return { kind: '실전', title: '종합과목 실전문풀' + sfx + (time ? '(' + time + ')' : ''), sheet: '실전문풀' + sfx, file: yymm + '실전문풀' + sfx,
+        cols: cols, rows: people.map(function (s) {
+          return { name: s.name, eval: evalOf(s), vals: cols.map(function (col) { var r = resultOf(col.e.id, s.code); return r ? [r.score, conv200(r.score, col.e.total)] : null; }) };
+        }) };
+    }
+    // 개념·단풀: 숙제·주차 테스트를 주차 순서대로(숙제 먼저), 그 뒤 월말
+    function week(label) { var m = /(\d+)\s*주차/.exec(label); return m ? +m[1] : 99; }
+    var items = hws.map(function (h, i) { return { type: 'hw', x: h, w: week(h.label), o: i }; })
+      .concat(exs.filter(function (e) { return e.kind !== '월말테스트'; }).map(function (e, i) { return { type: 'test', x: e, w: week(e.label), o: 100 + i }; }))
+      .sort(function (a, b) { return a.w - b.w || (a.type === b.type ? a.o - b.o : (a.type === 'hw' ? -1 : 1)); })
+      .concat(exs.filter(function (e) { return e.kind === '월말테스트'; }).map(function (e) { return { type: 'final', x: e }; }));
+    var cols2 = items.map(function (it) {
+      var t = it.x.total;
+      if (it.type === 'hw') return { type: 'hw', head: '숙제' + (t ? '(' + t + '문)' : ''), it: it };
+      if (it.type === 'final') return { type: 'final', head: kind === '개념' ? '(' + t + '문)' : t + '문', it: it };
+      var nm = it.w < 99 ? it.w + '주차' : String(it.x.label).replace(new RegExp('^' + subj + '\\s*'), '');
+      return { type: 'test', head: nm + '(' + t + '문)', it: it };
+    });
+    return { kind: kind, sheet: full || kind, file: yymm + subj + kind,
+      title: kind === '단풀' ? '종합과목 ' + full + '단풀' + (time ? '(' + time + ')' : '') : '종합과목 ' + kind + (full ? '(' + full + ')' : '') + (time ? '(' + time + ')' : ''),
+      cols: cols2, rows: people.map(function (s) {
+        return { name: s.name, eval: evalOf(s), vals: cols2.map(function (col) {
+          if (col.type === 'hw') { var u = subOf(col.it.x.id, s.code); return u ? (u.count !== null ? u.count : '제출') : null; }
+          var r = resultOf(col.it.x.id, s.code); return r ? r.score : null;
+        }) };
+      }) };
+  }
+  var excelP = null;
+  function loadExcel() {
+    if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+    if (!excelP) excelP = new Promise(function (res, rej) {
       var s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-      s.onload = function () { window.XLSX ? res(window.XLSX) : rej(); }; s.onerror = function () { xlsxP = null; rej(); };
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+      s.onload = function () { window.ExcelJS ? res(window.ExcelJS) : rej(); }; s.onerror = function () { excelP = null; rej(); };
       document.head.appendChild(s);
     });
-    return xlsxP;
+    return excelP;
   }
 
   /* ---------- 시작 ---------- */

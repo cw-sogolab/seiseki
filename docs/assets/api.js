@@ -35,6 +35,7 @@ var Api = (function () {
 
   if (env === 'dev') {
     document.title = '[개발판] ' + document.title;
+    var ic = document.querySelector('link[rel=icon]'); if (ic) ic.href = ic.getAttribute('href').replace('favicon.svg', 'favicon-dev.svg');
     var bar = document.createElement('div');
     bar.className = 'devbar';
     bar.textContent = '개발판 — 새 기능 확인용입니다. 학생에게는 본판 주소를 알려 주세요.' + (demo ? (url ? ' (?demo — 미리보기 데이터로 열림)' : ' (개발판 웹앱 주소가 없어 미리보기 데이터로 열림)') : '');
@@ -58,11 +59,11 @@ var UI = {
   },
   monthLabel: function (m) { var p = String(m).split('-'); return p.length === 2 ? p[0] + '년 ' + (+p[1]) + '월' : m; },
   dateLabel: function (d) { var p = String(d).split('-'); return p.length >= 3 ? (+p[1]) + '/' + (+p[2]) : d; },
-  copy: function (text, out) {
+  copy: function (text, out, okText) {
     function fb() {
       out.innerHTML = '<p class="meta">자동 복사가 막혀 있어요. 아래 내용을 선택해 복사해 주세요.</p><textarea readonly class="tsv">' + UI.esc(text) + '</textarea>';
       var t = out.querySelector('textarea'); t.focus(); t.select();
     }
-    try { navigator.clipboard.writeText(text).then(function () { out.innerHTML = '<p class="msg ok">복사했어요. 엑셀에 붙여넣으세요.</p>'; }, fb); } catch (e) { fb(); }
+    try { navigator.clipboard.writeText(text).then(function () { out.innerHTML = '<p class="msg ok">' + (okText || '복사했어요. 엑셀에 붙여넣으세요.') + '</p>'; }, fb); } catch (e) { fb(); }
   }
 };
