@@ -228,3 +228,20 @@ table.wt tr.n td{font-size:13px;font-weight:600;color:var(--faint);border-bottom
 table.wt tr.k td{color:var(--blue-ink);background:var(--blue-soft)}
 table.wt tr.a td{color:var(--red);background:var(--red-soft)}
 .allok{display:inline-block;margin:6px 0 0;padding:6px 12px;border-radius:10px;background:var(--green-soft);color:var(--green);font-weight:700;font-size:14px}
+
+/* 시험 등록: 과목 칩 · 시험지 목록 */
+.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chiprow .tab{background:var(--fill);box-shadow:none;padding:8px 14px;border-radius:999px;font-size:14px}
+.chiprow .tab[aria-selected="true"]{background:var(--ink);color:var(--surface)}
+.plist{margin-top:14px;border:1px solid var(--line);border-radius:14px}
+.plist.scroll{max-height:420px;overflow-y:auto}
+.prow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line2)}
+.prow:first-child{border-top:0}
+.prow b{display:block;font-size:15.5px}
+.prow .meta{display:block;margin-top:1px}
+details.manual{margin-top:16px;border-top:1px solid var(--line2);padding-top:14px}
+details.manual>summary{font-size:15px;color:var(--muted)}
+h3.grp{font-size:16px;font-weight:800;margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line2)}
+h2+h3.grp{border-top:0;padding-top:0;margin-top:4px}
+p.sub{font-size:13.5px;font-weight:700;color:var(--blue-ink);margin:12px 0 6px}
+input.keyin{font-size:13px!important;padding:6px 8px!important;letter-spacing:.08em}
