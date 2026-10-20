@@ -120,6 +120,7 @@ var Logic = (function () {
     var showKey = S(env.props.get('SHOW_KEY')) === 'Y';
     var cls = classes(env), ex = exams(env), rs = results(env), hw = homework(env), subs = hwSubs(env);
     // 지금 듣는 반 + 예전에 기록이 있는 반 (반이 매달 바뀌어도 지난 성적이 보이게)
+    var curMonth = C.monthOf(env.now());
     var mine = stu.classes.slice();
     function add(c) { if (c && mine.indexOf(c) < 0) mine.push(c); }
     rs.forEach(function (r) { if (r.code === stu.code) ex.forEach(function (e) { if (e.id === r.exam) add(e.cls); }); });
@@ -141,12 +142,15 @@ var Logic = (function () {
             conv: mine ? mine.conv : null, convAvg: C.mean(convs), wrong: mine ? mine.wrong : [] };
           if (showKey && mine) t.wrongDetail = C.grade(e.key, mine.answers).wrong;
           return t;
+        }).filter(function (t) {
+          // 지난 달은 본 시험만, 이번 달은 지금 듣는 반의 시험 전부 (반이 달마다 바뀌어도 남의 달 시험이 「미응시」로 쌓이지 않게)
+          return t.score !== null || (t.month >= curMonth && stu.classes.indexOf(c.code) >= 0);
         });
         var hws = hw.filter(function (h) { return h.cls === c.code; }).map(function (h) {
           var s = subs.filter(function (x) { return x.hw === h.id && x.code === stu.code; })[0];
           return { id: h.id, month: h.month, label: h.label, book: h.book, p0: h.p0, p1: h.p1, total: h.total,
             done: !!s, count: s ? s.count : null, photos: s ? s.photos : 0, checked: s ? s.checked : false };
-        });
+        }).filter(function (w) { return w.done || (w.month >= curMonth && stu.classes.indexOf(c.code) >= 0); });
         return { code: c.code, name: c.name, kind: c.kind, time: c.time, current: stu.classes.indexOf(c.code) >= 0, tests: tests, hw: hws };
       })
     };
@@ -212,9 +216,9 @@ var Logic = (function () {
     var locked = lockCheck(env, 'a:' + dev);
     if (locked) return fail(locked);
     if (num(env.cache.get('agfail')) >= ADMIN_GLOBAL_FAILS) return fail('관리자 비밀번호가 여러 번 틀려서 1시간 동안 막혔어요. 그 뒤에 다시 해 주세요.');
-    var pw = S(env.props.get('ADMIN_PASSWORD'));
+    var pw = S(env.props.get('ADMIN_PASSWORD')).trim();
     if (!pw) return fail('관리자 비밀번호가 아직 없어요. 구글 시트 메뉴 「성적노트 → 관리자 비밀번호 설정」에서 정해 주세요.');
-    if (S(p.password) !== pw) {
+    if (S(p.password).trim() !== pw) {   // 휴대폰 자동완성이 붙이는 앞뒤 빈칸은 무시
       env.cache.put('agfail', String(num(env.cache.get('agfail')) + 1), ADMIN_GLOBAL_SEC);
       var left = lockFail(env, 'a:' + dev);
       return fail(left ? '비밀번호가 달라요. (남은 기회 ' + left + '번)' : '5번 틀렸어요. 1분 뒤에 다시 해 주세요.');
@@ -288,10 +292,10 @@ var Logic = (function () {
   function addHomework(env, p) {
     if (!S(p.label).trim()) return fail('숙제 이름을 적어 주세요.');
     if (!classes(env).some(function (c) { return c.code === S(p.cls); })) return fail('반을 골라 주세요.');
-    var p0 = num(p.p0), p1 = num(p.p1), total = num(p.total);
-    if (!p0 || !p1 || p1 < p0) return fail('쪽 범위를 확인해 주세요.');
+    var p0 = num(p.p0), p1 = num(p.p1) || num(p.p0), total = num(p.total);
+    if ((p0 || num(p.p1)) && (!p0 || p1 < p0)) return fail('쪽 범위를 확인해 주세요. (쓰지 않아도 돼요)');
     var h = { '숙제ID': newId(env, 'H'), '반코드': S(p.cls), '월': S(p.month) || C.monthOf(env.now()), '이름': S(p.label).trim(),
-      '교재': S(p.book).trim(), '시작쪽': p0, '끝쪽': p1, '문항수': total || '', '등록일': stamp(env) };
+      '교재': S(p.book).trim(), '시작쪽': p0 || '', '끝쪽': p0 ? p1 : '', '문항수': total || '', '등록일': stamp(env) };
     env.store.append('숙제', h);
     return ok(homework(env).filter(function (x) { return x.id === h['숙제ID']; })[0]);
   }

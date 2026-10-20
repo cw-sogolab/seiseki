@@ -110,8 +110,8 @@
     h += '</div><div class="card"><h2>숙제</h2>';
     if (!hws.length) h += '<p class="empty">이 달에 온라인으로 낼 숙제가 없어요.</p>';
     hws.forEach(function (w) {
-      var detail = esc(w.book) + ' p.' + w.p0 + '~' + w.p1 + (w.total ? ' · ' + w.total + '문' : '');
-      if (w.done) detail += ' · 사진 ' + w.photos + '장' + (w.count !== null ? ' · 맞은 개수 ' + w.count : '');
+      var detail = [w.book ? esc(w.book) : '', w.p0 ? 'p.' + w.p0 + '~' + w.p1 : '', w.total ? w.total + '문' : ''].filter(Boolean).join(' · ');
+      if (w.done) detail += (detail ? ' · ' : '') + (w.photos ? '사진 ' + w.photos + '장' : '선생님 입력') + (w.count !== null ? ' · 맞은 개수 ' + w.count : '');
       h += '<div class="item"><div class="row"><div><b>' + esc(w.label) + '</b><p class="meta">' + detail + '</p></div>' +
         (w.done ? '<span class="pill ' + (w.checked ? 'ok">선생님 확인' : 'ok">제출 완료') + '</span>' : '<button class="btn sm" type="button" data-hw="' + esc(w.id) + '">제출하기</button>') + '</div>' +
         (w.done ? '<button class="linkbtn" type="button" data-hw="' + esc(w.id) + '">사진 더 올리기</button>' : '') +
