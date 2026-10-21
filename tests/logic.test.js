@@ -419,4 +419,21 @@ t('문항과목으로 과목별 내 정답률·반 평균, 달별·종합, 취�
   assert.ok(v.all.n >= 3 && v.all.subs.length === 5, '종합에 10월·9월 모의고사도 (예시 문항과목)');
   assert.strictEqual(Logic.handle(e, 'login', { code: 'KM482919' }).data.subj, null, '실전반 기록이 없으면 null');
 });
+console.log('문항 분석 (강사 화면)');
+t('이 반 정답률·누적 정답률(같은 이름·같은 정답의 다른 달·반 포함)·고른 답 분포·많이 고른 오답', () => {
+  const e = Mock.seed(Mock.createEnv());
+  const B = Logic.handle(e, 'adminLogin', { password: 'demo', dev: 'item' }).data.boot;
+  assert.ok(B && B.exams, '강사 데이터');
+  const A = Logic.itemStats(B, 'E5');
+  assert.strictEqual(A.here.n, 3); assert.strictEqual(A.cum.n, 6, '9월 실전E 같은 시험(E8)까지 누적');
+  assert.deepStrictEqual(A.cum.months, ['2026-09', '2026-10']);
+  const q12 = A.items[11];   // E5: 박테스트만 12번 틀림, E8: 셋 다 12번 틀림 → 이 반 2/3, 누적 2/6
+  assert.strictEqual(q12.here.rate, 66.7); assert.strictEqual(q12.cum.rate, 33.3);
+  assert.ok(q12.flags.includes('cumLow') && q12.flags.includes('trap'), q12.flags.join());
+  const wrongCh = String((+q12.key) % 4 + 1);
+  assert.strictEqual(q12.cum.trap.ch, wrongCh); assert.strictEqual(q12.cum.trap.cnt, 4);
+  assert.strictEqual(q12.subj, '현대사회', '시험지 문항과목(예시)');
+  assert.strictEqual(Logic.itemStats(B, 'E6').cum.n, 2, '다른 시험은 따로');
+  assert.strictEqual(Logic.itemStats(B, 'nope'), null);
+});
 console.log(`\n${passed} passed` + (process.exitCode ? ', 실패 있음' : ''));

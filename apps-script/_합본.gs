@@ -293,7 +293,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = 'dd2a7dd8ea';
+  var VERSION = 'c369605026';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -458,6 +458,70 @@ var Logic = (function () {
       return { subs: subs, weak: weak ? weak.s : null, n: g.n };
     }
     return { all: pack(groups.all), months: Object.keys(groups).filter(function (k) { return k !== 'all'; }).sort().map(function (m) { var o = pack(groups[m]); o.m = m; return o; }) };
+  }
+  /** 문항 분석 (강사 화면 「문항 분석」): 시험 하나의 문항마다 그 반 정답률·고른 답 분포와,
+   *  같은 시험의 누적(반 종류 + 시험 이름이 같고 문항 수·정답이 같은 모든 달·모든 반) 정답률·분포.
+   *  D = 강사 bootstrap 데이터 { exams, results, classes, papers }. 빈칸('0')은 틀린 것으로 셈(점수와 같게).
+   *  답안이 없는 옮겨 온 성적은 틀린 번호로 정답률에만, 점수만 있으면 평균에만 들어감.
+   *  flags: low(그 반 정답률 50% 미만) · below(누적보다 15%p 이상 낮음) · cumLow(누적 50% 미만) · trap(한 오답에 30% 이상 몰림)
+ *  — 이 반은 4명, 누적은 6명 이상 답했을 때만 */
+  var ITEM_LOW = 50, ITEM_BELOW = 15, ITEM_TRAP = 30, ITEM_MIN = 4, ITEM_MIN_CUM = 6;   // 몇 명 안 되는 반에서 한 명 차이로 표시되지 않게
+  function itemStats(D, id) {
+    loadCore();
+    var kindOf = {}, e = null;
+    (D.classes || []).forEach(function (c) { kindOf[c.code] = c.kind; });
+    (D.exams || []).forEach(function (x) { if (x.id === id) e = x; });
+    if (!e || !e.total) return null;
+    var n = e.total, kind = kindOf[e.cls], lk = labelKey(e.label), subjs = '';
+    (D.papers || []).forEach(function (p) { if (labelKey(p.label) === lk && p.subjs && p.subjs.length === n) subjs = p.subjs; });
+    var same = (D.exams || []).filter(function (x) {
+      return kindOf[x.cls] === kind && labelKey(x.label) === lk && x.total === n && (!e.key || !x.key || x.key === e.key);   // 정답이 다르면 다른 버전
+    });
+    var sameId = {}; same.forEach(function (x) { sameId[x.id] = x; });
+    function bag() { var it = []; for (var i = 0; i < n; i++) it.push({ c: 0, t: 0, d: 0, blank: 0, dist: {} }); return { n: 0, sum: 0, items: it, months: {} }; }
+    var here = bag(), cum = bag();
+    function add(b, r, x) {
+      if (r.score > n) return;   // 입력 오타
+      b.n++; b.sum += r.score / n; b.months[x.month] = 1;
+      var key = x.key && x.key.length === n ? x.key : e.key, i, it;
+      if (r.answers && key && key.length === n) {
+        var a = C.padAnswers(r.answers, n);
+        for (i = 0; i < n; i++) {
+          it = b.items[i]; var ch = a.charAt(i);
+          it.t++; it.d++; if (ch === key.charAt(i)) it.c++;
+          if (ch === '0') it.blank++; else it.dist[ch] = (it.dist[ch] || 0) + 1;
+        }
+      } else if (r.score === n || (r.wrong.length && r.score + r.wrong.length === n)) {
+        for (i = 0; i < n; i++) { it = b.items[i]; it.t++; if (r.wrong.indexOf(i + 1) < 0) it.c++; }
+      }
+    }
+    (D.results || []).forEach(function (r) {
+      var x = sameId[r.exam]; if (!x) return;
+      add(cum, r, x);
+      if (r.exam === e.id) add(here, r, x);
+    });
+    function pct(a, t) { return t ? Math.round(a / t * 1000) / 10 : null; }
+    function one(it, k) {
+      var top = null;
+      Object.keys(it.dist).forEach(function (ch) { if (ch !== k && (!top || it.dist[ch] > it.dist[top])) top = ch; });
+      var dist = {}; Object.keys(it.dist).forEach(function (ch) { dist[ch] = pct(it.dist[ch], it.d); });
+      return { rate: pct(it.c, it.t), t: it.t, d: it.d, blank: pct(it.blank, it.d), dist: dist,
+        trap: top ? { ch: top, pct: pct(it.dist[top], it.d), cnt: it.dist[top] } : null };
+    }
+    var items = [];
+    for (var i = 0; i < n; i++) {
+      var k = e.key ? e.key.charAt(i) : '', h = one(here.items[i], k), c = one(cum.items[i], k), f = [];
+      if (h.t >= ITEM_MIN && h.rate < ITEM_LOW) f.push('low');
+      if (h.t >= ITEM_MIN && c.t >= ITEM_MIN_CUM && c.t > h.t && h.rate - c.rate <= -ITEM_BELOW) f.push('below');
+      if (c.t >= ITEM_MIN_CUM && c.rate < ITEM_LOW) f.push('cumLow');
+      // 오답 쏠림: 한 오답을 30% 이상이 고름 (이 반은 2명 이상, 누적은 3명 이상이 같은 오답)
+      if ((h.trap && h.d >= ITEM_MIN && h.trap.cnt >= 2 && h.trap.pct >= ITEM_TRAP) || (c.trap && c.d >= ITEM_MIN_CUM && c.trap.cnt >= 3 && c.trap.pct >= ITEM_TRAP)) f.push('trap');
+      items.push({ i: i + 1, key: k, subj: subjs ? (SUBJ_CODE[subjs.charAt(i)] || '') : '', here: h, cum: c, flags: f });
+    }
+    return { id: e.id, label: e.label, month: e.month, cls: e.cls, kind: kind, total: n,
+      here: { n: here.n, avg: here.n ? Math.round(here.sum / here.n * 1000) / 10 : null },
+      cum: { n: cum.n, avg: cum.n ? Math.round(cum.sum / cum.n * 1000) / 10 : null, exams: same.length, months: Object.keys(cum.months).sort() },
+      items: items };
   }
   /** 학생에게 보여 줄 환산점수: 칸에 득점등화 값(7~10월 실전.xlsx)이 있으면 그 값, 비었거나 단순 비례 값(6월처럼 정답 수/문항 수×200)이면 계산한 득점등화 값 */
   function convOf(env, r) {
@@ -970,7 +1034,7 @@ var Logic = (function () {
   var WRITES = ['hwPhoto', 'hwFinish', 'saveResult', 'deleteResult', 'addExam', 'updateExamKey', 'deleteExam', 'addHomework',
     'deleteHomework', 'setChecked', 'proxyHw', 'importRoster', 'setClasses', 'saveEval', 'setHwDue'];
 
-  return { TABLES: TABLES, TEXT_COLS: TEXT_COLS, WRITES: WRITES, VERSION: VERSION, handle: handle, cleanupPhotos: cleanupPhotos };
+  return { TABLES: TABLES, TEXT_COLS: TEXT_COLS, WRITES: WRITES, VERSION: VERSION, handle: handle, cleanupPhotos: cleanupPhotos, itemStats: itemStats };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Logic;
 
