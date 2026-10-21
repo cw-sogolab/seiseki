@@ -217,6 +217,14 @@
   var KINDS = ['개념', '단풀', '실전'];
   /** 묶는 기준: 개념·단풀은 과목(시험·숙제 이름 첫 낱말), 실전은 D·E */
   function grpOf(c, x) { return kindOf(c) === '실전' ? String(c.code).split('-').pop() : (SUBJS[String(x.label).split(' ')[0]] || '기타'); }
+  /** 들은 달: 「2·6·8월」 (해가 다르면 「25년 11월 · 2월」, 많으면 「2~9월 · 5달」) */
+  function monthsText(ms) {
+    ms = ms.slice().sort(); if (!ms.length) return '';
+    var y = ms[0].slice(0, 4), same = ms.every(function (m) { return m.slice(0, 4) === y; }) && y === thisMonth().slice(0, 4);
+    if (!same) return ms.length > 2 ? monthShort(ms[0]) + '~' + monthShort(ms[ms.length - 1]) + ' · ' + ms.length + '달' : ms.map(monthShort).join(' · ');
+    if (ms.length > 4) return (+ms[0].slice(5)) + '~' + (+ms[ms.length - 1].slice(5)) + '월 · ' + ms.length + '달';
+    return ms.map(function (m) { return +m.slice(5); }).join('·') + '월';
+  }
   function monthShort(m) { return m.slice(0, 4) === thisMonth().slice(0, 4) ? (+m.slice(5)) + '월' : m.slice(2, 4) + '년 ' + (+m.slice(5)) + '월'; }
   /** 반 종류 하나의 과목들: 지금 듣는 과목 먼저, 그다음 최근에 들은 순 */
   function subjList(k) {
@@ -226,7 +234,8 @@
       var items = c.tests.concat(c.hw);
       if (k === '실전' && !items.length && c.current !== false) items = [{ label: '', month: tm }];   // 실전반은 첫 시험 전이어도 보이게
       items.forEach(function (x) {
-        var s = grpOf(c, x), mo = x.month || '', e = m[s] || (m[s] = { s: s, last: '', now: false, time: '' });
+        var s = grpOf(c, x), mo = x.month || '', e = m[s] || (m[s] = { s: s, last: '', now: false, time: '', ms: [] });
+        if (mo && e.ms.indexOf(mo) < 0) e.ms.push(mo);
         if (mo >= e.last) { e.last = mo; e.time = c.time || ''; }
         if (c.current !== false && mo === tm) e.now = true;
       });
@@ -259,7 +268,7 @@
     if (!subs.some(function (e) { return e.s === subjSel; })) subjSel = subs[0].s;
     $('#tabs').innerHTML = subs.map(function (e) {
       var big = kindSel === '실전' ? '실전반 ' + e.s : e.s;
-      var small = e.now ? (e.time || '지금 듣는 반') : (e.last ? monthShort(e.last) + '까지' : '');
+      var small = e.now ? (e.time || '지금 듣는 반') : monthsText(e.ms);
       return '<button class="tab" type="button" role="tab" data-s="' + esc(e.s) + '" aria-selected="' + (e.s === subjSel) + '">' + esc(big) + (small ? '<small>' + esc(small) + '</small>' : '') + '</button>';
     }).join('');
     UI.all('#tabs [data-s]').forEach(function (b) { b.onclick = function () { subjSel = b.getAttribute('data-s'); renderTabs(); }; });
