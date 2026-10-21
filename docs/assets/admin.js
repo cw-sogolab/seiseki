@@ -184,7 +184,7 @@
 
   /* ---------- 답안 입력 ---------- */
   var KINDS = [['개념', '개념반'], ['단풀', '단풀반'], ['실전', '실전반']], entryKind = '';
-  var entrySub = '', entryRound = '', entryDecade = '', decFor = '';
+  var entrySub = '', entryRound = '', entryDecade = '', decFor = '', entryPickOpen = false;
   function ejuOf(label) { var m = /EJU\s*(\d{4})\s*(?:\((\d)\)|-(\d))/.exec(label); return m ? { y: m[1], r: m[2] || m[3] } : null; }   // 「EJU 2011-2」(지금), 「EJU 2011(2)」(예전)
   function decadeOf(y) { return String(y).slice(0, 3) + '0'; }
   /** 요청을 하나씩 차례로 (시트 잠금 때문에 동시에 보내지 않음) */
@@ -246,7 +246,7 @@
       }).join('') + '</div>' : '');
     function bindHead() {
       all('#view .seg button').forEach(function (b) { b.onclick = function () { entryKind = b.getAttribute('data-k'); entrySub = ''; curExam = ''; vEntry(); }; });
-      all('#view [data-sub]').forEach(function (b) { b.onclick = function () { entrySub = b.getAttribute('data-sub'); curExam = ''; vEntry(); }; });
+      all('#view [data-sub]').forEach(function (b) { b.onclick = function () { entrySub = b.getAttribute('data-sub'); curExam = ''; entryPickOpen = false; vEntry(); }; });
     }
     var exs, ex, picker = '';
     if (entryKind === '실전') {
@@ -259,17 +259,22 @@
         }).join('') + '</div>' +
         '<div class="chiprow" aria-label="반">' + rsubs.map(function (x) { return '<button type="button" class="tab" data-sub="' + esc(x) + '" aria-selected="' + (x === entrySub) + '">실전반 ' + esc(x) + '</button>'; }).join('') + '</div>';
       var code = (realCls.filter(function (c) { return realSuffix(c.code) === entrySub; })[0] || {}).code;
-      exs = all_.filter(function (e) { return e.cls === code; });
-      ex = exs.filter(function (e) { return e.id === curExam; })[0] || null;
-      if (!ex && !entryRound) ex = exs[exs.length - 1] || null;
+      exs = all_.filter(function (e) { return e.cls === code; }).sort(function (a, b) { return (a.date || a.created).localeCompare(b.date || b.created); });
+      // 이 달 이 반 시험을 먼저 칩으로 보여 주고 (기본은 가장 최근 것), 새 기출 추가는 아래 「다른 기출 고르기」에서 (2026-10-22: 회차를 누르면 빈 화면이 되던 것 고침)
+      ex = exs.filter(function (e) { return e.id === curExam; })[0] || exs[exs.length - 1] || null;
       var ej = ex ? ejuOf(ex.label) : null;
-      if (ex) { entryRound = ej ? ej.r : '기타'; if (ej && decFor !== ex.id) { entryDecade = decadeOf(ej.y); decFor = ex.id; } }
+      if (ex && !entryPickOpen) { entryRound = ej ? ej.r : '기타'; if (ej && decFor !== ex.id) { entryDecade = decadeOf(ej.y); decFor = ex.id; } }
       if (!entryRound) entryRound = '1';
       if (!entryDecade) entryDecade = '2020';
       var others = exs.filter(function (e) { return !ejuOf(e.label); });
-      picker = realPicker('e', entryRound, entryDecade, function (p) { return exs.filter(function (e) { return sameLabel(e.label, p.label); })[0]; }, ex ? ex.label : '', others, ex ? ex.id : '');
+      var monthChips = exs.length ? '<p class="meta" style="margin-top:14px">' + esc(UI.monthLabel(month)) + ' 실전반 ' + esc(entrySub) + ' 시험</p><div class="chiprow years" aria-label="이 달 시험">' + exs.map(function (e) {
+        var n = D.results.filter(function (r) { return r.exam === e.id; }).length;
+        return '<button type="button" class="tab" data-pick="' + esc(e.id) + '" aria-selected="' + (ex && e.id === ex.id) + '">' + esc(e.label) + (n ? ' <small>' + n + '명</small>' : '') + '</button>';
+      }).join('') + '</div>' : '';
+      var add = realPicker('e', entryRound, entryDecade, function (p) { return exs.filter(function (e) { return sameLabel(e.label, p.label); })[0]; }, ex ? ex.label : '', others, ex ? ex.id : '');
+      picker = monthChips + '<details class="manual"' + (entryPickOpen || !exs.length ? ' open' : '') + ' id="pickMore"><summary>다른 기출 고르기 <span class="meta">(이 달에 처음 고르는 기출은 D·E에 같이 등록돼요)</span></summary>' + add + '</details>';
       if (!ex) {
-        $('#view').innerHTML = '<div class="card">' + head + picker + '<p class="empty">연도를 고르면 바로 입력할 수 있어요. (이 달에 처음 고르는 기출은 D·E에 같이 등록돼요)</p><p id="emsg" class="msg" role="status"></p></div>';
+        $('#view').innerHTML = '<div class="card">' + head + picker + '<p class="empty">이 달 실전반 ' + esc(entrySub) + ' 시험이 아직 없어요. 위에서 회차·연도를 고르면 등록되고 바로 입력할 수 있어요.</p><p id="emsg" class="msg" role="status"></p></div>';
         bindHead(); bindReal(); return;
       }
       picker += '<p class="pickedname">' + esc(ex.label) + ' <span class="meta">' + esc(ex.kind) + '</span></p>';
@@ -334,7 +339,7 @@
         b.onclick = function () {
           var p = paper(b.getAttribute('data-ep')); if (!p) return;
           var got = exs.filter(function (e) { return sameLabel(e.label, p.label); })[0];
-          if (got) { curExam = got.id; vEntry(); return; }
+          if (got) { curExam = got.id; entryPickOpen = false; vEntry(); return; }
           b.disabled = true; b.textContent = '등록 중…';
           seq([regExam(entrySub, p)], function (okN, err) {
             if (err) { b.disabled = false; return msg($('#emsg'), false, err); }
@@ -343,23 +348,23 @@
           });
         };
       });
-      all('#view [data-pick]').forEach(function (b) { b.onclick = function () { curExam = b.getAttribute('data-pick'); vEntry(); }; });
+      all('#view [data-pick]').forEach(function (b) { b.onclick = function () { curExam = b.getAttribute('data-pick'); entryPickOpen = false; vEntry(); }; });
     }
     function bindReal() {
-      all('#view [data-er]').forEach(function (b) { b.onclick = function () { entryRound = b.getAttribute('data-er'); curExam = ''; vEntry(); }; });
-      all('#view [data-ed]').forEach(function (b) { b.onclick = function () { entryDecade = b.getAttribute('data-ed'); vEntry(); }; });
-      all('#view [data-pick]').forEach(function (b) { b.onclick = function () { curExam = b.getAttribute('data-pick'); vEntry(); }; });
+      all('#view [data-er]').forEach(function (b) { b.onclick = function () { entryRound = b.getAttribute('data-er'); entryPickOpen = true; vEntry(); }; });
+      all('#view [data-ed]').forEach(function (b) { b.onclick = function () { entryDecade = b.getAttribute('data-ed'); entryPickOpen = true; vEntry(); }; });
+      all('#view [data-pick]').forEach(function (b) { b.onclick = function () { curExam = b.getAttribute('data-pick'); entryPickOpen = false; vEntry(); }; });
       all('#view [data-ey]').forEach(function (b) {
         b.onclick = function () {
           var p = paper(b.getAttribute('data-ey')); if (!p) return;
           var got = exs.filter(function (e) { return sameLabel(e.label, p.label); })[0];
-          if (got) { curExam = got.id; vEntry(); return; }
+          if (got) { curExam = got.id; entryPickOpen = false; vEntry(); return; }
           b.disabled = true; b.textContent = '등록 중…';
           var targets = D.classes.filter(function (c) { return c.active && c.kind === '실전' && !examsOfMonth().some(function (e) { return e.cls === c.code && sameLabel(e.label, p.label); }); });
           seq(targets.map(function (c) { return function () { return req('addExam', { cls: c.code, month: month, kind: p.kind, label: p.label, total: p.total, key: p.key }).then(function (r) { if (r.ok) D.exams.push(r.data); return r; }); }; }), function (okN, err) {
             if (err) { b.disabled = false; return msg($('#emsg'), false, err); }
             var mineNow = examsOfMonth().filter(function (e) { return e.cls === code && sameLabel(e.label, p.label); })[0];
-            curExam = mineNow ? mineNow.id : ''; vEntry();
+            curExam = mineNow ? mineNow.id : ''; entryPickOpen = false; vEntry();
           });
         };
       });
@@ -374,7 +379,7 @@
       '<button type="button" class="btn" id="save">저장하고 다음 학생 (Enter)</button><p id="emsg" class="msg" role="status"></p>' +
       '</div><div class="card"><h2>입력 현황</h2><div id="roster"></div></div></div>';
     if ($('#exSel')) $('#exSel').onchange = function () { curExam = this.value; vEntry(); };
-    all('#view [data-pick]').forEach(function (b) { b.onclick = function () { curExam = b.getAttribute('data-pick'); vEntry(); }; });
+    all('#view [data-pick]').forEach(function (b) { b.onclick = function () { curExam = b.getAttribute('data-pick'); entryPickOpen = false; vEntry(); }; });
     bindHead(); bindReal(); bindPaper();
     function meta() { $('#exMeta').textContent = ex.total + '문항 · 입력 ' + mem.filter(function (s) { return resultOf(ex.id, s.code); }).length + ' / ' + mem.length + '명'; }
     meta();

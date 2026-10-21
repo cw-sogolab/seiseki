@@ -393,6 +393,11 @@
     if (!both) h += conv.length ? tile('환산점수 평균', Math.round(conv.reduce(function (a, x) { return a + +x.t.conv; }, 0) / conv.length), '', '', '모의고사 ' + conv.length + '개')
       : tile('최근 테스트', last ? pct(last.t.score, last.t.total) : null, '%', '', last ? esc(monthShort(last.t.month) + ' ' + shortLabel(last.t)) : '');
     if (!real) h += tile('숙제 제출', hws.length ? done + ' / ' + hws.length : null, '', '', hws.length ? '개념반 일문일답' : '');
+    else {   // 실전반 네 번째 칸: 최근 시험 환산점수 + 등수 (2026-10-22 사용자)
+      var lc = last && last.t.conv !== null && last.t.conv !== undefined;
+      h += tile('최근 시험', last ? (lc ? last.t.conv : pct(last.t.score, last.t.total)) : null, last ? (lc ? '' : '%') + (last.t.rank ? ' · ' + last.t.rank + '등' : '') : '', '',
+        last ? esc(shortLabel(last.t)) + (lc ? ' 환산점수' : ' 정답률') + (last.t.rank ? ' · ' + last.t.n + '명 중' : '') : '');
+    }
     h += '</div>';
     // 그래프 두 개: ① 개념반 소테스트·월말 꺾은선  ② 월말 비교 — 개념반 월말과 단풀반 월말을 달마다 나란히 (단풀반을 들었을 때)
     if (real) {
