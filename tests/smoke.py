@@ -65,6 +65,9 @@ with sync_playwright() as p:
         pg = b.new_page(viewport={'width': width, 'height': 900}); errs = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.route('**/fonts.googleapis.com/**', lambda r: r.abort()); pg.route('**/fonts.gstatic.com/**', lambda r: r.abort())
+        if isdev:   # 강사 화면도 같은 주소 + #teacher
+            pg.goto((base / 'index.html').as_uri() + '?demo#teacher'); pg.wait_for_selector('#pw')
+            check('admin' in pg.url, '주소 + #teacher → 강사 화면')
         pg.goto((base / 'admin.html').as_uri() + '?demo')
         check(pg.is_visible('.devbar') == isdev, '개발판 띠 ' + ('있음' if isdev else '없음'))
         check(not pg.is_visible('#topRight'), '로그인 전 머리띠 메뉴 숨김')
