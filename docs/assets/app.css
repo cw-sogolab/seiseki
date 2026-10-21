@@ -481,7 +481,7 @@ table.itab .z{opacity:.35}
 
 /* 채점표: 답지처럼 5문항씩 (2026-10-21) */
 table.wt.all tr.a td.o{color:var(--green);background:var(--green-soft);font-weight:700}
-table.wt.all tr.a td.x{color:#fff;background:var(--red)}
+table.wt.all tr.a td.x{color:var(--red);background:var(--red-soft)}   /* 「미입력」 표시와 같은 연한 빨강 (2026-10-22 사용자: 너무 밝음) */
 table.wt.all td.g5{border-left:6px solid var(--surface)!important}
 
 /* 학생 화면 테스트 결과 달 고르기 */
