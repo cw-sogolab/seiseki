@@ -1,22 +1,26 @@
-/* 成績ノート 공통 스타일 — 토스처럼: 회색 바탕 위 흰 카드, 파란 버튼 하나, 큰 굵은 숫자.
- * 빨간색은 틀린 문항·못 낸 것에만, 초록은 낸 것·맞은 것에만 씁니다. */
+/* 成績ノート 공통 스타일 — cw-sogolab 로고에 맞춤 (2026-10-21):
+ * 연보라 바탕 위 흰 카드, 보라(로고 cw-·lab) 버튼, 민트(로고 sogo)는 잘한 것·낸 것, 둥근 숫자(M PLUS Rounded 1c).
+ * 빨간색은 틀린 문항·못 낸 것에만 씁니다. */
 :root{
-  --bg:#F2F4F6; --surface:#FFFFFF; --fill:#F2F4F6; --fill-hover:#E5E8EB;
-  --ink:#191F28; --ink2:#333D4B; --muted:#6B7684; --faint:#8B95A1; --line:#E5E8EB; --line2:#F2F4F6;
-  --blue:#3182F6; --blue-press:#1B64DA; --blue-soft:#E8F3FF; --blue-ink:#1B64DA;
-  --red:#F04452; --red-soft:#FFEEEE; --green:#0B9E5E; --green-soft:#E5F7EE; --orange:#E57A00; --orange-soft:#FFF3E0;
-  --me:#3182F6; --avg:#B0B8C1; --shadow:0 1px 2px rgba(0,23,51,.04);
+  --bg:#F5F3FF; --surface:#FFFFFF; --fill:#EFECFF; --fill-hover:#E4E0FF;
+  --ink:#1E1B3A; --ink2:#3F3A5C; --muted:#68638A; --faint:#8C87AD; --line:#E7E3FA; --line2:#F2F0FD;
+  --blue:#5B4BF0; --blue-press:#4B3ACF; --blue-soft:#EEEBFF; --blue-ink:#4B3ACF;
+  --red:#F0445E; --red-soft:#FFEEF1; --green:#0FA382; --green-soft:#E1F8F0; --orange:#E08A00; --orange-soft:#FFF4DB;
+  --me:#5B4BF0; --avg:#B9B4D6; --shadow:0 2px 12px rgba(59,47,201,.06);
+  --btn:linear-gradient(180deg,#7466FF 0%,#5B4BF0 100%); --btn-shadow:0 6px 16px rgba(91,75,240,.28);
   --f-body:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-round:"M PLUS Rounded 1c",var(--f-body);
   --f-mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
-  --r-card:20px; --r-ctl:12px;
+  --r-card:22px; --r-ctl:14px;
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#101013; --surface:#1C1C21; --fill:#2A2A31; --fill-hover:#34343C;
-    --ink:#F2F2F4; --ink2:#D6D6DB; --muted:#9E9EA8; --faint:#7D7D88; --line:#2E2E36; --line2:#26262C;
-    --blue:#3B8BFF; --blue-press:#2A73E0; --blue-soft:#1A2A44; --blue-ink:#7DB3FF;
-    --red:#FF5C69; --red-soft:#3A1F24; --green:#3DD08A; --green-soft:#16302A; --orange:#FFAA45; --orange-soft:#3A2A14;
-    --me:#3B8BFF; --avg:#5E5E69; --shadow:none; color-scheme:dark;
+    --bg:#14122B; --surface:#1E1B3A; --fill:#2A2650; --fill-hover:#342F60;
+    --ink:#F3F1FF; --ink2:#DAD5FF; --muted:#A8A1CE; --faint:#857FAE; --line:#2E2A55; --line2:#25214A;
+    --blue:#8F84FF; --blue-press:#7A6EFF; --blue-soft:#2B2660; --blue-ink:#B9B0FF;
+    --red:#FF6B80; --red-soft:#3A1E2C; --green:#5BE6B8; --green-soft:#133A33; --orange:#FFC53D; --orange-soft:#3A2E12;
+    --me:#8F84FF; --avg:#5C5786; --shadow:none;
+    --btn:linear-gradient(180deg,#7A6EFF 0%,#5B4BF0 100%); --btn-shadow:0 6px 18px rgba(0,0,0,.35); color-scheme:dark;
   }
 }
 *{box-sizing:border-box}
@@ -35,11 +39,11 @@ a{color:var(--blue-ink)}
 /* ---------- 머리띠 ---------- */
 .appbar{position:sticky;top:0;z-index:20;background:var(--bg);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px)}
 .appbar>.wrap:first-child{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px}
-.brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;letter-spacing:-.02em;color:var(--ink);text-decoration:none}
+.brand{display:flex;align-items:center;gap:8px;font-family:var(--f-round);font-weight:800;font-size:17px;letter-spacing:-.02em;color:var(--ink);text-decoration:none}
 .brand img{width:26px;height:26px;display:block}
 .brand small{font-weight:600;font-size:13px;color:var(--faint);letter-spacing:0}
 .acts{display:flex;align-items:center;gap:4px}
-.title{font-size:26px;line-height:1.35;font-weight:800;letter-spacing:-.025em;margin:28px 0 8px}
+.title{font-family:var(--f-round);font-size:26px;line-height:1.35;font-weight:800;letter-spacing:-.025em;margin:28px 0 8px}
 .sub{font-size:15px;color:var(--muted);margin:0}
 h1{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0}
 h2{font-size:18px;font-weight:700;letter-spacing:-.015em;margin:0 0 14px}
@@ -50,7 +54,7 @@ nav.main{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;border-bottom
 nav.main::-webkit-scrollbar{display:none}
 nav.main button{flex:0 0 auto;background:none;border:0;color:var(--faint);font-size:16px;font-weight:700;padding:12px 12px 11px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
 nav.main button:hover{color:var(--ink2)}
-nav.main button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+nav.main button[aria-selected="true"]{color:var(--blue-ink);border-bottom-color:var(--blue)}
 .pillsel{width:auto!important;border-radius:999px!important;padding:8px 32px 8px 14px!important;font-size:14px!important;font-weight:600}
 
 /* ---------- 카드·글자 ---------- */
@@ -78,10 +82,11 @@ select:focus{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
 .check input{width:20px;height:20px;margin:0;accent-color:var(--blue);flex:0 0 auto}
 
 /* ---------- 버튼 ---------- */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;background:var(--blue);color:#fff;font-weight:600;font-size:15px;padding:12px 18px;border-radius:var(--r-ctl);cursor:pointer;margin-top:16px;transition:background .15s,transform .1s;text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;background:var(--btn);box-shadow:var(--btn-shadow);color:#fff;font-weight:700;font-size:15px;padding:12px 18px;border-radius:var(--r-ctl);cursor:pointer;margin-top:16px;transition:background .15s,transform .1s;text-decoration:none}
 .btn:hover{background:var(--blue-press)}
+.btn.sub,.btn.soft,.btn.danger{box-shadow:none}
 .btn:active{transform:scale(.97)}
-.btn.block{display:flex;width:100%;font-size:17px;padding:16px;border-radius:14px}
+.btn.block{display:flex;width:100%;font-size:17px;padding:16px;border-radius:16px}
 .btn.sub{background:var(--fill);color:var(--ink2);margin-top:0}
 .btn.sub:hover{background:var(--fill-hover)}
 .btn.soft{background:var(--blue-soft);color:var(--blue-ink)}
@@ -96,15 +101,15 @@ select:focus{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w
 .tabsrow::-webkit-scrollbar{display:none}
 .tab{flex:0 0 auto;border:0;background:var(--surface);color:var(--muted);padding:10px 16px;font-size:14.5px;font-weight:600;text-align:left;line-height:1.35;cursor:pointer;border-radius:14px;box-shadow:var(--shadow);transition:background .15s,color .15s}
 .tab small{display:block;color:var(--faint);font-size:12px;font-weight:500}
-.tab[aria-selected="true"]{background:var(--ink);color:var(--surface)}
-.tab[aria-selected="true"] small{color:var(--surface);opacity:.7}
+.tab[aria-selected="true"]{background:#5B4BF0;color:#fff;box-shadow:0 4px 12px rgba(91,75,240,.22)}
+.tab[aria-selected="true"] small{color:#fff;opacity:.8}
 .tabsrow.months .tab{padding:7px 14px;font-size:13.5px;border-radius:999px}
 
 /* ---------- 학생 화면 ---------- */
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
 .tile{background:var(--surface);border-radius:var(--r-card);padding:18px 20px;box-shadow:var(--shadow)}
 .tile span{font-size:13.5px;font-weight:600;color:var(--muted);display:block}
-.tile b{display:block;margin-top:6px;font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1.15;font-variant-numeric:tabular-nums}
+.tile b{display:block;margin-top:6px;font-family:var(--f-round);font-size:30px;font-weight:900;letter-spacing:-.03em;line-height:1.15;font-variant-numeric:tabular-nums}
 .tile b small{font-size:16px!important;font-weight:700;margin-left:1px;font-family:var(--f-body)!important}
 .tile.hi b{color:var(--blue)}
 .legend{display:flex;gap:16px;font-size:13px;color:var(--muted);margin-top:8px}
@@ -116,7 +121,7 @@ svg.chart{display:block;width:100%;height:auto}
 .item:last-child{padding-bottom:0}
 .item b{font-size:16px;font-weight:700}
 .item .meta{margin-top:2px}
-.score{font-size:22px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.score{font-family:var(--f-round);font-size:22px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .score small{font-size:14px;font-weight:600;color:var(--faint)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
 .chip{font-size:13px;font-weight:600;padding:4px 9px;background:var(--red-soft);color:var(--red);border-radius:8px;font-variant-numeric:tabular-nums}
@@ -153,7 +158,7 @@ td input[type=text],td input[type=number]{padding:7px 9px;font-size:14px;border-
 .result b{font-size:34px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .hit{font-size:14px;font-weight:600;min-height:1.5em;margin-top:6px}
 .hit.bad{color:var(--red)} .hit.good{color:var(--green)}
-textarea.paste{min-height:150px;font-family:var(--f-mono);font-size:13.5px;line-height:1.6}
+textarea.paste{min-height:150px;padding:18px 20px;margin-top:10px;font-family:var(--f-mono);font-size:13.5px;line-height:1.7}
 textarea.cm{min-width:240px;font-size:13.5px;padding:8px 10px;white-space:normal;border-radius:10px}
 textarea.tsv{min-height:120px;font-family:var(--f-mono);font-size:12px;margin-top:8px}
 .warnbox,.okbox{padding:12px 14px;font-size:14px;font-weight:500;margin-top:12px;border-radius:12px}
@@ -164,7 +169,7 @@ details>summary::-webkit-details-marker{display:none}
 details>summary::after{content:"";width:9px;height:9px;border-right:2px solid var(--faint);border-bottom:2px solid var(--faint);transform:rotate(45deg);margin:0 6px 4px 0;transition:transform .2s}
 details[open]>summary::after{transform:rotate(225deg);margin-bottom:-4px}
 details[open]>summary{margin-bottom:4px}
-.ov{position:fixed;inset:0;background:rgba(0,12,30,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.ov{position:fixed;inset:0;background:rgba(20,18,43,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
 .dlg{background:var(--surface);color:var(--ink);max-width:720px;width:100%;max-height:88vh;overflow:auto;padding:22px 22px;border-radius:24px}
 .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:14px}
 .photos a{display:block;text-decoration:none;border-radius:12px;overflow:hidden;background:var(--fill)}
@@ -174,7 +179,7 @@ details[open]>summary{margin-bottom:4px}
 /* ---------- 강사 로그인 ---------- */
 body.locked .appbar.admin{display:none}
 .gate{min-height:calc(100vh - 40px);min-height:calc(100svh - 40px);display:flex;align-items:center;justify-content:center;padding:32px 0}
-.gate-form{width:min(400px,100%);background:var(--surface);border-radius:28px;padding:36px 28px 30px;box-shadow:0 8px 40px rgba(0,23,51,.06)}
+.gate-form{width:min(400px,100%);background:var(--surface);border-radius:28px;padding:36px 28px 30px;box-shadow:0 10px 40px rgba(59,47,201,.10)}
 .gate-logo{width:52px;height:52px;display:block}
 .gate-form .title{margin:22px 0 6px}
 .gate-form label{margin-top:28px}
@@ -215,7 +220,7 @@ input[type=file]::file-selector-button{border:0;background:var(--surface);color:
 /* 반 종류 고르기 (세그먼트) */
 .seg{display:flex;background:var(--fill);border-radius:12px;padding:4px;gap:4px}
 .seg button{flex:1;border:0;background:transparent;color:var(--muted);font-size:15px;font-weight:700;padding:10px 6px;border-radius:9px;cursor:pointer;transition:background .15s,color .15s}
-.seg button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,23,51,.1)}
+.seg button[aria-selected="true"]{background:var(--surface);color:var(--blue-ink);box-shadow:0 2px 6px rgba(59,47,201,.12)}
 .seg button[disabled]{opacity:.35;cursor:default}
 .seg+label{margin-top:18px}
 /* 틀린 문항 표: 문항 / 정답(파랑) / 학생(빨강) */
@@ -232,7 +237,7 @@ table.wt tr.a td{color:var(--red);background:var(--red-soft)}
 /* 시험 등록: 과목 칩 · 시험지 목록 */
 .chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .chiprow .tab{background:var(--fill);box-shadow:none;padding:8px 14px;border-radius:999px;font-size:14px}
-.chiprow .tab[aria-selected="true"]{background:var(--ink);color:var(--surface)}
+.chiprow .tab[aria-selected="true"]{background:#5B4BF0;color:#fff;box-shadow:none}
 .plist{margin-top:14px;border:1px solid var(--line);border-radius:14px}
 .plist.scroll{max-height:420px;overflow-y:auto}
 .prow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line2)}
@@ -266,7 +271,7 @@ input.keyin{font-size:13px!important;padding:6px 8px!important;letter-spacing:.0
 @media (max-width:480px){.prow{flex-wrap:wrap}.pickrow{width:100%}.pickrow select{flex:1}}
 .chiprow.years{margin-top:8px}
 .chiprow.years .tab{background:var(--surface);border:1px solid var(--line)}
-.chiprow.years .tab[aria-selected="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
+.chiprow.years .tab[aria-selected="true"]{background:#5B4BF0;border-color:#5B4BF0;color:#fff}
 .pickedname{margin:12px 0 0;font-size:17px;font-weight:800}
 .pickedname .meta{font-weight:500;margin-left:4px}
 .chiprow.decs{margin-top:8px}
@@ -333,7 +338,7 @@ td.gneg{color:var(--red);font-weight:700}
 /* 그래프 말풍선 */
 .chartwrap{position:relative}
 .chart .hit{cursor:pointer}
-.ctip{position:absolute;z-index:5;min-width:170px;max-width:260px;padding:10px 12px;border-radius:12px;background:var(--surface);box-shadow:0 6px 24px rgba(0,23,51,.16);font-size:13px;line-height:1.5;pointer-events:none;color:var(--ink)}
+.ctip{position:absolute;z-index:5;min-width:170px;max-width:260px;padding:10px 12px;border-radius:12px;background:var(--surface);box-shadow:0 6px 24px rgba(59,47,201,.18);font-size:13px;line-height:1.5;pointer-events:none;color:var(--ink)}
 .ctip>b{display:inline-block;font-size:13.5px}
 .ctip .tm{margin-left:6px;color:var(--faint);font-size:12px}
 .ctip div{display:flex;align-items:center;gap:6px;color:var(--ink2)}
@@ -390,3 +395,43 @@ label.btn.cam{display:flex;align-items:center;justify-content:center;cursor:poin
 #warns .topwarn ul{margin:6px 0 0;padding-left:18px}
 .gonep{display:flex;align-items:center;justify-content:center;aspect-ratio:3/4;border-radius:12px;background:var(--fill);color:var(--muted);font-size:13px;text-align:center;padding:10px}
 .rvphotos .gonep{aspect-ratio:auto;min-height:200px}
+/* 학생 화면: 과목 화면의 달 머리, 요약 표 (2026-10-21) */
+.mhd{font-size:13px;font-weight:700;color:var(--muted);margin:16px 0 2px}
+.card h2+.mhd{margin-top:4px}
+table.mtx th,table.mtx td{text-align:center;vertical-align:middle}
+table.mtx th:first-child{text-align:left}
+table.mtx td.cell{cursor:pointer}
+table.mtx td.cell:hover{background:var(--line2)}
+table.mtx td.cell b{display:block;font-size:17px;color:var(--ink)}
+table.mtx td.cell small,.sjb small{display:block;font-size:12px;font-weight:700}
+table.mtx small.gpos,.sjb small.gpos{color:var(--green)}
+table.mtx small.gneg,.sjb small.gneg{color:var(--red)}
+table.mtx td.cell em,.sjb em{display:block;font-size:11px;color:var(--faint);font-style:normal;font-weight:500}
+table.mtx td.nil{color:var(--faint)}
+table.mtx td.sjcell{text-align:left}
+.sjb{display:inline-block;border:1px solid var(--line);background:var(--surface);color:var(--ink2);border-radius:12px;padding:8px 12px;margin:2px 6px 2px 0;font:inherit;font-size:14px;cursor:pointer;text-align:left}
+.sjb small,.sjb em{display:inline}
+@media (max-width:860px){.sgrid.hwfirst .col2{order:-1}}
+/* cw-sogolab 로고 (2026-10-21) */
+.hero{display:block;text-align:center;margin:0 auto 22px}
+.hero img{display:inline-block;width:min(320px,86%);height:auto}
+.gate .hero{margin-bottom:0}
+.gate .hero img{width:min(270px,84%)}
+/* 로고 느낌: 바탕에 아주 옅은 보라·민트 빛 */
+body{background:radial-gradient(1200px 520px at 15% -10%,color-mix(in srgb,var(--blue) 9%,transparent),transparent 70%),radial-gradient(900px 420px at 95% 0%,color-mix(in srgb,var(--green) 7%,transparent),transparent 70%),var(--bg);background-attachment:fixed}
+.appbar{background:color-mix(in srgb,var(--bg) 82%,transparent)}
+.card h2,h2{font-family:var(--f-round)}
+.brand .by img,.foot img{width:auto;height:15px;display:inline-block;vertical-align:-3px;margin-right:4px}
+.foot img{height:14px}
+.card.blank{text-align:center}
+.card.blank img{width:min(220px,60%);height:auto;display:block;margin:6px auto 4px}
+@media (max-width:480px){.brand .by{display:none}}
+/* 강의계획서 탭 */
+.plist .prow2{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.plist .prow2 .check{margin:0}
+.plist .prow2 select{width:auto;min-width:120px;padding:6px 10px}
+.plist .pprev{flex-basis:100%}
+.plist .pprev summary{cursor:pointer;color:var(--blue);font-size:14px;font-weight:600}
+.plist .pwarn{margin:8px 0;padding-left:18px;color:var(--orange);font-size:13.5px}
+table.stab td.wrap{white-space:normal;min-width:160px}
+#pX{margin-top:16px}

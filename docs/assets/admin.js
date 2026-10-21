@@ -1,9 +1,9 @@
-/* 강사 화면: 답안 입력·채점, 시험·숙제 등록, 숙제 확인, 명단·번호, 월말 표 */
+/* 강사 화면: 답안 입력·채점, 시험·숙제 등록, 숙제 확인, 명단·번호, 학생평가(월말 표), 강의계획서 */
 (function () {
   var $ = UI.$, all = UI.all, esc = UI.esc;
   var token = UI.store.get('seiseki.token', sessionStorage) || '';
   var D = null, tab = 'entry', month = '', curExam = '', curHw = '', monthCls = '';
-  var TABS = [['entry', '답안 입력'], ['exams', '시험'], ['hw', '숙제'], ['stu', '학생·번호'], ['month', '월말 표']];
+  var TABS = [['entry', '답안 입력'], ['exams', '시험'], ['hw', '숙제'], ['stu', '학생·번호'], ['month', '학생평가'], ['plan', '강의계획서']];
 
   if (Api.demo) $('#demo').hidden = false;
 
@@ -161,7 +161,7 @@
       (month === D.today.slice(0, 7) ? '<span class="pill blue">이번 달</span>' : '');
     all('#period [data-mv]').forEach(function (b) { b.onclick = function () { var j = i + (+b.getAttribute('data-mv')); if (ms[j]) { month = ms[j]; $('#month').value = month; render(); } }; });
   }
-  function render() { renderPeriod(); ({ entry: vEntry, exams: vExams, hw: vHw, stu: vStu, month: vMonth })[tab](); }
+  function render() { $('#period').hidden = tab === 'plan'; renderPeriod(); ({ entry: vEntry, exams: vExams, hw: vHw, stu: vStu, month: vMonth, plan: vPlan })[tab](); }
 
   /** 틀린 문항을 시험지에 체크하기 쉽게: 문항 / 정답 / 학생 세 줄 표 (10문항씩 끊음) */
   function wrongTable(wrong) {
@@ -975,6 +975,76 @@
         }) };
       }) };
   }
+  /* ---------- 월초 강의계획서 ----------
+   * 반마다 시트 하나인 엑셀 파일 하나. 날짜 = 「달력」 탭 + 반 요일, 내용·교재 범위 = 「계획서」 탭의 지난 계획서 (Plan.build).
+   * 과목은 다음 달 시험·숙제가 아직 없으니 강사가 고름 (고른 것은 이 기기에 기억) */
+  var planYm = '', PLAN_SUBJ = ['정치', '경제', '지리', '현사', '세계사'];
+  function planKey(ym, code) { return 'seiseki.plan.' + ym + '.' + code; }
+  function planSubj(ym, code) { return UI.store.get(planKey(ym, code)) || subjIn(code, ym) || ''; }
+  function planOn(ym, code) { return UI.store.get(planKey(ym, code) + '.off') !== '1'; }
+  function planFor(c, ym) {
+    var subj = c.kind === '실전' ? '' : planSubj(ym, c.code);
+    if (c.kind !== '실전' && !subj) return null;
+    return Plan.build({ ym: ym, kind: c.kind, subj: subj, ban: realSuffix(c.code), time: c.time, cal: D.cal || {}, bank: D.plans || {} });
+  }
+  function vPlan() {
+    var today = D.today.slice(0, 7);
+    if (!planYm) planYm = Core.nextMonth(today);
+    var yms = [today, Core.nextMonth(today), Core.nextMonth(Core.nextMonth(today))];
+    var list = D.classes.filter(function (c) { return c.active && ['개념', '단풀', '실전'].indexOf(c.kind) >= 0; });
+    var bankN = ((D.plans || {}).rows || []).length;
+    var h = '<div class="card"><h2>월초 강의계획서</h2><p class="meta">반마다 시트 하나씩, 학원 워드 양식 그대로 엑셀 파일 하나로 내려받아요. 날짜는 「달력」 탭과 반 요일로, 수업 내용·교재 범위는 「계획서」 탭에 모아 둔 지난 계획서(' + bankN + '줄)에서 이어서 채워요.</p>' +
+      '<div class="chiprow" aria-label="달">' + yms.map(function (m) { return '<button type="button" class="tab" data-pym="' + m + '" aria-selected="' + (m === planYm) + '">' + esc(UI.monthLabel(m)) + '</button>'; }).join('') + '</div>';
+    if (!bankN) h += '<p class="msg err">기록장에 「계획서」 탭이 없거나 비어 있어요. 내용·교재 범위 없이 날짜만 채워져요.</p>';
+    h += '<div class="plist">';
+    KINDS.forEach(function (k) {
+      var g = list.filter(function (c) { return c.kind === k[0]; });
+      if (!g.length) return;
+      h += '<h3 class="mhd">' + k[1] + '</h3>';
+      g.forEach(function (c) {
+        var on = planOn(planYm, c.code), subj = c.kind === '실전' ? '' : planSubj(planYm, c.code), p = on ? planFor(c, planYm) : null;
+        var lbl = (c.time ? '[' + c.time + '] ' : '') + (c.kind === '실전' ? '실전' + realSuffix(c.code) : c.kind + '반');
+        h += '<div class="prow2"><label class="check"><input type="checkbox" data-pon="' + esc(c.code) + '"' + (on ? ' checked' : '') + '> <b>' + esc(lbl) + '</b></label>';
+        if (c.kind !== '실전') h += '<select data-psub="' + esc(c.code) + '" aria-label="' + esc(lbl) + ' 과목"><option value="">과목 고르기</option>' + PLAN_SUBJ.map(function (s) { return '<option' + (s === subj ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select>';
+        if (!on) h += '<span class="meta">빼기</span>';
+        else if (!p) h += '<span class="msg err">과목을 골라 주세요</span>';
+        else {
+          var d0 = p.rows[0], d1 = p.rows[p.rows.length - 1];
+          h += '<span class="meta">' + esc(p.sheet) + ' · 수업 ' + p.rows.length + '번' + (d0 ? ' · ' + d0.date + '~' + d1.date : '') + (p.from ? ' · ' + (+p.from.slice(5)) + '월 계획서 바탕' : '') + '</span>';
+          h += '<details class="pprev"><summary>미리 보기' + (p.warn.length ? ' <span class="pill late">확인 ' + p.warn.length + '</span>' : '') + '</summary>' +
+            (p.warn.length ? '<ul class="pwarn">' + p.warn.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>' : '') +
+            '<p class="meta">' + esc(p.title) + ' ' + esc(p.subtitle) + '</p><div class="tw"><table class="stab"><thead><tr><th>No.</th><th>날짜</th><th>수업 내용</th><th>교재 범위</th><th>과제</th></tr></thead><tbody>' +
+            p.rows.map(function (r) { return '<tr><td>' + r.no + '</td><td>' + esc(r.date) + '</td><td class="wrap">' + esc(r.content).replace(/\n/g, '<br>') + '</td><td class="wrap">' + esc(r.range).replace(/\n/g, '<br>') + '</td><td>' + esc(r.hw) + '</td></tr>'; }).join('') +
+            '</tbody></table></div></details>';
+        }
+        h += '</div>';
+      });
+    });
+    var yymm = planYm.slice(2, 4) + planYm.slice(5, 7);
+    h += '</div><button id="pX" class="btn" type="button">' + yymm + '강의계획서.xlsx 내려받기</button><div id="pOut"></div>' +
+      '<p class="meta" style="margin-top:10px">내려받은 뒤 내용을 확인하고 보내 주세요. 지난 계획서와 수업 수가 다르면 줄을 맞추고 「확인」 표시를 해요. 새 달 계획서를 다 쓰면 「계획서」 탭에 그 달 줄을 넣어 두면 다음 달에 이어서 써요.</p></div>';
+    $('#view').innerHTML = h;
+    all('#view [data-pym]').forEach(function (b) { b.onclick = function () { planYm = b.getAttribute('data-pym'); vPlan(); }; });
+    all('#view [data-psub]').forEach(function (s) { s.onchange = function () { UI.store.set(planKey(planYm, s.getAttribute('data-psub')), s.value); vPlan(); }; });
+    all('#view [data-pon]').forEach(function (x) { x.onchange = function () { var k = planKey(planYm, x.getAttribute('data-pon')) + '.off'; if (x.checked) UI.store.del(k); else UI.store.set(k, '1'); vPlan(); }; });
+    $('#pX').onclick = function () {
+      var b = this, plans = list.filter(function (c) { return planOn(planYm, c.code); }).map(function (c) { return planFor(c, planYm); }).filter(Boolean);
+      var miss = list.filter(function (c) { return planOn(planYm, c.code) && !planFor(c, planYm); });
+      if (!plans.length) { $('#pOut').innerHTML = '<p class="msg err">내려받을 반이 없어요. 반을 고르고 과목을 골라 주세요.</p>'; return; }
+      b.disabled = true; b.textContent = '만드는 중…';
+      function img(u) { return fetch(u).then(function (r) { return r.ok ? r.arrayBuffer() : null; }).catch(function () { return null; }); }
+      Promise.all([loadExcel(), img('assets/plan-head.png'), img('assets/plan-foot.png')]).then(function (x) {
+        return Plan.xlsx(x[0], plans, x[1] && x[2] ? { head: x[1], foot: x[2] } : null).xlsx.writeBuffer().then(function (buf) {
+          var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = yymm + '강의계획서.xlsx';
+          document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+          $('#pOut').innerHTML = '<p class="msg ok">' + yymm + '강의계획서.xlsx (시트 ' + plans.length + '개)를 내려받았어요.' + (miss.length ? ' 과목을 안 고른 ' + miss.length + '개 반은 빠졌어요.' : '') + '</p>';
+        });
+      }).catch(function () { $('#pOut').innerHTML = '<p class="msg err">엑셀 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.</p>'; })
+        .then(function () { b.disabled = false; b.textContent = yymm + '강의계획서.xlsx 내려받기'; });
+    };
+  }
+
   var excelP = null;
   function loadExcel() {
     if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
