@@ -66,8 +66,7 @@ with sync_playwright() as p:
         else: pg.click('[data-sub="GN-HM"]'); pg.click('[data-ep="GN-경제-T3"]'); pg.wait_for_selector('#stIn')
         pg.fill('#stIn', '최더미'); pg.fill('#ansIn', '111111111111111'); pg.press('#ansIn', 'Enter')
         pg.wait_for_function("document.querySelector('#emsg').innerText.includes('저장')")
-        if not isdev: check('최더미 저장' in pg.inner_text('#emsg'), '답안 입력 → 저장·채점')
-        else:
+        if True:   # 본판·개발판 같음 (2026-10-21부터 같이 반영)
             check(pg.input_value('#stIn') == '' and '최더미' in pg.inner_text('#emsg'), '답안 입력 → 바로 채점·다음 학생 (저장은 뒤에서)')
             pg.wait_for_function("document.querySelector('#emsg').innerText.includes('저장했어요')")
             check('입력됨' in pg.inner_text('#roster'), '뒤에서 저장 끝나면 「저장했어요」')
