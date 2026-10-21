@@ -43,7 +43,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = 'c369605026';
+  var VERSION = '63902cc5fa';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -404,8 +404,10 @@ var Logic = (function () {
             var cv = convOf(env, r); if (cv !== null) convs.push(cv);
             if (r.code === stu.code) me = r;
           });
+          // 등수: 같은 시험(그 반·그 달)에서 나보다 점수가 높은 사람 수 + 1 (같은 점수는 같은 등수). 다른 학생 이름·점수는 안 보냄
+          var rank = me && !(e.total && me.score > e.total) ? 1 + all.filter(function (x) { return x > me.score; }).length : null;
           var t = { id: e.id, month: e.month, kind: e.kind, label: e.label, date: e.date, total: e.total,
-            score: me ? me.score : null, avg: C.mean(all), n: all.length,
+            score: me ? me.score : null, avg: C.mean(all), n: all.length, rank: rank,
             conv: me ? convOf(env, me) : null, convAvg: C.mean(convs), wrong: me ? me.wrong : [] };
           var ck = cum[c.kind + '|' + e.label];
           t.cum = ck ? { pct: Math.round(ck.s / ck.n * 1000) / 10, n: ck.n } : null;   // 같은 시험 누적 평균 정답률(%)·인원
