@@ -193,7 +193,21 @@
       return '<button type="button" class="tab' + (on ? ' has' : '') + '" data-' + pre + 'y="' + esc(p.id) + '" aria-selected="' + (p.label === curLabel) + '" title="' + (on ? '이 달에 등록됨' : '누르면 이 달 시험으로 등록') + '">' + ejuOf(p.label).y + '년</button>';
     }).join('') : '<span class="meta">이 연대의 ' + round + '회 기출이 없어요.</span>') + '</div>';
   }
-  function entrySubOf(e) { var c = cls(e.cls); return c.kind === '실전' ? realSuffix(c.code) : (subjOf(e.label) || '기타'); }
+  function entrySubOf(e) { var c = cls(e.cls); return c.kind === '실전' ? realSuffix(c.code) : c.code; }
+  /** 시험지(답지) → 이 달 그 반에 등록하는 요청 (시험·일문일답 숙제) */
+  function regExam(code, p) { return function () { return req('addExam', { cls: code, month: month, kind: p.kind, label: p.label, total: p.total, key: p.key }).then(function (r) { if (r.ok) D.exams.push(r.data); return r; }); }; }
+  function regHw(code, p) { return function () { return req('addHomework', { cls: code, month: month, label: p.label, total: p.total }).then(function (r) { if (r.ok) D.homework.push(r.data); return r; }); }; }
+  /** 반 종류·과목의 정해진 세트: 소테스트(주차순)·월말 (+개념은 일문일답 숙제) */
+  function paperSet(kind, subj, withHw) {
+    return (D.papers || []).filter(function (p) { return p.ban === kind && p.subj === subj && (p.kind === '소테스트' || p.kind === '월말테스트' || (withHw && kind === '개념' && p.kind === '일문일답')); })
+      .sort(function (a, b) { return (KIND_ORDER[a.kind] || 9) - (KIND_ORDER[b.kind] || 9) || (+a.round || 99) - (+b.round || 99) || a.id.localeCompare(b.id); });
+  }
+  /** 그 반에 이 달 세트 중 빠진 것만 등록 */
+  function prepClass(code, subj, done) {
+    var kind = cls(code).kind, tasks = [];
+    paperSet(kind, subj, true).forEach(function (p) { if (!hasPaper(code, p)) tasks.push(p.kind === '일문일답' ? regHw(code, p) : regExam(code, p)); });
+    seq(tasks, done);
+  }
   function vEntry() {
     var all_ = examsOfMonth();
     function kindOf(e) { return cls(e.cls).kind; }
@@ -203,7 +217,6 @@
     var ofKind = all_.filter(function (e) { return kindOf(e) === entryKind; });
     var subs = []; ofKind.forEach(function (e) { var x = entrySubOf(e); if (subs.indexOf(x) < 0) subs.push(x); });
     subs.sort();
-    if (subs.indexOf(entrySub) < 0) entrySub = subs[0] || '';
     var head = '<div class="seg" role="tablist" aria-label="반 종류">' + KINDS.map(function (k) {
         return '<button type="button" role="tab" data-k="' + k[0] + '" aria-selected="' + (k[0] === entryKind) + '">' + k[1] + '</button>';
       }).join('') + '</div>' +
@@ -240,19 +253,70 @@
       }
       picker += '<p class="pickedname">' + esc(ex.label) + ' <span class="meta">' + esc(ex.kind) + '</span></p>';
     } else {
-      if (!ofKind.length) {
-        $('#view').innerHTML = '<div class="card">' + head + '<p class="empty">' + esc(UI.monthLabel(month)) + '에 등록된 ' + kindName(entryKind) + ' 시험이 없어요.</p>' +
-          '<button type="button" class="btn sub" id="goExams">「시험」 탭에서 준비하기</button></div>';
-        bindHead(); $('#goExams').onclick = function () { tab = 'exams'; examKind = entryKind; renderNav(); render(); };
+      // 개념·단풀: 반 → (이 달 과목) → 시험. 답지(시험지)에 있는 시험은 고르는 순간 자동 등록 — 「시험」 탭을 거칠 필요 없음
+      var kc = D.classes.filter(function (c) { return c.kind === entryKind && (c.active || ofKind.some(function (e) { return e.cls === c.code; })); });
+      if (!kc.some(function (c) { return c.code === entrySub; })) entrySub = (kc.filter(function (c) { return subjIn(c.code, month); })[0] || kc[0] || {}).code || '';
+      var code2 = entrySub, subj = subjIn(code2, month);
+      head = '<div class="seg" role="tablist" aria-label="반 종류">' + KINDS.map(function (k) {
+          return '<button type="button" role="tab" data-k="' + k[0] + '" aria-selected="' + (k[0] === entryKind) + '">' + k[1] + '</button>';
+        }).join('') + '</div>' +
+        '<div class="chiprow" aria-label="반">' + kc.map(function (c) { return '<button type="button" class="tab" data-sub="' + esc(c.code) + '" aria-selected="' + (c.code === code2) + '">' + esc(clsName(c.code)) + '</button>'; }).join('') + '</div>';
+      if (!code2) {
+        $('#view').innerHTML = '<div class="card">' + head + '<p class="empty">' + kindName(entryKind) + '이 없어요. 기록장 「반」 탭에서 활성을 Y로 해 주세요.</p></div>';
+        bindHead(); return;
+      }
+      if (!subj) {
+        var subjects = []; (D.papers || []).forEach(function (p) { if (p.ban === entryKind && p.subj && subjects.indexOf(p.subj) < 0) subjects.push(p.subj); });
+        $('#view').innerHTML = '<div class="card">' + head + '<p class="meta" style="margin-top:14px">' + esc(UI.monthLabel(month)) + ' 이 반 과목을 골라 주세요. 그 과목 시험' + (entryKind === '개념' ? '·일문일답 숙제' : '') + '가 정답까지 한 번에 들어가요.</p>' +
+          '<div class="chiprow years" aria-label="과목">' + subjects.map(function (x) { return '<button type="button" class="tab" data-es="' + esc(x) + '">' + esc(x) + '</button>'; }).join('') + '</div><p id="emsg" class="msg" role="status"></p></div>';
+        bindHead();
+        all('#view [data-es]').forEach(function (b) {
+          b.onclick = function () {
+            var x = b.getAttribute('data-es'), other = kc.filter(function (c) { return c.code !== code2 && subjIn(c.code, month) === x; })[0];
+            if (other && !b.getAttribute('data-armed')) { b.setAttribute('data-armed', '1'); b.textContent = x + ' (' + clsName(other.code) + '와 같아요 — 한 번 더 누르면 진행)'; return; }
+            all('#view [data-es]').forEach(function (y) { y.disabled = true; }); b.textContent = '준비하는 중…';
+            prepClass(code2, x, function (okN, err) { curExam = ''; vEntry(); if (err) msg($('#emsg') || document.createElement('p'), false, err); });
+          };
+        });
         return;
       }
-      exs = ofKind.filter(function (e) { return entrySubOf(e) === entrySub; });
-      if (!exs.some(function (e) { return e.id === curExam; })) curExam = exs[exs.length - 1].id;
-      ex = exs.filter(function (e) { return e.id === curExam; })[0];
-      picker = '<label for="exSel">시험</label><select id="exSel">' + exs.map(function (e) { return '<option value="' + esc(e.id) + '"' + (e.id === curExam ? ' selected' : '') + '>' + esc(e.label) + ' · ' + esc(e.kind) + '</option>'; }).join('') + '</select>';
+      exs = all_.filter(function (e) { return e.cls === code2; });
+      var set = paperSet(entryKind, subj, false);
+      var extra = exs.filter(function (e) { return !set.some(function (p) { return p.label === e.label; }); });
+      ex = exs.filter(function (e) { return e.id === curExam; })[0] || null;
+      if (!ex) {   // 기본: 아직 아무도 입력 안 한 첫 시험, 없으면 마지막
+        var firstOpen = set.map(function (p) { return exs.filter(function (e) { return e.label === p.label; })[0]; }).filter(function (e) { return e && !D.results.some(function (r) { return r.exam === e.id; }); })[0];
+        ex = firstOpen || exs[exs.length - 1] || null;
+      }
+      picker = '<div class="chiprow years" aria-label="시험">' + set.map(function (p) {
+          var got = exs.filter(function (e) { return e.label === p.label; })[0];
+          var short = p.kind === '월말테스트' ? '월말' : (+p.round ? p.round + '주차' : p.label);
+          return '<button type="button" class="tab' + (got ? ' has' : '') + '" data-ep="' + esc(p.id) + '" aria-selected="' + (!!(ex && got && got.id === ex.id)) + '">' + esc(short) + '</button>';
+        }).join('') + extra.map(function (e) { return '<button type="button" class="tab has" data-pick="' + esc(e.id) + '" aria-selected="' + (!!(ex && e.id === ex.id)) + '">' + esc(e.label) + '</button>'; }).join('') + '</div>';
+      if (!ex) {
+        $('#view').innerHTML = '<div class="card">' + head + picker + '<p class="empty">시험을 고르면 바로 입력할 수 있어요.</p><p id="emsg" class="msg" role="status"></p></div>';
+        bindHead(); bindPaper(); return;
+      }
+      picker += '<p class="pickedname">' + esc(ex.label) + ' <span class="meta">' + esc(ex.kind) + ' · ' + ex.total + '문</span></p>';
     }
     curExam = ex.id;
     var mem = rosterFor(ex.cls, ex.month), cur = null;
+    function bindPaper() {
+      all('#view [data-ep]').forEach(function (b) {
+        b.onclick = function () {
+          var p = paper(b.getAttribute('data-ep')); if (!p) return;
+          var got = exs.filter(function (e) { return e.label === p.label; })[0];
+          if (got) { curExam = got.id; vEntry(); return; }
+          b.disabled = true; b.textContent = '등록 중…';
+          seq([regExam(entrySub, p)], function (okN, err) {
+            if (err) { b.disabled = false; return msg($('#emsg'), false, err); }
+            var g = examsOfMonth().filter(function (e) { return e.cls === entrySub && e.label === p.label; })[0];
+            curExam = g ? g.id : ''; vEntry();
+          });
+        };
+      });
+      all('#view [data-pick]').forEach(function (b) { b.onclick = function () { curExam = b.getAttribute('data-pick'); vEntry(); }; });
+    }
     function bindReal() {
       all('#view [data-er]').forEach(function (b) { b.onclick = function () { entryRound = b.getAttribute('data-er'); curExam = ''; vEntry(); }; });
       all('#view [data-ed]').forEach(function (b) { b.onclick = function () { entryDecade = b.getAttribute('data-ed'); vEntry(); }; });
@@ -283,7 +347,7 @@
       '</div><div class="card"><h2>입력 현황</h2><div id="roster"></div></div></div>';
     if ($('#exSel')) $('#exSel').onchange = function () { curExam = this.value; vEntry(); };
     all('#view [data-pick]').forEach(function (b) { b.onclick = function () { curExam = b.getAttribute('data-pick'); vEntry(); }; });
-    bindHead(); bindReal();
+    bindHead(); bindReal(); bindPaper();
     function meta() { $('#exMeta').textContent = ex.total + '문항 · 입력 ' + mem.filter(function (s) { return resultOf(ex.id, s.code); }).length + ' / ' + mem.length + '명'; }
     meta();
     $('#stList').innerHTML = mem.map(function (s) { return '<option value="' + esc(s.name) + '" label="' + Core.fmtCode(s.code) + '"></option>'; }).join('');
@@ -357,7 +421,7 @@
     var subjects = []; papers.forEach(function (p) { if (p.ban === examKind && p.subj && subjects.indexOf(p.subj) < 0) subjects.push(p.subj); });
     if (!real) {
       // 개념·단풀: 과목마다 소테스트·월말(개념은 일문일답 숙제까지)이 정해져 있으니, 반의 이 달 과목만 고르면 한꺼번에 준비
-      h += '<p class="meta" style="margin-top:12px">반마다 이번 달 과목을 고르면 그 과목의 ' + (examKind === '개념' ? '주차별 소테스트·월말테스트·일문일답 숙제' : '월말테스트') + '가 정답·문항 수까지 한꺼번에 준비돼요.</p>' +
+      h += '<p class="meta" style="margin-top:12px">따로 등록하지 않아도 돼요. 「답안 입력」에서 반·과목·시험을 고르면 답지 정답으로 바로 등록돼요. 여기서는 그 달 ' + (examKind === '개념' ? '소테스트·월말·일문일답 숙제' : '시험') + '를 미리 한꺼번에 넣거나 정답을 고칠 때만 쓰면 돼요.</p>' +
         '<div class="plist">' + (activeCls.length ? activeCls.map(function (c) {
           var cur = subjNow(c.code), set = papers.filter(function (p) { return p.ban === examKind && p.subj === cur && (p.kind === '소테스트' || p.kind === '월말테스트' || (examKind === '개념' && p.kind === '일문일답')); });
           var missing = set.filter(function (p) { return !hasPaper(c.code, p); }).length;
@@ -370,7 +434,7 @@
       // 1회·2회 → 2020·2010·2000년대 → 연도(내림차순)
       var list = papers.filter(function (p) { var j = p.ban === '실전' && ejuOf(p.label); return j && j.r === examRound && decadeOf(j.y) === examDecade; })
         .sort(function (a, b) { return ejuOf(b.label).y - ejuOf(a.label).y; });
-      h += '<p class="meta" style="margin-top:12px">실전반 D·E는 같은 시험을 봐서 한 번 등록하면 두 반에 같이 들어가요.</p>' +
+      h += '<p class="meta" style="margin-top:12px">따로 등록하지 않아도 돼요. 「답안 입력」에서 회차·연도를 고르면 D·E에 같이 바로 등록돼요. 여기서는 미리 넣어 두거나 정답을 고칠 때만 쓰면 돼요.</p>' +
         '<div class="chiprow" aria-label="회차">' + ['1', '2'].map(function (r) { return '<button type="button" class="tab" data-xr="' + r + '" aria-selected="' + (r === examRound) + '">' + r + '회</button>'; }).join('') + '</div>' +
         '<div class="chiprow decs" aria-label="연대">' + ['2020', '2010', '2000'].map(function (d) { return '<button type="button" class="tab" data-xd="' + d + '" aria-selected="' + (d === examDecade) + '">' + d + '년대</button>'; }).join('') + '</div>' +
         (list.length ? '<div class="plist">' + list.map(function (p) {
