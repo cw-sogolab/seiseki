@@ -111,7 +111,7 @@
   function tipHtml(it) {
     return '<b>' + esc(it.title) + '</b>' + (it.m ? '<span class="tm">' + (+it.m.slice(5)) + '월</span>' : '') +
       '<div><i style="background:' + it.col + '"></i>내 점수 <b>' + (it.sc !== undefined ? it.sc + '/' + it.tot + ' · ' : '') + it.p + '%</b></div>' +
-      (it.av !== null && it.av !== undefined && it.tot ? '<div><i class="av"></i>그때 반 평균 ' + pct1(it.av, it.tot) + '%</div>' : '') +
+      (it.av !== null && it.av !== undefined && it.tot ? '<div><i class="av"></i>우리반 평균 ' + pct1(it.av, it.tot) + '%</div>' : '') +
       (it.cum ? '<div><i class="cu"></i>누적 평균 ' + it.cum.pct + '%' + (it.cum.n ? ' <small>(' + it.cum.n + '명)</small>' : '') + '</div>' : '');
   }
   function hit(x, w, H, it) { TIPS.push(it); return '<rect class="hit" x="' + x + '" y="0" width="' + w + '" height="' + H + '" fill="transparent" data-tip="' + (TIPS.length - 1) + '"/>'; }
@@ -306,9 +306,9 @@
     var cells = [];
     if (my !== null) cells.push(st('정답률', my + '%', '', av !== null ? (my >= av ? 'sgood' : 'sbad') : ''));
     if (t.rank) cells.push(st('등수', t.rank + '등', t.n + '명 중'));
-    if (av !== null) cells.push(st('그때 반 평균', av + '%', my !== null ? (my - av >= 0 ? '+' : '') + Math.round((my - av) * 10) / 10 + '%p' : ''));
+    if (av !== null) cells.push(st('우리반 평균', av + '%', my !== null ? (my - av >= 0 ? '+' : '') + Math.round((my - av) * 10) / 10 + '%p' : ''));
     if (t.cum) cells.push(st('누적 평균', t.cum.pct + '%', t.cum.n + '명'));
-    if (t.conv !== null) cells.push(st('환산점수', t.conv, t.convAvg !== null ? '반 평균 ' + Math.round(t.convAvg) : ''));
+    if (t.conv !== null) cells.push(st('환산점수', t.conv, t.convAvg !== null ? '우리반 평균 ' + Math.round(t.convAvg) : ''));
     if (!noDate && t.date) h += '<p class="meta">' + esc(UI.dateLabel(t.date)) + '</p>';
     if (cells.length) h += '<div class="stats">' + cells.join('') + '</div>';
     if (t.score !== null && !noWrong) {
