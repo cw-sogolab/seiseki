@@ -369,4 +369,32 @@ t('과목 머리말이 없으면 다른 과목 것을 빌려 오고 과목 이�
   assert.ok(/지리/.test(p.head['부제']) && !/정치/.test(p.head['부제']), p.head['부제']);
   assert.ok(p.warn.some(x => /빌려/.test(x)) && p.warn.some(x => /지난 계획서가 없어서/.test(x)));
 });
+
+console.log('득점등화 (실전반 환산점수)');
+function rasch(seed) {   // 가짜 응답: 학생 20명 × 쉬운 회차 A(20문)·어려운 회차 B(20문)
+  let x = seed; const rnd = () => (x = (x * 48271) % 2147483647) / 2147483647;
+  const th = Array.from({ length: 20 }, (_, i) => -1.5 + i * 0.16), bA = Array.from({ length: 20 }, (_, j) => -1 + j * 0.05), bB = bA.map(b => b + 0.8);
+  const rows = [];
+  th.forEach((t, i) => { [['A', bA], ['B', bB]].forEach(([e, bs]) => rows.push({ p: 'S' + i, exam: e, x: bs.map(b => rnd() < 1 / (1 + Math.exp(b - t)) ? 1 : 0) })); });
+  return rows;
+}
+t('같은 정답 수면 어려운 회차가 환산점수가 더 높고, 정답 수가 늘면 환산점수도 늘어남 (0~200)', () => {
+  const q = Core.equate(rasch(7));
+  for (let r = 0; r <= 20; r++) { const a = q.score('A', r), b = q.score('B', r); assert.ok(b >= a, r + ': ' + a + ' ' + b); assert.ok(a >= 0 && b <= 200); if (r) assert.ok(a >= q.score('A', r - 1)); }
+  assert.ok(q.score('B', 10) - q.score('A', 10) >= 5, '난이도 차이가 반영됨');
+  assert.strictEqual(Core.equate([{ p: 'a', exam: 'A', x: [1, 0] }]), null, '학생 한 명이면 계산 안 함');
+});
+t('logic: 환산점수 칸이 빈 실전 시험은 득점등화 값, 칸에 값이 있으면 그 값', () => {
+  const e = Mock.seed(Mock.createEnv()), T = e._tables, key = '1234123412341234';
+  T['시험'].push({ '시험ID': 'MX', '반코드': 'SJ-D', '월': '2026-10', '종류': '모의고사', '이름': 'EJU 2019-2', '문항수': '16', '정답': key, '시험일': '2026-10-03', '등록일': '' });
+  const studs = ['BD774119', 'CZ297510', 'JS603412'];
+  [['1234123412341234', ''], ['1234123412340000', ''], ['1234000000000000', '150']].forEach(([a, cv], i) => {
+    const g = Core.grade(key, a);
+    T['시험결과'].push({ '시험ID': 'MX', '번호': studs[i], '답안': a, '맞은개수': String(g.score), '틀린번호': g.wrong.map(w => w.n).join(','), '환산점수': cv, '입력일': '' });
+  });
+  const v = c => Logic.handle(e, 'login', { code: c }).data.classes.find(c => c.code === 'SJ-D').tests.find(t => t.id === 'MX');
+  const a = v('BD774119'), b = v('CZ297510'), c = v('JS603412');
+  assert.ok(a.conv > b.conv && b.conv > 0, a.conv + ' ' + b.conv);
+  assert.strictEqual(c.conv, 150, '칸에 있던 값 그대로');
+});
 console.log(`\n${passed} passed` + (process.exitCode ? ', 실패 있음' : ''));

@@ -169,6 +169,71 @@ var Core = (function () {
   }
   function sameHash(a, b) { return hashDist(a, b) <= DUP_BITS; }
 
+  /* ---------- 득점등화 (Rasch) — 실전반 환산점수 ----------
+   * 선생님 실전 채점 파일(실전.xlsx 「등화_*」 시트)과 같은 방식:
+   * 한 달 안의 모든 회차·모든 학생 응답(문항마다 맞음 1 / 틀림 0 / 안 씀 빈칸)으로 문항 난이도 b 를 함께 추정(학생 능력은 그 달 동안 같다고 봄, 난이도 평균 0).
+   * 회차마다 정답 수 r → 능력 θ (그 회차 문항으로 Σσ(θ−b) = r, 0점·만점은 0.3 보정),
+   * 환산점수 = 200 × (그 달 모든 문항에서 θ 의 평균 정답 확률) — 「그 달 평균 난이도 시험을 봤다면 받았을 점수」.
+   * 같은 회차에서 정답 수가 같으면 환산점수도 같음. 실전.xlsx 7~10월 값과 비교: 84% 같음, 99.5% ±1점 안, 최대 2점 차이.
+   * rows: [{ p: 학생, exam: 시험ID, x: [1|0|null, …] (문항 수만큼) }] → { b: {시험ID: [난이도…]}, score(exam, r, mask) } 또는 null(자료 부족) */
+  function sig(z) { return 1 / (1 + Math.exp(-z)); }
+  function equate(rows) {
+    var items = [], idx = {}, persons = [], pi = {}, cells = [];
+    rows.forEach(function (r) {
+      if (!(r.p in pi)) { pi[r.p] = persons.length; persons.push(r.p); }
+      (r.x || []).forEach(function (v, j) {
+        if (v === null || v === undefined) return;
+        var k = r.exam + '#' + j;
+        if (!(k in idx)) { idx[k] = items.length; items.push({ exam: r.exam, j: j }); }
+        cells.push([pi[r.p], idx[k], v ? 1 : 0]);
+      });
+    });
+    var P = persons.length, I = items.length;
+    if (P < 2 || I < 2) return null;
+    var pk = [], ik = [], k, c;
+    for (k = 0; k < P; k++) pk.push(true);
+    for (k = 0; k < I; k++) ik.push(true);
+    for (var pass = 0; pass < 5; pass++) {   // 모두 맞힘·모두 틀림인 학생·문항은 추정에서 빼고 (문항은 아래에서 따로)
+      var ps = new Array(P).fill(0), pn = new Array(P).fill(0), is = new Array(I).fill(0), inn = new Array(I).fill(0);
+      cells.forEach(function (e) { if (pk[e[0]] && ik[e[1]]) { ps[e[0]] += e[2]; pn[e[0]]++; is[e[1]] += e[2]; inn[e[1]]++; } });
+      for (k = 0; k < P; k++) if (pk[k] && (ps[k] === 0 || ps[k] === pn[k])) pk[k] = false;
+      for (k = 0; k < I; k++) if (ik[k] && (is[k] === 0 || is[k] === inn[k])) ik[k] = false;
+    }
+    var live = cells.filter(function (e) { return pk[e[0]] && ik[e[1]]; });
+    if (!live.length) return null;
+    var th = new Array(P).fill(0), b = new Array(I).fill(0);
+    for (var it = 0; it < 500; it++) {
+      var gp = new Array(P).fill(0), hp = new Array(P).fill(0);
+      live.forEach(function (e) { var q = sig(th[e[0]] - b[e[1]]); gp[e[0]] += e[2] - q; hp[e[0]] += q * (1 - q); });
+      for (k = 0; k < P; k++) if (pk[k]) th[k] += Math.max(-1, Math.min(1, gp[k] / Math.max(hp[k], 1e-9)));
+      var gi = new Array(I).fill(0), hi = new Array(I).fill(0);
+      live.forEach(function (e) { var q = sig(th[e[0]] - b[e[1]]); gi[e[1]] += e[2] - q; hi[e[1]] += q * (1 - q); });
+      var mx = 0, sum = 0, cnt = 0;
+      for (k = 0; k < I; k++) if (ik[k]) { var db = Math.max(-1, Math.min(1, -gi[k] / Math.max(hi[k], 1e-9))); b[k] += db; mx = Math.max(mx, Math.abs(db)); sum += b[k]; cnt++; }
+      for (k = 0; k < I; k++) if (ik[k]) b[k] -= sum / cnt;
+      if (mx < 1e-6) break;
+    }
+    for (k = 0; k < I; k++) if (!ik[k]) {   // 극단 문항: 푼 학생들의 능력으로 0.5 보정해서 난이도 추정
+      var tt = [], s = 0;
+      cells.forEach(function (e) { if (e[1] === k && pk[e[0]]) { tt.push(th[e[0]]); s += e[2]; } else if (e[1] === k) s += e[2]; });
+      var N = cells.filter(function (e) { return e[1] === k; }).length, tgt = Math.min(Math.max(s, 0.5), N - 0.5), bb = 0;
+      if (!tt.length) { b[k] = s ? -4 : 4; continue; }
+      for (var t2 = 0; t2 < 100; t2++) { var f = 0, h2 = 0; tt.forEach(function (x) { var q = sig(x - bb); f += q; h2 += q * (1 - q); }); bb -= (tgt - f) / Math.max(h2, 1e-9); }
+      b[k] = bb;
+    }
+    var byExam = {};
+    items.forEach(function (x, k2) { (byExam[x.exam] || (byExam[x.exam] = []))[x.j] = b[k2]; });
+    function score(exam, r, mask) {
+      var bs = (byExam[exam] || []).filter(function (v, j) { return v !== undefined && (!mask || mask[j]); });
+      if (!bs.length) return null;
+      var n = bs.length, rr = Math.min(Math.max(r, 0.3), n - 0.3), t = 0;
+      for (var i = 0; i < 100; i++) { var f = 0, h = 0; bs.forEach(function (x) { var q = sig(t - x); f += q; h += q * (1 - q); }); var st = (rr - f) / Math.max(h, 1e-9); t += st; if (Math.abs(st) < 1e-9) break; }
+      var m = 0; b.forEach(function (x) { m += sig(t - x); });
+      return Math.round(200 * m / b.length);
+    }
+    return { b: byExam, score: score };
+  }
+
   /** 'YYYY-MM' */
   function monthOf(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
   function dateOf(d) { return monthOf(d) + '-' + ('0' + d.getDate()).slice(-2); }
@@ -177,7 +242,7 @@ var Core = (function () {
     LETTERS: LETTERS, normCode: normCode, isValidCode: isValidCode, luhnOk: luhnOk, withCheck: withCheck, codeProblem: codeProblem, fmtCode: fmtCode, genCode: genCode,
     cleanAnswers: cleanAnswers, cleanKey: cleanKey, padAnswers: padAnswers,
     grade: grade, mean: mean, parseRoster: parseRoster, matchClass: matchClass, monthOf: monthOf, dateOf: dateOf, baseName: baseName, S: S,
-    classDays: classDays, lessons: lessons, nextMonth: nextMonth, hwDue: hwDue, fmtDue: fmtDue, hashDist: hashDist, sameHash: sameHash, DUP_BITS: DUP_BITS
+    classDays: classDays, lessons: lessons, nextMonth: nextMonth, hwDue: hwDue, fmtDue: fmtDue, hashDist: hashDist, sameHash: sameHash, DUP_BITS: DUP_BITS, equate: equate
   };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Core;
@@ -228,7 +293,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '53c7985898';
+  var VERSION = '0db77a10e7';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -308,6 +373,42 @@ var Logic = (function () {
         wrong: S(r['틀린번호']).split(',').filter(Boolean).map(Number), conv: S(r['환산점수']) === '' ? null : num(r['환산점수']), at: S(r['입력일']) };
     }).filter(function (r) { return r.exam; });
   }
+  /** 실전반 환산점수(득점등화, Core.equate) — 「시험결과」 환산점수 칸이 비어 있는 실전 모의고사·월말에 씀.
+   *  칸에 값이 있으면(7~10월 실전.xlsx 에서 옮겨 온 공식 값) 그 값을 그대로 둠. 달마다 그 달 실전 응답 전부로 다시 계산되므로 새 답안이 들어오면 자동 반영.
+   *  → { '시험ID|번호': 환산점수 } */
+  function equated(env) {
+    return memo('equated', function () {
+      // 시험결과·시험이 바뀌지 않았으면 캐시 (계산은 수십 ms 지만 학생 로그인마다 하지 않게)
+      var rs = results(env), last = '';
+      rs.forEach(function (r) { if (r.at > last) last = r.at; });
+      var ck = 'eq1:' + rs.length + ':' + last + ':' + exams(env).length;
+      var hit = env.cache && env.cache.get(ck);
+      if (hit) { try { return JSON.parse(hit); } catch (e) { /* 다시 계산 */ } }
+      var kind = {}, out = {}, byMonth = {};
+      classes(env).forEach(function (c) { kind[c.code] = c.kind; });
+      var ex = {};
+      exams(env).forEach(function (e) { if (kind[e.cls] === '실전' && (e.kind === '모의고사' || e.kind === '월말테스트') && e.total) ex[e.id] = e; });
+      results(env).forEach(function (r) {
+        var e = ex[r.exam]; if (!e || r.score > e.total) return;
+        var x = null, mask = null, i;
+        if (r.answers && e.key && e.key.length === e.total) {   // 답안이 있으면 문항마다 (안 쓴 문항 = 빈칸)
+          var a = C.padAnswers(r.answers, e.total); x = []; mask = [];
+          for (i = 0; i < e.total; i++) { var ch = a.charAt(i); x.push(ch === '0' ? null : (ch === e.key.charAt(i) ? 1 : 0)); mask.push(ch !== '0'); }
+        } else if (r.score === e.total || (r.wrong.length && r.score + r.wrong.length === e.total)) {   // 옮겨 온 성적: 틀린 번호로
+          x = []; for (i = 1; i <= e.total; i++) x.push(r.wrong.indexOf(i) >= 0 ? 0 : 1);
+        }
+        (byMonth[e.month] || (byMonth[e.month] = [])).push({ r: r, row: x ? { p: r.code, exam: e.id, x: x } : null, mask: mask });
+      });
+      Object.keys(byMonth).forEach(function (m) {
+        var list = byMonth[m], q = C.equate(list.map(function (o) { return o.row; }).filter(Boolean));
+        if (!q) return;
+        list.forEach(function (o) { var v = q.score(o.r.exam, o.r.score, o.mask); if (v !== null) out[o.r.exam + '|' + o.r.code] = v; });
+      });
+      try { if (env.cache) env.cache.put(ck, JSON.stringify(out), 21600); } catch (e) { /* 캐시 크기 넘으면 그냥 둠 */ }
+      return out;
+    });
+  }
+  function convOf(env, r) { return r.conv !== null ? r.conv : (equated(env)[r.exam + '|' + r.code] === undefined ? null : equated(env)[r.exam + '|' + r.code]); }
   /** 숙제 목록 + 마감(due). 마감 칸이 비면 숙제 k(이름의 「N주차」, 없으면 그 반·그 달 등록 순서) = 2k+1번째 수업 시작 */
   function homework(env) { return memo('homework', function () { return homework_(env); }); }
   function homework_(env) {
@@ -426,12 +527,12 @@ var Logic = (function () {
           var me = null, all = [], convs = [];
           (byExam[e.id] || []).forEach(function (r) {
             if (!(e.total && r.score > e.total)) all.push(r.score);   // 입력 오타(문항 수보다 큰 점수)는 반 평균에서 뺌
-            if (r.conv !== null) convs.push(r.conv);
+            var cv = convOf(env, r); if (cv !== null) convs.push(cv);
             if (r.code === stu.code) me = r;
           });
           var t = { id: e.id, month: e.month, kind: e.kind, label: e.label, date: e.date, total: e.total,
             score: me ? me.score : null, avg: C.mean(all), n: all.length,
-            conv: me ? me.conv : null, convAvg: C.mean(convs), wrong: me ? me.wrong : [] };
+            conv: me ? convOf(env, me) : null, convAvg: C.mean(convs), wrong: me ? me.wrong : [] };
           var ck = cum[c.kind + '|' + e.label];
           t.cum = ck ? { pct: Math.round(ck.s / ck.n * 1000) / 10, n: ck.n } : null;   // 같은 시험 누적 평균 정답률(%)·인원
           if (showKey && me && me.answers) t.wrongDetail = C.grade(e.key, me.answers).wrong;   // 답안 기록이 없는(옮겨 온) 성적은 제외
