@@ -300,11 +300,20 @@
   function testItem(t, extra, noDate, noWrong) {   // noWrong: 개념·단풀 월말테스트는 틀린 문항을 안 보여 줌 (2026-10-22 사용자)
     var h = '<div class="item"><div class="row"><b>' + esc(t.label) + (extra ? ' <span class="meta">' + esc(extra) + '</span>' : '') + '</b>' +
       (t.score === null ? '<span class="pill wait">아직 입력 전</span>' : '<span class="score">' + t.score + '<small> / ' + t.total + '</small></span>') + '</div>';
-    h += '<p class="meta">' + [noDate ? '' : UI.dateLabel(t.date), t.score !== null ? '정답률 ' + pct(t.score, t.total) + '%' : '', t.rank ? t.rank + '등 / ' + t.n + '명' : '', t.avg !== null && t.total ? '그때 반 평균 ' + pct1(t.avg, t.total) + '%' : '', t.cum ? '누적 평균 ' + t.cum.pct + '%' : '',
-      t.conv !== null ? '환산점수 ' + t.conv + (t.convAvg !== null ? ' (반 평균 ' + Math.round(t.convAvg) + ')' : '') : ''].filter(Boolean).map(esc).join(' · ') + '</p>';
+    // 한 줄로 길게 늘어놓지 않고 작은 칸으로 (2026-10-22 사용자: 가독성)
+    var my = t.score !== null && t.total ? pct1(t.score, t.total) : null, av = t.avg !== null && t.total ? pct1(t.avg, t.total) : null;
+    function st(lbl, val, sub, cls) { return '<div class="st' + (cls ? ' ' + cls : '') + '"><span>' + lbl + '</span><b>' + val + '</b>' + (sub ? '<em>' + sub + '</em>' : '') + '</div>'; }
+    var cells = [];
+    if (my !== null) cells.push(st('정답률', my + '%', '', av !== null ? (my >= av ? 'sgood' : 'sbad') : ''));
+    if (t.rank) cells.push(st('등수', t.rank + '등', t.n + '명 중'));
+    if (av !== null) cells.push(st('그때 반 평균', av + '%', my !== null ? (my - av >= 0 ? '+' : '') + Math.round((my - av) * 10) / 10 + '%p' : ''));
+    if (t.cum) cells.push(st('누적 평균', t.cum.pct + '%', t.cum.n + '명'));
+    if (t.conv !== null) cells.push(st('환산점수', t.conv, t.convAvg !== null ? '반 평균 ' + Math.round(t.convAvg) : ''));
+    if (!noDate && t.date) h += '<p class="meta">' + esc(UI.dateLabel(t.date)) + '</p>';
+    if (cells.length) h += '<div class="stats">' + cells.join('') + '</div>';
     if (t.score !== null && !noWrong) {
       if (t.wrongDetail) h += '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrongDetail.map(function (w) { return '<span class="chip">' + w.n + '번 정답 ' + w.key + ' · 내 답 ' + (w.ans === '0' ? '-' : w.ans) + '</span>'; }).join('') + '</div>';
-      else if (t.wrong.length) h += '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrong.map(function (n) { return '<span class="chip">' + n + '번</span>'; }).join('') + '</div>';
+      else if (t.wrong.length) h += '<div class="wrongs"><span class="lbl">틀린 문항 ' + t.wrong.length + '개</span><span class="wn">' + t.wrong.map(function (n) { return '<i>' + n + '</i>'; }).join('') + '</span></div>';
       else if (t.score === t.total) h += '<div class="chips"><span class="pill ok">전부 맞았어요</span></div>';
       // 학원 파일에서 옮겨 온 지난 성적은 점수만 있고 틀린 번호 기록이 없음 → 아무것도 안 붙임
     }

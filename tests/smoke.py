@@ -32,7 +32,7 @@ with sync_playwright() as p:
         txt = pg.inner_text('#panel')
         check(('1주차 소테스트' in txt or '경제 1주차' in txt) and '틀린 문항' in txt, '테스트 결과 표시')
         check('3주차 숙제' in txt or '3주차 일문일답' in txt, '숙제 목록 표시')
-        check('1등 /' in txt or '2등 /' in txt or '3등 /' in txt, '시험마다 내 등수')
+        check(('1등' in txt or '2등' in txt or '3등' in txt) and ('명 중' in txt or '등 /' in txt), '시험마다 내 등수')
         dp = pg.evaluate("[...document.querySelectorAll('#panel .card')].filter(c => c.innerText.includes('단풀반 월말') && c.querySelector('.item')).map(c => c.innerText).join('|')")
         check(dp and '경제 월말' in dp and '틀린 문항' not in dp, '단풀·개념 월말은 틀린 문항 안 보임')
         pg.click('#panel button[data-hw="H3"]')
