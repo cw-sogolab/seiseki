@@ -396,5 +396,8 @@ t('logic: 환산점수 칸이 빈 실전 시험은 득점등화 값, 칸에 값�
   const a = v('BD774119'), b = v('CZ297510'), c = v('JS603412');
   assert.ok(a.conv > b.conv && b.conv > 0, a.conv + ' ' + b.conv);
   assert.strictEqual(c.conv, 150, '칸에 있던 값 그대로');
+  // 칸에 단순 비례 값(정답 수/문항 수×200, 6월에 옮겨 온 값)이 있으면 득점등화로 다시 계산
+  T['시험결과'].find(r => r['번호'] === 'BD774119')['환산점수'] = '200';
+  assert.strictEqual(v('BD774119').conv, a.conv);
 });
 console.log(`\n${passed} passed` + (process.exitCode ? ', 실패 있음' : ''));

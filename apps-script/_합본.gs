@@ -293,7 +293,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '0db77a10e7';
+  var VERSION = '1f56507938';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -408,7 +408,14 @@ var Logic = (function () {
       return out;
     });
   }
-  function convOf(env, r) { return r.conv !== null ? r.conv : (equated(env)[r.exam + '|' + r.code] === undefined ? null : equated(env)[r.exam + '|' + r.code]); }
+  /** 학생에게 보여 줄 환산점수: 칸에 득점등화 값(7~10월 실전.xlsx)이 있으면 그 값, 비었거나 단순 비례 값(6월처럼 정답 수/문항 수×200)이면 계산한 득점등화 값 */
+  function convOf(env, r) {
+    var e = memo('exById', function () { var m = {}; exams(env).forEach(function (x) { m[x.id] = x; }); return m; })[r.exam];
+    var simple = r.conv !== null && e && e.total && Math.abs(r.conv - r.score / e.total * 200) < 0.06;
+    if (r.conv !== null && !simple) return r.conv;
+    var v = equated(env)[r.exam + '|' + r.code];
+    return v === undefined ? r.conv : v;
+  }
   /** 숙제 목록 + 마감(due). 마감 칸이 비면 숙제 k(이름의 「N주차」, 없으면 그 반·그 달 등록 순서) = 2k+1번째 수업 시작 */
   function homework(env) { return memo('homework', function () { return homework_(env); }); }
   function homework_(env) {
