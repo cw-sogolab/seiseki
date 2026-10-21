@@ -73,6 +73,8 @@
   }
   function kindOf(c) { return c.kind || ({ GN: '개념', DP: '단풀', SJ: '실전' })[String(c.code).split('-')[0]] || ''; }
   function subjOfT(c, t) { return kindOf(c) === '실전' ? '실전 (EJU)' : (SUBJS[String(t.label).split(' ')[0]] || '기타'); }
+  /** 반 평균 정답률 — 누적 평균처럼 소수 첫째 자리까지 (%) */
+  function pct1(a, t) { return t ? Math.round(a / t * 1000) / 10 : 0; }
   function pct(a, t) { return t ? Math.round(a / t * 100) : 0; }
   /** 같은 달 안에서 1주차 → 2주차 → … → 월말 순서 */
   function rank(t) { var m = /(\d+)\s*주차/.exec(t.label); return m ? +m[1] : (/월말/.test(t.label) ? 90 : 50); }
@@ -109,7 +111,7 @@
   function tipHtml(it) {
     return '<b>' + esc(it.title) + '</b>' + (it.m ? '<span class="tm">' + (+it.m.slice(5)) + '월</span>' : '') +
       '<div><i style="background:' + it.col + '"></i>내 점수 <b>' + (it.sc !== undefined ? it.sc + '/' + it.tot + ' · ' : '') + it.p + '%</b></div>' +
-      (it.av !== null && it.av !== undefined ? '<div><i class="av"></i>그때 반 평균 ' + (+it.av).toFixed(1) + (it.tot ? '/' + it.tot : '') + '</div>' : '') +
+      (it.av !== null && it.av !== undefined && it.tot ? '<div><i class="av"></i>그때 반 평균 ' + pct1(it.av, it.tot) + '%</div>' : '') +
       (it.cum ? '<div><i class="cu"></i>누적 평균 ' + it.cum.pct + '%' + (it.cum.n ? ' <small>(' + it.cum.n + '명)</small>' : '') + '</div>' : '');
   }
   function hit(x, w, H, it) { TIPS.push(it); return '<rect class="hit" x="' + x + '" y="0" width="' + w + '" height="' + H + '" fill="transparent" data-tip="' + (TIPS.length - 1) + '"/>'; }
@@ -297,7 +299,7 @@
   function testItem(t, extra, noDate) {
     var h = '<div class="item"><div class="row"><b>' + esc(t.label) + (extra ? ' <span class="meta">' + esc(extra) + '</span>' : '') + '</b>' +
       (t.score === null ? '<span class="pill wait">아직 입력 전</span>' : '<span class="score">' + t.score + '<small> / ' + t.total + '</small></span>') + '</div>';
-    h += '<p class="meta">' + [noDate ? '' : UI.dateLabel(t.date), t.score !== null ? '정답률 ' + pct(t.score, t.total) + '%' : '', t.avg !== null ? '그때 반 평균 ' + t.avg.toFixed(1) : '', t.cum ? '누적 평균 ' + t.cum.pct + '%' : '',
+    h += '<p class="meta">' + [noDate ? '' : UI.dateLabel(t.date), t.score !== null ? '정답률 ' + pct(t.score, t.total) + '%' : '', t.avg !== null && t.total ? '그때 반 평균 ' + pct1(t.avg, t.total) + '%' : '', t.cum ? '누적 평균 ' + t.cum.pct + '%' : '',
       t.conv !== null ? '환산점수 ' + t.conv + (t.convAvg !== null ? ' (반 평균 ' + Math.round(t.convAvg) + ')' : '') : ''].filter(Boolean).map(esc).join(' · ') + '</p>';
     if (t.score !== null) {
       if (t.wrongDetail) h += '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrongDetail.map(function (w) { return '<span class="chip">' + w.n + '번 정답 ' + w.key + ' · 내 답 ' + (w.ans === '0' ? '-' : w.ans) + '</span>'; }).join('') + '</div>';
@@ -336,12 +338,13 @@
   }
 
   /** 달마다 막대 두 개(개념반 월말·단풀반 월말). rows: [{m, vals: {kind: pct|null}, by: {kind: [...]}}] */
-  function barChart(rows, kinds, sj) {
+  function barChart(rows, kinds, sj, half) {
     if (!rows.length) return '<p class="empty">아직 입력된 월말 점수가 없어요.</p>';
-    var pw = (($('#panel') && $('#panel').clientWidth) || window.innerWidth - 32) / (window.innerWidth > 860 ? 2 : 1), pad = window.innerWidth <= 480 ? 36 : 44;
+    kinds = kinds.filter(function (kd) { return rows.some(function (r) { return r.vals[kd] !== null && r.vals[kd] !== undefined; }); });   // 점수가 있는 반만 (막대 자리·범례)
+    var pw = (($('#panel') && $('#panel').clientWidth) || window.innerWidth - 32) / (half && window.innerWidth > 860 ? 2 : 1), pad = window.innerWidth <= 480 ? 36 : 44;
     var fs = window.innerWidth > 860 ? 12 : 10, n = rows.length, k = kinds.length;
     var W = Math.max(260, pw - pad, n * (k * 26 + 30)), H = fs === 12 ? 230 : 190, L = 34, R = 10, T = 20, B = fs * 2.6;
-    var slot = (W - L - R) / n, bw = Math.min(34, (slot - 18) / k);
+    var slot = Math.min((W - L - R) / n, 160), bw = Math.min(34, (slot - 18) / k), x0s = L + ((W - L - R) - slot * n) / 2;   // 달이 적어도 막대가 넓게 퍼지지 않게 가운데로
     function y(p) { return T + (100 - Math.min(100, p)) * (H - T - B) / 100; }
     var s = '<div class="chartwrap"><svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="달마다 개념반·단풀반 월말 정답률">';
     [0, 50, 100].forEach(function (g) {
@@ -349,7 +352,7 @@
       s += '<text x="' + (L - 6) + '" y="' + (y(g) + 4) + '" text-anchor="end" font-size="' + fs + '" fill="var(--muted)">' + g + '</text>';
     });
     rows.forEach(function (r, i) {
-      var cx = L + slot * i + slot / 2, x0 = cx - bw * k / 2 - (k - 1) * 2;
+      var cx = x0s + slot * i + slot / 2, x0 = cx - bw * k / 2 - (k - 1) * 2;
       kinds.forEach(function (kd, j) {
         var v = r.vals[kd]; if (v === null || v === undefined) return;
         var x = x0 + j * (bw + 4), top = y(v), lst = r.by[kd], ca = cumAvg(lst);
@@ -404,7 +407,7 @@
           ['개념', '단풀'].forEach(function (k) { var l = fin.filter(function (x) { return x.kind === k && x.t.month === m; }); r.by[k] = l; r.vals[k] = l.length ? avgPct(l) : null; });
           return r;
         });
-        gc += '<div class="card"><h2>월말 비교 <span class="meta">' + esc(s) + ' · 개념반 월말 · 단풀반 월말 · 정답률 %</span></h2>' + barChart(rows2, ['개념', '단풀'], s) + '</div>';
+        gc += '<div class="card"><h2>월말 비교 <span class="meta">' + esc(s) + ' · 개념반 월말 · 단풀반 월말 · 정답률 %</span></h2>' + barChart(rows2, ['개념', '단풀'], s, by['개념'].length > 0) + '</div>';
       }
       h += by['개념'].length && g2 ? '<div class="sgrid two">' + gc + '</div>' : gc;
     }
