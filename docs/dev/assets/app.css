@@ -124,8 +124,8 @@ svg.chart{display:block;width:100%;height:auto}
 .score{font-family:var(--f-round);font-size:22px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .score small{font-size:14px;font-weight:600;color:var(--faint)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
-.chip{font-size:13px;font-weight:600;padding:4px 9px;background:var(--red-soft);color:var(--red);border-radius:8px;font-variant-numeric:tabular-nums}
-.chips .lbl{font-size:13px;font-weight:600;color:var(--muted);margin-right:2px}
+.chip{font-size:12px;font-weight:600;padding:2px 7px;background:var(--red-soft);color:var(--red);border-radius:8px;font-variant-numeric:tabular-nums}
+.chips .lbl{font-size:12px;font-weight:600;color:var(--muted);margin-right:2px}
 .pill{display:inline-block;font-size:12.5px;font-weight:700;padding:4px 9px;border-radius:8px;white-space:nowrap}
 .pill.ok{background:var(--green-soft);color:var(--green)} .pill.no{background:var(--red-soft);color:var(--red)} .pill.wait{background:var(--fill);color:var(--muted)} .pill.blue{background:var(--blue-soft);color:var(--blue-ink)}
 .up{margin-top:14px;background:var(--fill);border-radius:16px;padding:6px 16px 16px}
@@ -480,8 +480,6 @@ table.itab .z{opacity:.35}
 .itiles .tile{background:var(--fill);box-shadow:none}
 
 /* 채점표: 답지처럼 5문항씩 (2026-10-21) */
-table.wt.all td{font-size:14px;font-weight:700}
-table.wt.all tr.n td{font-size:12px}
 table.wt.all tr.a td.o{color:var(--green);background:var(--green-soft);font-weight:700}
 table.wt.all tr.a td.x{color:#fff;background:var(--red)}
 table.wt.all td.g5{border-left:6px solid var(--surface)!important}

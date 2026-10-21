@@ -296,12 +296,12 @@
     renderSubject(kindSel, subjSel);
   }
 
-  function testItem(t, extra, noDate) {
+  function testItem(t, extra, noDate, noWrong) {   // noWrong: 개념·단풀 월말테스트는 틀린 문항을 안 보여 줌 (2026-10-22 사용자)
     var h = '<div class="item"><div class="row"><b>' + esc(t.label) + (extra ? ' <span class="meta">' + esc(extra) + '</span>' : '') + '</b>' +
       (t.score === null ? '<span class="pill wait">아직 입력 전</span>' : '<span class="score">' + t.score + '<small> / ' + t.total + '</small></span>') + '</div>';
     h += '<p class="meta">' + [noDate ? '' : UI.dateLabel(t.date), t.score !== null ? '정답률 ' + pct(t.score, t.total) + '%' : '', t.rank ? t.rank + '등 / ' + t.n + '명' : '', t.avg !== null && t.total ? '그때 반 평균 ' + pct1(t.avg, t.total) + '%' : '', t.cum ? '누적 평균 ' + t.cum.pct + '%' : '',
       t.conv !== null ? '환산점수 ' + t.conv + (t.convAvg !== null ? ' (반 평균 ' + Math.round(t.convAvg) + ')' : '') : ''].filter(Boolean).map(esc).join(' · ') + '</p>';
-    if (t.score !== null) {
+    if (t.score !== null && !noWrong) {
       if (t.wrongDetail) h += '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrongDetail.map(function (w) { return '<span class="chip">' + w.n + '번 정답 ' + w.key + ' · 내 답 ' + (w.ans === '0' ? '-' : w.ans) + '</span>'; }).join('') + '</div>';
       else if (t.wrong.length) h += '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrong.map(function (n) { return '<span class="chip">' + n + '번</span>'; }).join('') + '</div>';
       else if (t.score === t.total) h += '<div class="chips"><span class="pill ok">전부 맞았어요</span></div>';
@@ -423,7 +423,7 @@
       if (!all.length) return '';
       var list = all.filter(function (x) { return x.t.month === tmSel; });
       var c = '<div class="card"><h2>' + (real ? '' : '<i class="kdot" style="background:' + toneOf(k, s) + '"></i>') + esc(ttl) + ' <span class="meta">' + esc(tmSel ? UI.monthLabel(tmSel) : '') + '</span></h2>';
-      c += list.length ? list.map(function (x) { return testItem(x.t, null, real); }).join('') : '<p class="empty">이 달에는 ' + esc(ttl) + ' 기록이 없어요.</p>';
+      c += list.length ? list.map(function (x) { return testItem(x.t, null, real, !real && (x.t.kind === '월말테스트' || /월말/.test(x.t.label))); }).join('') : '<p class="empty">이 달에는 ' + esc(ttl) + ' 기록이 없어요.</p>';
       return c + '</div>';
     }
     var pager = tMonths.length > 1 ? '<div class="card mpg"><span class="lbl">달</span><div class="chiprow">' + tMonths.map(function (m) {

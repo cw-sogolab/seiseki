@@ -32,7 +32,9 @@ with sync_playwright() as p:
         txt = pg.inner_text('#panel')
         check(('1주차 소테스트' in txt or '경제 1주차' in txt) and '틀린 문항' in txt, '테스트 결과 표시')
         check('3주차 숙제' in txt or '3주차 일문일답' in txt, '숙제 목록 표시')
-        if isdev or '등 /' in txt: check('1등 /' in txt or '2등 /' in txt or '3등 /' in txt, '시험마다 내 등수')
+        check('1등 /' in txt or '2등 /' in txt or '3등 /' in txt, '시험마다 내 등수')
+        dp = pg.evaluate("[...document.querySelectorAll('#panel .card')].filter(c => c.innerText.includes('단풀반 월말') && c.querySelector('.item')).map(c => c.innerText).join('|')")
+        check(dp and '경제 월말' in dp and '틀린 문항' not in dp, '단풀·개념 월말은 틀린 문항 안 보임')
         pg.click('#panel button[data-hw="H3"]')
         if pg.get_attribute('#ph', 'multiple') is not None: pg.set_input_files('#ph', [str(tmp), str(tmp2)])
         else:   # 카메라 버튼: 한 장씩 찍어 쌓기
@@ -49,7 +51,7 @@ with sync_playwright() as p:
         pg.wait_for_function("document.querySelector('#panel').innerText.includes('사진 2장')", timeout=8000)
         check(True, '사진 2장 제출 → 제출 완료로 바뀜')
         check(pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth + 1'), '가로 스크롤 없음')
-        if isdev:   # 실전반: 테스트 결과 달마다 한 페이지
+        if True:   # 실전반: 테스트 결과 달마다 한 페이지
             pg.goto((base / 'index.html').as_uri() + '?demo'); pg.click('#out') if pg.is_visible('#out') else None
             pg.fill('#sid', 'BD774119'); pg.click('#go'); pg.wait_for_selector('#modes [data-mode="실전"]')
             pg.click('#modes [data-mode="실전"]'); pg.wait_for_timeout(200)
