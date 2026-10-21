@@ -54,12 +54,13 @@
   function cls(code) { return D.classes.filter(function (c) { return c.code === code; })[0] || { code: code, name: code, kind: '', time: '' }; }
   function stu(code) { return D.students.filter(function (s) { return s.code === code; })[0]; }
   function members(c) { return D.students.filter(function (s) { return s.active && s.classes.indexOf(c) >= 0; }).sort(function (a, b) { return a.name.localeCompare(b.name, 'ko'); }); }
-  /** 그 반·그 달의 명단: 기록(시험결과·숙제제출)이 있는 학생 + (이번 달이면) 지금 듣는 학생 */
+  /** 그 반·그 달의 명단: 이번 달은 지금 듣는 학생만(나간 학생은 기록이 있어도 빼고),
+   *  지난달은 그 달 기록(시험결과·숙제제출)이 있는 학생 */
   function rosterFor(c, m) {
+    if (m === D.today.slice(0, 7)) return members(c);
     var codes = {};
     D.exams.forEach(function (e) { if (e.cls === c && e.month === m) D.results.forEach(function (r) { if (r.exam === e.id) codes[r.code] = 1; }); });
     D.homework.forEach(function (h) { if (h.cls === c && h.month === m) D.hwSubs.forEach(function (x) { if (x.hw === h.id) codes[x.code] = 1; }); });
-    if (m === D.today.slice(0, 7)) members(c).forEach(function (s) { codes[s.code] = 1; });
     return D.students.filter(function (s) { return codes[s.code]; }).sort(function (a, b) { return a.name.localeCompare(b.name, 'ko'); });
   }
   var SUBJS = ['경제', '정치', '지리', '현사', '현대사회', '세계사', '역사', '일본사'];
