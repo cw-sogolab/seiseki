@@ -28,7 +28,7 @@ var Logic = (function () {
     '시험결과': ['시험ID', '번호', '답안', '맞은개수', '틀린번호', '환산점수', '입력일'],
     '숙제': ['숙제ID', '반코드', '월', '이름', '교재', '시작쪽', '끝쪽', '문항수', '등록일'],
     '숙제제출': ['숙제ID', '번호', '맞은개수', '사진수', '확인', '대리입력', '최종제출일'],
-    '숙제사진': ['숙제ID', '번호', '순서', '파일ID', '올린시각'],
+    '숙제사진': ['숙제ID', '번호', '순서', '파일ID', '올린시각', '검사', '검사메모'],
     '평가': ['월', '번호', '코멘트', '수정일'],
     // 시험지: 수업 폴더 답지에서 뽑은 정답·문항 수 (강사 화면에서 시험·숙제 등록 때 골라 씀). 학생에게는 보내지 않음
     '시험지': ['시험지ID', '반종류', '과목', '종류', '회차', '이름', '문항수', '정답', '출처']
@@ -94,6 +94,11 @@ var Logic = (function () {
       return { hw: S(r['숙제ID']), code: S(r['번호']), count: S(r['맞은개수']) === '' ? null : num(r['맞은개수']), photos: num(r['사진수']),
         checked: S(r['확인']) === 'Y', proxy: S(r['대리입력']) === 'Y', at: S(r['최종제출일']) };
     }).filter(function (r) { return r.hw; });
+  }
+  /** AI 사진 확인에서 걸린 사진 (강사 화면 ⚠ 표시용) */
+  function photoWarns(env) {
+    return env.store.all('숙제사진').filter(function (r) { return S(r['검사']) === '확인필요'; })
+      .map(function (r) { return { hw: S(r['숙제ID']), code: S(r['번호']), order: num(r['순서']), msg: S(r['검사메모']) }; });
   }
   function evals(env) {
     return env.store.all('평가').map(function (r) { return { month: S(r['월']), code: S(r['번호']), text: S(r['코멘트']) }; });
@@ -207,8 +212,15 @@ var Logic = (function () {
       name: stu.code + '_' + h.id + '_' + ('0' + order).slice(-2) + '.' + mime.split('/')[1].replace('jpeg', 'jpg'),
       mime: mime, b64: b64
     });
-    env.store.append('숙제사진', { '숙제ID': h.id, '번호': stu.code, '순서': order, '파일ID': fileId, '올린시각': stamp(env) });
-    return ok({ fileId: fileId });
+    // AI 사진 확인 (서버에 API 키가 있을 때만): 맞는 숙제인지, 이름 칸에 자기 이름을 썼는지. 실패해도 제출은 받음
+    var chk = null;
+    if (env.checkPhoto) {
+      try { chk = env.checkPhoto({ b64: b64, mime: mime, name: S(stu.name).replace(/\(.*\)$/, '').trim(), label: h.label, order: order }); }
+      catch (e) { chk = null; }
+    }
+    env.store.append('숙제사진', { '숙제ID': h.id, '번호': stu.code, '순서': order, '파일ID': fileId, '올린시각': stamp(env),
+      '검사': chk ? (chk.ok ? 'OK' : '확인필요') : '', '검사메모': chk ? S(chk.msg) : '' });
+    return ok({ fileId: fileId, check: chk ? { ok: !!chk.ok, msg: S(chk.msg) } : null });
   }
 
   function hwFinish(env, p) {
@@ -242,7 +254,7 @@ var Logic = (function () {
 
   function bootstrap(env) {
     return ok({ classes: classes(env), students: students(env), exams: exams(env), results: results(env),
-      homework: homework(env), hwSubs: hwSubs(env), evals: evals(env), papers: papers(env), today: C.dateOf(env.now()) });
+      homework: homework(env), hwSubs: hwSubs(env), photoWarns: photoWarns(env), evals: evals(env), papers: papers(env), today: C.dateOf(env.now()) });
   }
 
   function saveResult(env, p) {
@@ -333,7 +345,7 @@ var Logic = (function () {
 
   function hwPhotos(env, p) {
     return ok(env.store.all('숙제사진').filter(function (r) { return S(r['숙제ID']) === S(p.hw) && S(r['번호']) === S(p.code); })
-      .map(function (r) { return { order: num(r['순서']), fileId: S(r['파일ID']), at: S(r['올린시각']) }; })
+      .map(function (r) { return { order: num(r['순서']), fileId: S(r['파일ID']), at: S(r['올린시각']), check: S(r['검사']), note: S(r['검사메모']) }; })
       .sort(function (a, b) { return a.order - b.order; }));
   }
 

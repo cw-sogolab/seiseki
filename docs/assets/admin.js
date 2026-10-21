@@ -588,7 +588,9 @@
       '<div class="tw" style="margin-top:10px"><table><thead><tr><th>이름</th><th>번호</th><th>상태</th><th class="num">맞은 개수</th><th class="num">사진</th><th>확인</th><th></th></tr></thead><tbody>' +
       mem.map(function (s) {
         var u = subOf(hw.id, s.code);
-        return '<tr><td>' + esc(s.name) + '</td><td class="code">' + Core.fmtCode(s.code) + '</td><td>' + (u ? (u.proxy ? '<span class="pill wait">대신 입력</span>' : '<span class="pill ok">제출</span>') : '<span class="pill no">미제출</span>') + '</td>' +
+        var pw = (D.photoWarns || []).filter(function (x) { return x.hw === hw.id && x.code === s.code; });
+        var warn = pw.length && !(u && u.checked) ? ' <span class="pill no" title="' + esc(pw.map(function (x) { return x.order + '번째: ' + x.msg; }).join('\n')) + '">⚠ 사진 확인</span><div class="meta warnline">' + pw.map(function (x) { return x.order + '번째 ' + esc(x.msg); }).join('<br>') + '</div>' : '';
+        return '<tr><td>' + esc(s.name) + '</td><td class="code">' + Core.fmtCode(s.code) + '</td><td>' + (u ? (u.proxy ? '<span class="pill wait">대신 입력</span>' : '<span class="pill ok">제출</span>') : '<span class="pill no">미제출</span>') + warn + '</td>' +
           '<td class="num">' + (u && u.count !== null ? u.count + (hw.total ? '/' + hw.total : '') : '-') + '</td><td class="num">' + (u ? u.photos + '장' : '-') + '</td>' +
           '<td>' + (u ? '<label class="check" style="margin:0"><input type="checkbox" data-ck="' + esc(s.code) + '"' + (u.checked ? ' checked' : '') + '> 확인</label>' : '') + '</td>' +
           '<td>' + (u && u.photos ? '<button type="button" class="btn sub sm" data-ph="' + esc(s.code) + '">사진 보기</button>' : '') +
@@ -676,7 +678,7 @@
     req('hwPhotos', { hw: hw.id, code: s.code }).then(function (r) {
       if (!r.ok) { $('#phs', ov).innerHTML = '<p class="msg err">' + esc(r.error) + '</p>'; return; }
       $('#phs', ov).innerHTML = r.data.length ? r.data.map(function (p) {
-        return '<a href="' + esc(Api.photoLink(p.fileId)) + '" target="_blank" rel="noopener"><img src="' + esc(Api.photoUrl(p.fileId, 600)) + '" alt="' + p.order + '번째 사진" loading="lazy"><span>' + p.order + '번째 · ' + esc(p.at) + '</span></a>';
+        return '<a href="' + esc(Api.photoLink(p.fileId)) + '" target="_blank" rel="noopener"><img src="' + esc(Api.photoUrl(p.fileId, 600)) + '" alt="' + p.order + '번째 사진" loading="lazy"><span>' + p.order + '번째 · ' + esc(p.at) + (p.check === '확인필요' ? ' · <b class="bad">⚠ ' + esc(p.note) + '</b>' : p.check === 'OK' ? ' · AI 확인 OK' : '') + '</span></a>';
       }).join('') : '<p class="empty">사진이 없어요.</p>';
     });
   }

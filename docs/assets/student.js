@@ -157,13 +157,19 @@
       if (!files.length) { msg.className = 'msg err'; msg.textContent = '사진을 골라 주세요.'; return; }
       if ($('#cnt').value === '' && !w.done) { msg.className = 'msg err'; msg.textContent = '맞은 개수를 적어 주세요.'; return; }
       setBusy(btn, true, '올리는 중…'); bar.hidden = false; msg.className = 'msg'; msg.textContent = '';
-      var start = (w.photos || 0) + 1, i = 0;
+      var start = (w.photos || 0) + 1, i = 0, warns = [];
       function next() {
         if (i >= files.length) {
           return Api.call('hwFinish', { code: code, hw: hwId, count: $('#cnt').value }).then(function (r) {
             setBusy(btn, false, '제출하기');
             if (!r.ok) { msg.className = 'msg err'; msg.textContent = r.error; return; }
             show(r.data);
+            if (warns.length) {   // AI 사진 확인에서 걸린 것: 제출은 됐고, 다시 찍어 올리라고 안내
+              var b2 = $('#panel [data-box="' + hwId + '"]');
+              if (b2) b2.innerHTML = '<div class="warnbox" role="alert"><b>사진을 다시 확인해 주세요</b><ul>' +
+                warns.map(function (x) { return '<li>' + x.n + '번째 사진: ' + UI.esc(x.msg) + '</li>'; }).join('') +
+                '</ul><p>제출은 됐어요. 고쳐서 다시 찍은 사진을 「사진 더 올리기」로 올려 주세요. 선생님도 확인할 거예요.</p></div>';
+            }
           });
         }
         msg.textContent = (i + 1) + ' / ' + files.length + '장 올리는 중';
@@ -171,6 +177,7 @@
           return Api.call('hwPhoto', { code: code, hw: hwId, order: start + i, mime: 'image/jpeg', b64: b64 });
         }).then(function (r) {
           if (!r.ok) throw new Error(r.error);
+          if (r.data && r.data.check && !r.data.check.ok) warns.push({ n: i + 1, msg: r.data.check.msg });
           i++; fill.style.width = Math.round(i / files.length * 100) + '%';
           return next();
         });

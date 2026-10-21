@@ -144,11 +144,14 @@ t('숙제 등록·사진 제출·마무리·확인', () => {
   const c = codes['가학생(동작)'];
   assert.ok(!H('hwFinish', { code: c, hw: hw.id, count: 40 }).ok, '사진 없이 마무리 불가');
   assert.ok(H('hwPhoto', { code: c, hw: hw.id, order: 1, mime: 'image/jpeg', b64: 'AAAA' }).ok);
-  assert.ok(H('hwPhoto', { code: c, hw: hw.id, order: 2, mime: 'image/jpeg', b64: 'AAAA' }).ok);
+  const p2 = H('hwPhoto', { code: c, hw: hw.id, order: 2, mime: 'image/jpeg', b64: 'AAAA' }); assert.ok(p2.ok);
+  assert.strictEqual(p2.data.check.ok, false, '미리보기 사진 확인: 2번째는 걸림'); assert.ok(p2.data.check.msg);
   const fin = H('hwFinish', { code: c, hw: hw.id, count: 40 }); assert.ok(fin.ok, fin.error);
   const mine = fin.data.classes.filter(x => x.code === 'GN-HM')[0].hw[0]; assert.ok(mine.done); assert.strictEqual(mine.photos, 2);
   assert.ok(H('setChecked', { token, hw: hw.id, code: c, checked: true }).ok);
   assert.strictEqual(H('hwPhotos', { token, hw: hw.id, code: c }).data.length, 2);
+  const ph = H('hwPhotos', { token, hw: hw.id, code: c }).data; assert.strictEqual(ph[0].check, 'OK'); assert.strictEqual(ph[1].check, '확인필요');
+  const bw = H('bootstrap', { token }).data.photoWarns.filter(x => x.hw === hw.id); assert.strictEqual(bw.length, 1); assert.strictEqual(bw[0].order, 2);
   assert.ok(!H('hwPhoto', { code: codes['다학생'], hw: 'NOPE', b64: 'A' }).ok);
 });
 t('정답 수정 → 다시 채점', () => {
