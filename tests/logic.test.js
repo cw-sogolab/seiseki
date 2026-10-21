@@ -400,4 +400,23 @@ t('logic: 환산점수 칸이 빈 실전 시험은 득점등화 값, 칸에 값�
   T['시험결과'].find(r => r['번호'] === 'BD774119')['환산점수'] = '200';
   assert.strictEqual(v('BD774119').conv, a.conv);
 });
+console.log('실전반 과목별 정답률·취약 과목');
+t('문항과목으로 과목별 내 정답률·반 평균, 달별·종합, 취약 = 반 평균보다 가장 낮은 과목', () => {
+  const e = Mock.seed(Mock.createEnv()), T = e._tables, key = '1234123412341234';
+  T['시험지'].push({ '시험지ID': 'X', '반종류': '실전', '과목': '종합과목', '종류': '모의고사', '회차': '2', '이름': 'EJU 2018-2', '문항수': '16', '정답': key, '출처': '', '문항과목': '경경경경정정정정지지지지역역역역' });
+  T['시험'].push({ '시험ID': 'MY', '반코드': 'SJ-D', '월': '2026-08', '종류': '모의고사', '이름': 'EJU 2018(2)', '문항수': '16', '정답': key, '시험일': '2026-08-03', '등록일': '' });
+  // 옮겨 온 성적(답안 없음, 틀린 번호만)도 씀
+  T['시험결과'].push({ '시험ID': 'MY', '번호': 'BD774119', '답안': '', '맞은개수': '12', '틀린번호': '5,6,7,8', '환산점수': '', '입력일': '' });
+  T['시험결과'].push({ '시험ID': 'MY', '번호': 'CZ297510', '답안': '', '맞은개수': '16', '틀린번호': '', '환산점수': '', '입력일': '' });
+  const v = Logic.handle(e, 'login', { code: 'BD774119' }).data.subj;
+  const aug = v.months.find(m => m.m === '2026-08');
+  assert.ok(aug, '8월 묶음');
+  const pol = aug.subs.find(o => o.s === '정치');
+  assert.deepStrictEqual([pol.c, pol.t, pol.me, pol.avg], [0, 4, 0, 50]);
+  assert.strictEqual(aug.subs.find(o => o.s === '경제').me, 100);
+  assert.strictEqual(aug.weak, '정치');
+  assert.strictEqual(aug.n, 1);
+  assert.ok(v.all.n >= 3 && v.all.subs.length === 5, '종합에 10월·9월 모의고사도 (예시 문항과목)');
+  assert.strictEqual(Logic.handle(e, 'login', { code: 'KM482919' }).data.subj, null, '실전반 기록이 없으면 null');
+});
 console.log(`\n${passed} passed` + (process.exitCode ? ', 실패 있음' : ''));

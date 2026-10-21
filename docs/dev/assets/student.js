@@ -1,7 +1,7 @@
 /* 학생 화면: 번호로 들어와 성적 조회 + 숙제 사진 제출 */
 (function () {
   var $ = UI.$, esc = UI.esc;
-  var view = null, code = '', tok = '', kindSel = '', subjSel = '', busy = false;
+  var view = null, code = '', tok = '', kindSel = '', subjSel = '', wkSel = '', busy = false;
 
   if (Api.demo) $('#demo').hidden = false;
 
@@ -395,7 +395,10 @@
     if (!real) h += tile('숙제 제출', hws.length ? done + ' / ' + hws.length : null, '', '', hws.length ? '개념반 일문일답' : '');
     h += '</div>';
     // 그래프 두 개: ① 개념반 소테스트·월말 꺾은선  ② 월말 비교 — 개념반 월말과 단풀반 월말을 달마다 나란히 (단풀반을 들었을 때)
-    if (real) h += '<div class="card"><h2>점수 추이 <span class="meta">실전반 ' + esc(s) + ' · 모든 달 · 정답률 %</span></h2>' + chartX(itemsOf(taken)) + '</div>';
+    if (real) {
+      h += '<div class="card"><h2>점수 추이 <span class="meta">실전반 ' + esc(s) + ' · 모든 달 · 정답률 %</span></h2>' + chartX(itemsOf(taken)) + '</div>';
+      if (view.subj) h += '<div class="card" id="wk"></div>';
+    }
     else {
       var g2 = by['단풀'].length > 0, gc = '';
       if (by['개념'].length) gc += '<div class="card"><h2><i class="kdot" style="background:' + toneOf('개념', s) + '"></i>개념반 <span class="meta">' + esc(s) + ' · 소테스트·월말 · 정답률 %</span></h2>' + chartX(itemsOf(by['개념']), g2) + '</div>';
@@ -428,7 +431,37 @@
       h += '<div class="sgrid hwfirst"><div class="col1">' + left + '</div><div class="col2">' + wCard + '</div></div></div>';
     } else h += left;
     $('#panel').innerHTML = h; bindTips($('#panel'));
+    if ($('#wk')) drawWeak();
     UI.all('#panel [data-hw]').forEach(function (b) { b.onclick = function () { openUpload(b.getAttribute('data-hw')); }; });
+  }
+
+  /* 실전반 과목별 정답률 · 취약 과목 (서버 view.subj: 시험지 「문항과목」으로 문항을 과목별로 나눔). 종합 | 달마다 */
+  function sjCol(sj) { return subjColor(sj === '역사' ? '세계사' : sj); }
+  function gapP(o) { return o.avg === null ? null : Math.round((o.me - o.avg) * 10) / 10; }
+  function drawWeak() {
+    var S = view.subj, box = $('#wk'); if (!S || !box) return;
+    var g = wkSel ? S.months.filter(function (m) { return m.m === wkSel; })[0] : null;
+    if (!g) { wkSel = ''; g = S.all; }
+    var h = '<h2>과목별 정답률 · 취약 과목 <span class="meta">내 정답률 · 반 평균(같은 시험을 본 학생 전체)</span></h2>';
+    h += '<div class="chiprow" role="tablist"><button type="button" class="tab" role="tab" data-wm="" aria-selected="' + (!wkSel) + '">종합</button>' +
+      S.months.map(function (m) { return '<button type="button" class="tab" role="tab" data-wm="' + m.m + '" aria-selected="' + (wkSel === m.m) + '">' + esc(monthShort(m.m)) + '</button>'; }).join('') + '</div>';
+    var w = g.weak ? g.subs.filter(function (o) { return o.s === g.weak; })[0] : null, d = w ? gapP(w) : null;
+    if (w) h += '<p class="wkline">' + (d < 0
+      ? '취약 과목 <b><i class="kdot" style="background:' + sjCol(w.s) + '"></i>' + esc(w.s) + '</b> — 반 평균보다 <b class="neg">' + Math.abs(d) + '%p</b> 낮아요'
+      : '모든 과목이 반 평균 이상이에요. 그중 가장 차이가 작은 과목은 <b><i class="kdot" style="background:' + sjCol(w.s) + '"></i>' + esc(w.s) + '</b>') + '</p>';
+    h += '<div class="wk">' + g.subs.map(function (o) {
+      var dd = gapP(o), weak = o.s === g.weak && dd !== null && dd < 0;
+      return '<div class="wkrow' + (weak ? ' weak' : '') + '"><div class="wkn"><i class="kdot" style="background:' + sjCol(o.s) + '"></i>' + esc(o.s) + (weak ? '<span class="wktag">취약</span>' : '') + '</div>' +
+        '<div class="wkb"><span class="me" style="width:' + o.me + '%;background:' + sjCol(o.s) + '"></span>' + (o.avg === null ? '' : '<span class="av" style="width:' + o.avg + '%"></span>') + '</div>' +
+        '<div class="wkv"><b>' + o.me + '%</b><small>반 평균 ' + (o.avg === null ? '-' : o.avg + '%') + '</small><small>' + (dd === null ? '' : '<em class="' + (dd >= 0 ? 'pos' : 'neg') + '">' + (dd > 0 ? '+' : '') + dd + '%p</em>') + '<span class="ct">' + (dd === null ? '' : ' · ') + o.c + '/' + o.t + '문항</span></small></div></div>';
+    }).join('') + '</div>';
+    h += '<div class="legend"><span><i class="bm"></i>내 정답률</span><span><i class="ba"></i>반 평균</span><span>시험 ' + g.n + '개</span></div>';
+    if (!wkSel && S.months.length > 1) h += '<p class="wkm"><span>달마다 취약 과목</span>' + S.months.map(function (m) {
+      var o = m.weak ? m.subs.filter(function (x) { return x.s === m.weak; })[0] : null, dd = o ? gapP(o) : null;
+      return '<button type="button" class="sjb" data-wm="' + m.m + '"><b>' + esc(monthShort(m.m)) + '</b> ' + (o && dd < 0 ? '<i class="kdot" style="background:' + sjCol(o.s) + '"></i>' + esc(o.s) + ' <small class="gneg">' + dd + '%p</small>' : '<em>없음</em>') + '</button>';
+    }).join('') + '</p>';
+    box.innerHTML = h;
+    UI.all('#wk [data-wm]').forEach(function (b) { b.onclick = function () { wkSel = b.getAttribute('data-wm'); drawWeak(); }; });
   }
 
   /* 요약: 반 종류 × 과목 표 하나 */
