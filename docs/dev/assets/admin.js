@@ -3,7 +3,7 @@
   var $ = UI.$, all = UI.all, esc = UI.esc;
   var token = UI.store.get('seiseki.token', sessionStorage) || '';
   var D = null, tab = 'entry', month = '', curExam = '', curHw = '', monthCls = '';
-  var TABS = [['entry', '답안 입력'], ['hw', '숙제'], ['exams', '시험'], ['item', '문항 분석'], ['stu', '학생·번호'], ['plan', '강의계획서'], ['month', '학생평가']];
+  var TABS = [['entry', '답안 입력'], ['item', '문항 분석'], ['hw', '숙제'], ['exams', '시험'], ['stu', '학생·번호'], ['plan', '강의계획서'], ['month', '학생평가']];
 
   if (Api.demo) $('#demo').hidden = false;
 
