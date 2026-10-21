@@ -158,7 +158,7 @@ td input[type=text],td input[type=number]{padding:7px 9px;font-size:14px;border-
 .result b{font-size:34px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .hit{font-size:14px;font-weight:600;min-height:1.5em;margin-top:6px}
 .hit.bad{color:var(--red)} .hit.good{color:var(--green)}
-textarea.paste{min-height:150px;font-family:var(--f-mono);font-size:13.5px;line-height:1.6}
+textarea.paste{min-height:150px;padding:18px 20px;margin-top:10px;font-family:var(--f-mono);font-size:13.5px;line-height:1.7}
 textarea.cm{min-width:240px;font-size:13.5px;padding:8px 10px;white-space:normal;border-radius:10px}
 textarea.tsv{min-height:120px;font-family:var(--f-mono);font-size:12px;margin-top:8px}
 .warnbox,.okbox{padding:12px 14px;font-size:14px;font-weight:500;margin-top:12px;border-radius:12px}
