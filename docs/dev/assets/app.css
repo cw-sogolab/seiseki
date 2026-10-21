@@ -408,10 +408,10 @@ table.mtx td.sjcell{text-align:left}
 .sjb small,.sjb em{display:inline}
 @media (max-width:860px){.sgrid.hwfirst .col2{order:-1}}
 /* cw-sogolab 로고 (2026-10-21) */
-.hero{display:block;text-align:center;margin:0 auto 26px}
-.hero img{display:inline-block;width:min(300px,82%);height:auto}
+.hero{text-align:center;margin:0 auto 26px}
+.hero img{display:block;width:auto;height:64px;margin:0 auto}
+.hero p{margin:8px 0 0;font-size:13px;font-weight:600;color:var(--faint);letter-spacing:.01em}
 .gate .hero{margin-bottom:0}
-.gate .hero img{width:min(260px,80%)}
 .brand .by img,.foot img{width:auto;height:15px;display:inline-block;vertical-align:-3px;margin-right:4px}
 .foot img{height:14px}
 .card.blank{text-align:center}
