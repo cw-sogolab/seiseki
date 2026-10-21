@@ -163,17 +163,21 @@
   }
   function render() { $('#period').hidden = tab === 'plan'; renderPeriod(); ({ entry: vEntry, exams: vExams, item: vItem, hw: vHw, stu: vStu, month: vMonth, plan: vPlan })[tab](); }
 
-  /** 틀린 문항을 시험지에 체크하기 쉽게: 문항 / 정답 / 학생 세 줄 표 (10문항씩 끊음) */
-  function wrongTable(wrong) {
-    if (!wrong.length) return '<p class="allok">전부 맞았어요</p>';
-    var h = '';
-    for (var i = 0; i < wrong.length; i += 10) {
-      var part = wrong.slice(i, i + 10);
-      h += '<table class="wt"><tbody>' +
-        '<tr class="n"><th>문항</th>' + part.map(function (w) { return '<td>' + w.n + '</td>'; }).join('') + '</tr>' +
-        '<tr class="k"><th>정답</th>' + part.map(function (w) { return '<td>' + w.key + '</td>'; }).join('') + '</tr>' +
-        '<tr class="a"><th>학생</th>' + part.map(function (w) { return '<td>' + (w.ans === '0' ? '–' : w.ans) + '</td>'; }).join('') + '</tr>' +
-        '</tbody></table>';
+  /** 채점표: 답지처럼 5문항씩 묶어서 모든 문항을 보여 줌 (한 줄에 10문항 = 5칸 묶음 둘). 맞은 문항은 ○, 틀린 문항은 학생 답을 빨갛게 — 시험지에 바로 체크하기 쉽게 */
+  function gradeTable(key, ans) {
+    var n = key.length; ans = Core.padAnswers(ans, n);
+    var h = '', cols = [];
+    function g5(j) { return (j % 5 === 0 && j % 10 !== 0) ? ' g5' : ''; }   // 5칸마다 띄움
+    function row(cls, th, f) { return '<tr class="' + cls + '"><th>' + th + '</th>' + cols.map(f).join('') + '</tr>'; }
+    for (var i = 0; i < n; i += 10) {
+      cols = []; for (var j = i; j < Math.min(i + 10, n); j++) cols.push(j);
+      h += '<table class="wt all"><tbody>' +
+        row('n', '문항', function (j) { return '<td class="' + g5(j) + '">' + (j + 1) + '</td>'; }) +
+        row('k', '정답', function (j) { return '<td class="' + g5(j) + '">' + key.charAt(j) + '</td>'; }) +
+        row('a', '학생', function (j) {
+          var a = ans.charAt(j), ok = a === key.charAt(j);
+          return '<td class="' + (ok ? 'o' : 'x') + g5(j) + '">' + (ok ? '○' : (a === '0' ? '–' : a)) + '</td>';
+        }) + '</tbody></table>';
     }
     return '<div class="wtw">' + h + '</div>';
   }
@@ -391,7 +395,7 @@
       if (!v) { $('#prev').innerHTML = ''; return; }
       var g = Core.grade(ex.key, v);
       $('#prev').innerHTML = '<div class="result"><b>' + g.score + ' / ' + ex.total + '</b><span class="meta">틀린 문항 ' + g.wrong.length + '개</span></div>' +
-        wrongTable(g.wrong);
+        (g.wrong.length ? '' : '<p class="allok">전부 맞았어요</p>') + gradeTable(ex.key, v);
     }
     function roster() {
       $('#roster').innerHTML = '<div class="tw"><table><thead><tr><th>이름</th><th>번호</th><th class="num">점수</th><th>상태</th></tr></thead><tbody>' +
