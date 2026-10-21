@@ -1,7 +1,7 @@
 /* 학생 화면: 번호로 들어와 성적 조회 + 숙제 사진 제출 */
 (function () {
   var $ = UI.$, esc = UI.esc;
-  var view = null, code = '', tok = '', kindSel = '', subjSel = '', wkSel = '', busy = false;
+  var view = null, code = '', tok = '', kindSel = '', subjSel = '', wkSel = '', tmSel = '', tmKey = '', busy = false;
 
   if (Api.demo) $('#demo').hidden = false;
 
@@ -299,7 +299,7 @@
   function testItem(t, extra, noDate) {
     var h = '<div class="item"><div class="row"><b>' + esc(t.label) + (extra ? ' <span class="meta">' + esc(extra) + '</span>' : '') + '</b>' +
       (t.score === null ? '<span class="pill wait">아직 입력 전</span>' : '<span class="score">' + t.score + '<small> / ' + t.total + '</small></span>') + '</div>';
-    h += '<p class="meta">' + [noDate ? '' : UI.dateLabel(t.date), t.score !== null ? '정답률 ' + pct(t.score, t.total) + '%' : '', t.avg !== null && t.total ? '그때 반 평균 ' + pct1(t.avg, t.total) + '%' : '', t.cum ? '누적 평균 ' + t.cum.pct + '%' : '',
+    h += '<p class="meta">' + [noDate ? '' : UI.dateLabel(t.date), t.score !== null ? '정답률 ' + pct(t.score, t.total) + '%' : '', t.rank ? t.rank + '등 / ' + t.n + '명' : '', t.avg !== null && t.total ? '그때 반 평균 ' + pct1(t.avg, t.total) + '%' : '', t.cum ? '누적 평균 ' + t.cum.pct + '%' : '',
       t.conv !== null ? '환산점수 ' + t.conv + (t.convAvg !== null ? ' (반 평균 ' + Math.round(t.convAvg) + ')' : '') : ''].filter(Boolean).map(esc).join(' · ') + '</p>';
     if (t.score !== null) {
       if (t.wrongDetail) h += '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrongDetail.map(function (w) { return '<span class="chip">' + w.n + '번 정답 ' + w.key + ' · 내 답 ' + (w.ans === '0' ? '-' : w.ans) + '</span>'; }).join('') + '</div>';
@@ -414,17 +414,23 @@
       }
       h += by['개념'].length && g2 ? '<div class="sgrid two">' + gc + '</div>' : gc;
     }
+    // 테스트 결과는 달마다 한 페이지 (2026-10-21 사용자): 위에 달 고르기, 기본은 가장 최근 달
+    var tMonths = []; tests.forEach(function (x) { if (x.t.month && tMonths.indexOf(x.t.month) < 0) tMonths.push(x.t.month); });
+    tMonths.sort().reverse();
+    if (tmKey !== mode + '|' + s || tMonths.indexOf(tmSel) < 0) { tmKey = mode + '|' + s; tmSel = tMonths[0] || ''; }
     function testsCard(k, ttl) {
-      var list = tests.filter(function (x) { return x.kind === k; });
-      if (!list.length) return '';
-      var c = '<div class="card"><h2>' + (real ? '' : '<i class="kdot" style="background:' + toneOf(k, s) + '"></i>') + esc(ttl) + '</h2>';
-      byMonth(list, function (x) { return x.t.month; }).forEach(function (g) {
-        c += '<h3 class="mhd">' + esc(g.m ? UI.monthLabel(g.m) : '') + '</h3>' + g.l.map(function (x) { return testItem(x.t, null, real); }).join('');
-      });
+      var all = tests.filter(function (x) { return x.kind === k; });
+      if (!all.length) return '';
+      var list = all.filter(function (x) { return x.t.month === tmSel; });
+      var c = '<div class="card"><h2>' + (real ? '' : '<i class="kdot" style="background:' + toneOf(k, s) + '"></i>') + esc(ttl) + ' <span class="meta">' + esc(tmSel ? UI.monthLabel(tmSel) : '') + '</span></h2>';
+      c += list.length ? list.map(function (x) { return testItem(x.t, null, real); }).join('') : '<p class="empty">이 달에는 ' + esc(ttl) + ' 기록이 없어요.</p>';
       return c + '</div>';
     }
+    var pager = tMonths.length > 1 ? '<div class="card mpg"><span class="lbl">달</span><div class="chiprow">' + tMonths.map(function (m) {
+      return '<button type="button" class="tab" data-tm="' + m + '" aria-selected="' + (m === tmSel) + '">' + esc(monthShort(m)) + '</button>';
+    }).join('') + '</div></div>' : '';
     var left = real ? testsCard('실전', '테스트 결과') : testsCard('개념', '개념반 소테스트·월말') + testsCard('단풀', '단풀반 월말');
-    if (!left) left = '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';
+    left = left ? pager + left : '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';
     if (hws.length) {
       var wCard = '<div class="card"><h2><i class="kdot" style="background:' + toneOf('개념', s) + '"></i>개념반 숙제</h2>';
       byMonth(hws, function (w) { return w.month; }).forEach(function (g) { wCard += '<h3 class="mhd">' + esc(g.m ? UI.monthLabel(g.m) : '') + '</h3>' + g.l.map(hwItem).join(''); });
@@ -432,6 +438,7 @@
     } else h += left;
     $('#panel').innerHTML = h; bindTips($('#panel'));
     if ($('#wk')) drawWeak();
+    UI.all('#panel [data-tm]').forEach(function (b) { b.onclick = function () { tmSel = b.getAttribute('data-tm'); var y = b.getBoundingClientRect().top; renderSubject(mode, s); var nb = $('#panel [data-tm="' + tmSel + '"]'); if (nb) window.scrollBy(0, nb.getBoundingClientRect().top - y); }; });
     UI.all('#panel [data-hw]').forEach(function (b) { b.onclick = function () { openUpload(b.getAttribute('data-hw')); }; });
   }
 

@@ -480,6 +480,13 @@ table.itab .z{opacity:.35}
 .itiles .tile{background:var(--fill);box-shadow:none}
 
 /* 채점표: 답지처럼 5문항씩 (2026-10-21) */
+table.wt.all td{font-size:14px;font-weight:700}
+table.wt.all tr.n td{font-size:12px}
 table.wt.all tr.a td.o{color:var(--green);background:var(--green-soft);font-weight:700}
 table.wt.all tr.a td.x{color:#fff;background:var(--red)}
 table.wt.all td.g5{border-left:6px solid var(--surface)!important}
+
+/* 학생 화면 테스트 결과 달 고르기 */
+.card.mpg{display:flex;align-items:center;gap:12px;padding-top:14px;padding-bottom:14px}
+.card.mpg .lbl{font-size:13px;font-weight:700;color:var(--muted);flex:0 0 auto}
+.card.mpg .chiprow{margin-top:0}

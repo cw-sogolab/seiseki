@@ -419,6 +419,15 @@ t('문항과목으로 과목별 내 정답률·반 평균, 달별·종합, 취�
   assert.ok(v.all.n >= 3 && v.all.subs.length === 5, '종합에 10월·9월 모의고사도 (예시 문항과목)');
   assert.strictEqual(Logic.handle(e, 'login', { code: 'KM482919' }).data.subj, null, '실전반 기록이 없으면 null');
 });
+console.log('학생 화면 등수');
+t('시험마다 내 등수(같은 점수는 같은 등수)·인원, 다른 학생 점수는 안 보냄', () => {
+  const e = Mock.seed(Mock.createEnv());
+  const tt = c => Logic.handle(e, 'login', { code: c }).data.classes.find(x => x.code === 'SJ-D').tests.find(x => x.id === 'E5');
+  assert.deepStrictEqual([tt('BD774119').rank, tt('CZ297510').rank, tt('JS603412').rank, tt('JS603412').n], [1, 2, 3, 3]);
+  e._tables['시험결과'].find(r => r['시험ID'] === 'E5' && r['번호'] === 'CZ297510')['맞은개수'] = String(tt('BD774119').score);
+  assert.deepStrictEqual([tt('BD774119').rank, tt('CZ297510').rank, tt('JS603412').rank], [1, 1, 3], '동점');
+  assert.ok(!('scores' in tt('BD774119')) && !JSON.stringify(tt('BD774119')).includes('CZ297510'));
+});
 console.log('문항 분석 (강사 화면)');
 t('이 반 정답률·누적 정답률(같은 이름·같은 정답의 다른 달·반 포함)·고른 답 분포·많이 고른 오답', () => {
   const e = Mock.seed(Mock.createEnv());
