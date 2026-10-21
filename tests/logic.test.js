@@ -348,7 +348,7 @@ t('다음 달: 수업 수가 같은 지난 계획서에서 이어 쓰고, 개념
   assert.strictEqual(p.rows.length, 8); assert.strictEqual(p.from, '2026-07');
   assert.deepStrictEqual(p.rows.map(r => r.date), ['11월3일', '11월5일', '11월12일', '11월17일', '11월19일', '11월24일', '11월26일', '12월1일'], '11/10 휴강 빼고');
   assert.strictEqual(p.rows[7].content, '월말테스트');
-  assert.deepStrictEqual(p.rows.map(r => r.hw), ['', '주간 숙제', '', '주간 숙제', '', '주간 숙제', '', '주간 숙제']);
+  assert.deepStrictEqual(p.rows.map(r => r.hw), ['', '주간 숙제', '', '주간 숙제', '', '주간 숙제', '', ''], '월말테스트 날은 숙제 없음');
   assert.strictEqual(p.subtitle, '< 종과개념 개념- 경제 >');
 });
 t('실전: 모의고사 줄, 지난달 계획서가 이번 달 수업(11/1)까지 잡았으면 그 다음부터', () => {

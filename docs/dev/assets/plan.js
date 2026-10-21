@@ -125,7 +125,7 @@ var Plan = (function () {
       content = g ? fit(content, need, warn) : dates.slice(1).map(function () { return { content: '', range: '' }; });
       rows = content.slice(0, need).map(function (x) { return { content: x.content, range: x.range, hw: '' }; });
       if (n) rows.push({ content: FINAL, range: '', hw: '' });
-      if (kind === '개념') rows.forEach(function (r, i) { if (i % 2 === 1) r.hw = HW; });   // 2번 수업마다 숙제 (숙제 마감 계산과 같은 규칙)
+      if (kind === '개념') rows.forEach(function (r, i) { if (i % 2 === 1 && r.content !== FINAL) r.hw = HW; });   // 2번 수업마다 숙제 (숙제 마감 계산과 같은 규칙). 월말테스트 날은 숙제 없음
     }
     rows.forEach(function (r, i) { r.no = ('0' + (i + 1)).slice(-2); r.date = dates[i] ? dateLabel(dates[i]) : ''; });
     if (n > MAX_ROWS) warn.push('수업이 ' + n + '번이라 표 줄을 ' + n + '줄로 늘렸어요.');

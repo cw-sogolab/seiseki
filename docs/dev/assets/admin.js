@@ -1,9 +1,9 @@
-/* 강사 화면: 답안 입력·채점, 시험·숙제 등록, 숙제 확인, 명단·번호, 월말 표 */
+/* 강사 화면: 답안 입력·채점, 시험·숙제 등록, 숙제 확인, 명단·번호, 학생평가(월말 표), 강의계획서 */
 (function () {
   var $ = UI.$, all = UI.all, esc = UI.esc;
   var token = UI.store.get('seiseki.token', sessionStorage) || '';
   var D = null, tab = 'entry', month = '', curExam = '', curHw = '', monthCls = '';
-  var TABS = [['entry', '답안 입력'], ['exams', '시험'], ['hw', '숙제'], ['stu', '학생·번호'], ['month', '월말 표'], ['plan', '강의계획서']];
+  var TABS = [['entry', '답안 입력'], ['exams', '시험'], ['hw', '숙제'], ['stu', '학생·번호'], ['month', '학생평가'], ['plan', '강의계획서']];
 
   if (Api.demo) $('#demo').hidden = false;
 
