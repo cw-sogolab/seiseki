@@ -407,3 +407,13 @@ table.mtx td.sjcell{text-align:left}
 .sjb{display:inline-block;border:1px solid var(--line);background:var(--surface);color:var(--ink2);border-radius:12px;padding:8px 12px;margin:2px 6px 2px 0;font:inherit;font-size:14px;cursor:pointer;text-align:left}
 .sjb small,.sjb em{display:inline}
 @media (max-width:860px){.sgrid.hwfirst .col2{order:-1}}
+/* cw-sogolab 로고 (2026-10-21) */
+.hero{display:block;text-align:center;margin:0 auto 26px}
+.hero img{display:inline-block;width:min(300px,82%);height:auto}
+.gate .hero{margin-bottom:0}
+.gate .hero img{width:min(260px,80%)}
+.brand .by img,.foot img{width:auto;height:15px;display:inline-block;vertical-align:-3px;margin-right:4px}
+.foot img{height:14px}
+.card.blank{text-align:center}
+.card.blank img{width:min(220px,60%);height:auto;display:block;margin:6px auto 4px}
+@media (max-width:480px){.brand .by{display:none}}

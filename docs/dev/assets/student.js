@@ -251,7 +251,7 @@
   function renderTabs() {
     var ks = kindsHave();
     $('#months').innerHTML = '';
-    if (!ks.length) { $('#modes').innerHTML = ''; $('#tabs').innerHTML = ''; $('#panel').innerHTML = '<div class="card"><p class="empty">아직 등록된 반이 없어요. 선생님께 말씀해 주세요.</p></div>'; return; }
+    if (!ks.length) { $('#modes').innerHTML = ''; $('#tabs').innerHTML = ''; $('#panel').innerHTML = '<div class="card blank"><img src="assets/logo-emblem.webp" alt="" width="237" height="200"><p class="empty">아직 등록된 반이 없어요. 선생님께 말씀해 주세요.</p></div>'; return; }
     if (kindSel !== '요약' && ks.indexOf(kindSel) < 0) { var d = pickDefault(ks); kindSel = d.k; subjSel = d.e.s; }
     renderModes(ks);
     if (kindSel === '요약') { $('#tabs').innerHTML = ''; return renderSum(ks); }
