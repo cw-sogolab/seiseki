@@ -39,7 +39,7 @@ var Logic = (function () {
     '달력': ['월', '개강', '종강', '휴강', '메모']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '2d333a917a';
+  var VERSION = '3028faaac5';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -368,10 +368,12 @@ var Logic = (function () {
       return fail(left ? '비밀번호가 달라요. (남은 기회 ' + left + '번)' : '5번 틀렸어요. 1분 뒤에 다시 해 주세요.');
     }
     var token = env.uuid();
-    env.cache.put('adm:' + token, '1', ADMIN_TTL);
+    env.cache.put('adm:' + token, adminGen(env), ADMIN_TTL);
     return ok({ token: token, boot: bootstrap(env).data });   // 로그인과 첫 불러오기를 한 번에 (왕복 한 번 줄임)
   }
-  function isAdmin(env, token) { return !!token && env.cache.get('adm:' + S(token)) === '1'; }
+  /** 비밀번호를 바꾸면 ADMIN_GEN 이 바뀌어, 그 전에 받은 로그인은 더 쓸 수 없음 */
+  function adminGen(env) { return S(env.props.get('ADMIN_GEN')) || '1'; }
+  function isAdmin(env, token) { return !!token && env.cache.get('adm:' + S(token)) === adminGen(env); }
 
   function bootstrap(env) {
     var hw = homework(env), byId = {};

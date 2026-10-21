@@ -224,7 +224,7 @@ var Logic = (function () {
     '달력': ['월', '개강', '종강', '휴강', '메모']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '2d333a917a';
+  var VERSION = '3028faaac5';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -553,10 +553,12 @@ var Logic = (function () {
       return fail(left ? '비밀번호가 달라요. (남은 기회 ' + left + '번)' : '5번 틀렸어요. 1분 뒤에 다시 해 주세요.');
     }
     var token = env.uuid();
-    env.cache.put('adm:' + token, '1', ADMIN_TTL);
+    env.cache.put('adm:' + token, adminGen(env), ADMIN_TTL);
     return ok({ token: token, boot: bootstrap(env).data });   // 로그인과 첫 불러오기를 한 번에 (왕복 한 번 줄임)
   }
-  function isAdmin(env, token) { return !!token && env.cache.get('adm:' + S(token)) === '1'; }
+  /** 비밀번호를 바꾸면 ADMIN_GEN 이 바뀌어, 그 전에 받은 로그인은 더 쓸 수 없음 */
+  function adminGen(env) { return S(env.props.get('ADMIN_GEN')) || '1'; }
+  function isAdmin(env, token) { return !!token && env.cache.get('adm:' + S(token)) === adminGen(env); }
 
   function bootstrap(env) {
     var hw = homework(env), byId = {};
@@ -1132,14 +1134,37 @@ function setup() {
     '(본판은 이어서 「3. 원생명단 시트 연결」까지. 개발판은 연결하지 않고 이 기록장 안의 「원생」 탭을 씁니다.)');
 }
 
+/** 관리자 비밀번호: 입력 칸이 ●●● 로 가려지는 창 (ui.prompt 는 글자가 그대로 보여서 안 씀) */
 function setAdminPassword() {
-  var ui = SpreadsheetApp.getUi();
-  var r = ui.prompt('관리자 비밀번호', '강사 화면에 들어갈 때 쓸 비밀번호 (4자 이상)', ui.ButtonSet.OK_CANCEL);
-  if (r.getSelectedButton() !== ui.Button.OK) return;
-  var pw = r.getResponseText().trim();
-  if (pw.length < 4) { ui.alert('4자 이상으로 정해 주세요.'); return; }
-  PropertiesService.getScriptProperties().setProperty('ADMIN_PASSWORD', pw);
-  ui.alert('저장했어요. 이미 로그인한 강사 화면은 6시간 안에 자동으로 다시 로그인을 요청해요.');
+  var html = HtmlService.createHtmlOutput(
+    '<style>body{font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px;margin:0;padding:4px 2px;color:#191F28}' +
+    'label{display:block;margin:12px 0 6px;font-weight:600;color:#6B7684}input{width:100%;box-sizing:border-box;padding:10px 12px;font-size:15px;border:1px solid #D1D6DB;border-radius:10px}' +
+    'p{margin:6px 0;color:#6B7684;font-size:13px}#msg{color:#F04452;min-height:18px}button{margin-top:14px;padding:10px 18px;border:0;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer}' +
+    '#ok{background:#3182F6;color:#fff}#no{background:#F2F4F6;color:#333D4B;margin-right:6px}.row{text-align:right}</style>' +
+    '<p>영문·숫자·특수문자를 모두 섞어 8자 이상으로 정해 주세요. 입력한 글자는 화면에 보이지 않아요.</p>' +
+    '<label for="a">새 비밀번호</label><input id="a" type="password" autocomplete="new-password" autofocus>' +
+    '<label for="b">한 번 더</label><input id="b" type="password" autocomplete="new-password">' +
+    '<p><label style="display:inline;font-weight:400"><input type="checkbox" id="s" style="width:auto"> 입력한 글자 보기</label></p>' +
+    '<p id="msg" role="alert"></p><div class="row"><button id="no" type="button">취소</button><button id="ok" type="button">저장</button></div>' +
+    '<script>' +
+    'var A=document.getElementById("a"),B=document.getElementById("b"),M=document.getElementById("msg"),K=document.getElementById("ok");' +
+    'document.getElementById("s").onchange=function(){A.type=B.type=this.checked?"text":"password";};' +
+    'document.getElementById("no").onclick=function(){google.script.host.close();};' +
+    'function go(){if(A.value!==B.value){M.textContent="두 칸이 달라요.";return;}K.disabled=true;M.textContent="";' +
+    'google.script.run.withSuccessHandler(function(r){if(r){M.textContent=r;K.disabled=false;}else{M.style.color="#0B9E5E";M.textContent="저장했어요.";setTimeout(function(){google.script.host.close();},900);}})' +
+    '.withFailureHandler(function(e){M.textContent=String(e&&e.message||e);K.disabled=false;}).saveAdminPassword(A.value);}' +
+    'K.onclick=go;B.onkeydown=function(e){if(e.key==="Enter")go();};' +
+    '</script>').setWidth(380).setHeight(330);
+  SpreadsheetApp.getUi().showModalDialog(html, '관리자 비밀번호 설정');
+}
+/** 위 창에서 부름. 문제가 있으면 안내 문장을, 저장했으면 '' 를 돌려줌. 저장하면 이미 로그인한 강사 화면은 모두 다시 로그인해야 함 */
+function saveAdminPassword(pw) {
+  pw = String(pw || '').trim();
+  if (pw.length < 8) return '8자 이상으로 정해 주세요.';
+  if (!/[A-Za-z]/.test(pw) || !/[0-9]/.test(pw) || !/[^A-Za-z0-9]/.test(pw)) return '영문·숫자·특수문자를 모두 넣어 주세요.';
+  var p = PropertiesService.getScriptProperties();
+  p.setProperties({ ADMIN_PASSWORD: pw, ADMIN_GEN: String(Date.now()) });   // ADMIN_GEN 이 바뀌면 예전 로그인은 무효
+  return '';
 }
 
 function connectRoster() {

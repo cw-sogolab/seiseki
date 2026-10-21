@@ -316,4 +316,14 @@ t('모든 응답에 서버 버전(ver)이 붙고, sync-gas.sh 가 넣은 값과 
   const h = require('crypto').createHash('sha1').update(strip('docs/dev/assets/core.js') + strip('docs/dev/assets/logic.js') + strip('apps-script/Code.gs')).digest('hex').slice(0, 10);
   assert.strictEqual(Logic.VERSION, h, 'tools/sync-gas.sh 를 실행하세요');
 });
+t('관리자 비밀번호를 바꾸면(ADMIN_GEN) 예전 로그인은 무효', () => {
+  const e = Mock.seed(Mock.createEnv()), base = e.props.get; let gen = '';
+  e.props = { get: k => k === 'ADMIN_GEN' ? gen : base(k) };
+  const tk = Logic.handle(e, 'adminLogin', { password: 'demo', dev: 'g' }).data.token;
+  assert.ok(Logic.handle(e, 'bootstrap', { token: tk }).ok);
+  gen = '1761040000000';
+  const r = Logic.handle(e, 'bootstrap', { token: tk }); assert.ok(!r.ok && r.needLogin);
+  const tk2 = Logic.handle(e, 'adminLogin', { password: 'demo', dev: 'g' }).data.token;
+  assert.ok(Logic.handle(e, 'bootstrap', { token: tk2 }).ok);
+});
 console.log(`\n${passed} passed` + (process.exitCode ? ', 실패 있음' : ''));
