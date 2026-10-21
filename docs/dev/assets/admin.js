@@ -64,6 +64,26 @@
   }
   var SUBJS = ['경제', '정치', '지리', '현사', '현대사회', '세계사', '역사', '일본사'];
   function subjOf(label) { var w = String(label).split(' ')[0]; return SUBJS.indexOf(w) >= 0 ? (w === '현대사회' ? '현사' : w) : ''; }
+  /** 그 달 그 반의 과목 (시험·숙제 이름에서) */
+  function subjIn(code, m) {
+    var x = D.exams.concat(D.homework).filter(function (e) { return e.cls === code && e.month === m && subjOf(e.label); })[0];
+    return x ? subjOf(x.label) : '';
+  }
+  /** 반 이름 통일: [요일시간] 과목 — 과목은 달마다 바뀌니 그 달 시험·숙제에서. 실전은 [요일시간] 실전D */
+  function clsName(code, m) {
+    var c = cls(code); if (!c || !c.code) return String(code);
+    var t = c.time ? '[' + c.time + '] ' : '';
+    if (c.kind === '실전') return t + '실전' + realSuffix(c.code);
+    return t + (subjIn(code, m || month) || c.kind + '반');
+  }
+  /** 반 고르기 칸: 개념반·단풀반·실전반으로 묶어서 */
+  function clsOptions(list, sel, note) {
+    function opt(c) { return '<option value="' + esc(c.code) + '"' + (c.code === sel ? ' selected' : '') + '>' + esc(clsName(c.code)) + (note ? note(c) : '') + '</option>'; }
+    return KINDS.map(function (k) {
+      var g = list.filter(function (c) { return c.kind === k[0]; });
+      return g.length ? '<optgroup label="' + k[1] + '">' + g.map(opt).join('') + '</optgroup>' : '';
+    }).join('') + list.filter(function (c) { return !KINDS.some(function (k) { return k[0] === c.kind; }); }).map(opt).join('');
+  }
   /** 시간대 없이 반 이름: 개념반·단풀반 / 실전반 D·E */
   function clsShort(code) { var c = cls(code); return c.kind === '실전' ? '실전반 ' + String(c.code).split('-').pop() : (c.kind ? c.kind + '반' : c.name); }
   /** 학원 제출·월말 표의 환산점수 = 맞은 개수 / 문항 수 × 200 (득점등화는 학생 개인 성적표에서만) */
@@ -74,7 +94,7 @@
   function resultOf(exam, code) { return D.results.filter(function (r) { return r.exam === exam && r.code === code; })[0]; }
   function subOf(hw, code) { return D.hwSubs.filter(function (s) { return s.hw === hw && s.code === code; })[0]; }
   function replace(list, pred, item) { var i = list.findIndex(pred); if (i >= 0) list[i] = item; else list.push(item); }
-  function classOptions(sel) { return D.classes.filter(function (c) { return c.active; }).map(function (c) { return '<option value="' + esc(c.code) + '"' + (c.code === sel ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join(''); }
+  function classOptions(sel) { return clsOptions(D.classes.filter(function (c) { return c.active; }), sel); }
   /** 시험지(수업 폴더 답지에서 뽑은 것) 고르기 칸. kinds: 보여 줄 종류, 반 종류(개념·단풀·실전)가 같은 것을 위에 */
   var KIND_ORDER = { '소테스트': 1, '일문일답': 1, '월말테스트': 2, '모의고사': 3 };
   function paperPick(id, clsCode, kinds, used) {
@@ -333,10 +353,7 @@
     var activeCls = D.classes.filter(function (c) { return c.active && c.kind === examKind; });
     var h = '<div class="card"><h2>' + esc(UI.monthLabel(month)) + ' 시험 준비</h2>' +
       '<div class="seg" role="tablist" aria-label="반 종류">' + KINDS.map(function (k) { return '<button type="button" role="tab" data-ek="' + k[0] + '" aria-selected="' + (k[0] === examKind) + '">' + k[1] + '</button>'; }).join('') + '</div>';
-    function subjNow(code) {   // 이 달 그 반의 과목 (등록된 시험·숙제 이름에서)
-      var x = exs.concat(hwOfMonth()).filter(function (e) { return e.cls === code && subjOf(e.label); })[0];
-      return x ? subjOf(x.label) : '';
-    }
+    function subjNow(code) { return subjIn(code, month); }   // 이 달 그 반의 과목 (등록된 시험·숙제 이름에서)
     var subjects = []; papers.forEach(function (p) { if (p.ban === examKind && p.subj && subjects.indexOf(p.subj) < 0) subjects.push(p.subj); });
     if (!real) {
       // 개념·단풀: 과목마다 소테스트·월말(개념은 일문일답 숙제까지)이 정해져 있으니, 반의 이 달 과목만 고르면 한꺼번에 준비
@@ -344,8 +361,8 @@
         '<div class="plist">' + (activeCls.length ? activeCls.map(function (c) {
           var cur = subjNow(c.code), set = papers.filter(function (p) { return p.ban === examKind && p.subj === cur && (p.kind === '소테스트' || p.kind === '월말테스트' || (examKind === '개념' && p.kind === '일문일답')); });
           var missing = set.filter(function (p) { return !hasPaper(c.code, p); }).length;
-          return '<div class="prow"><div><b>' + esc(c.name) + '</b><span class="meta">' + (cur ? '이번 달 ' + esc(cur) + ' · 시험 ' + exs.filter(function (e) { return e.cls === c.code; }).length + '개 · 숙제 ' + hwOfMonth().filter(function (x) { return x.cls === c.code; }).length + '개' : '아직 과목을 안 정했어요') + '</span></div>' +
-            '<div class="pickrow"><select data-subsel="' + esc(c.code) + '" aria-label="' + esc(c.name) + ' 과목"><option value="">과목 고르기</option>' + subjects.map(function (x) { return '<option' + (x === cur ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select>' +
+          return '<div class="prow"><div><b>' + esc(clsName(c.code)) + '</b><span class="meta">' + (cur ? '이번 달 ' + esc(cur) + ' · 시험 ' + exs.filter(function (e) { return e.cls === c.code; }).length + '개 · 숙제 ' + hwOfMonth().filter(function (x) { return x.cls === c.code; }).length + '개' : '아직 과목을 안 정했어요') + '</span></div>' +
+            '<div class="pickrow"><select data-subsel="' + esc(c.code) + '" aria-label="' + esc(clsName(c.code)) + ' 과목"><option value="">과목 고르기</option>' + subjects.map(function (x) { return '<option' + (x === cur ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select>' +
             (cur && !missing ? '<span class="pill ok">준비됨</span>' : '<button type="button" class="btn soft sm" data-prep="' + esc(c.code) + '">' + (cur && missing ? '빠진 ' + missing + '개 채우기' : '준비하기') + '</button>') + '</div></div>';
         }).join('') : '<p class="empty">이 반 종류의 반이 없어요. 기록장 「반」 탭에서 활성을 Y로 해 주세요.</p>') + '</div>';
     } else {
@@ -364,7 +381,7 @@
     }
     h += '<p id="nMsg" class="msg" role="status"></p>' +
       '<details class="manual"><summary>목록에 없는 시험 직접 등록</summary><div class="fields">' +
-      (real ? '' : '<div><label for="nC">반</label><select id="nC">' + activeCls.map(function (c) { return '<option value="' + esc(c.code) + '">' + esc(c.name) + '</option>'; }).join('') + '</select></div>') +
+      (real ? '' : '<div><label for="nC">반</label><select id="nC">' + activeCls.map(function (c) { return '<option value="' + esc(c.code) + '">' + esc(clsName(c.code)) + '</option>'; }).join('') + '</select></div>') +
       '<div><label for="nK">종류</label><select id="nK">' + (real ? '<option>모의고사</option><option>월말테스트</option>' : '<option>소테스트</option><option>월말테스트</option>') + '</select></div>' +
       '<div><label for="nL">시험 이름 <span class="opt">(학생 화면·월말 표에 나와요)</span></label><input id="nL" type="text" placeholder="' + (real ? '예: 啓程 11회' : '예: 경제 1주차') + '"></div>' +
       '<div><label for="nT">문항 수</label><input id="nT" type="number" min="1" max="80" value="' + (real ? 38 : 15) + '"></div></div>' +
@@ -392,7 +409,7 @@
       }
       var cl = []; ofKind.forEach(function (e) { if (cl.indexOf(e.cls) < 0) cl.push(e.cls); });
       cl.forEach(function (code) {
-        h += '<p class="sub">' + esc(cls(code).name) + (subjNow(code) ? ' · ' + esc(subjNow(code)) : '') + '</p><div class="tw"><table><thead><tr><th>시험</th><th>종류</th><th class="num">문항</th><th class="num">입력</th><th>정답</th><th></th></tr></thead><tbody>' +
+        h += '<p class="sub">' + esc(clsName(code)) + '</p><div class="tw"><table><thead><tr><th>시험</th><th>종류</th><th class="num">문항</th><th class="num">입력</th><th>정답</th><th></th></tr></thead><tbody>' +
           ofKind.filter(function (e) { return e.cls === code; }).map(function (e) {
             var n = D.results.filter(function (r) { return r.exam === e.id; }).length;
             return '<tr><td><b>' + esc(e.label) + '</b></td><td>' + esc(e.kind) + '</td><td class="num">' + e.total + '</td><td class="num">' + n + '명</td>' + keyCell([e.id], e) +
@@ -609,19 +626,19 @@
       '<button type="button" class="btn sub sm" id="cp">번호표 복사 (이름·번호·반)</button></div><div id="cpOut"></div>' +
       '<div class="tw" style="margin-top:10px"><table><thead><tr><th>이름</th><th>번호</th><th>반</th><th>상태</th><th></th></tr></thead><tbody>' +
       (list.length ? list.map(function (s) {
-        var row = '<tr><td>' + esc(s.name) + '</td><td class="code">' + Core.fmtCode(s.code) + '</td><td>' + (s.classes.map(function (c) { return esc(cls(c).name); }).join(', ') || '<span class="meta">없음</span>') + '</td>' +
+        var row = '<tr><td>' + esc(s.name) + '</td><td class="code">' + Core.fmtCode(s.code) + '</td><td>' + (s.classes.map(function (c) { return esc(clsName(c)); }).join(', ') || '<span class="meta">없음</span>') + '</td>' +
           '<td>' + (!s.active ? '<span class="pill no">차단</span>' : s.classes.length ? '<span class="pill ok">수강 중</span>' : '<span class="pill wait">수강 없음</span>') + '</td>' +
           '<td><button type="button" class="btn sub sm" data-ed="' + esc(s.code) + '">반 수정</button></td></tr>';
         if (editing === s.code) {
           row += '<tr><td colspan="5"><div class="fields" style="gap:14px">' + D.classes.filter(function (c) { return c.active; }).map(function (c) {
-            return '<label class="check" style="margin:0"><input type="checkbox" data-cc="' + esc(c.code) + '"' + (s.classes.indexOf(c.code) >= 0 ? ' checked' : '') + '> ' + esc(c.name) + '</label>';
+            return '<label class="check" style="margin:0"><input type="checkbox" data-cc="' + esc(c.code) + '"' + (s.classes.indexOf(c.code) >= 0 ? ' checked' : '') + '> ' + esc(clsName(c.code)) + '</label>';
           }).join('') + '<button type="button" class="btn sm" id="ccSave">저장</button> <button type="button" class="btn sub sm" id="ccCancel">취소</button></div></td></tr>';
         }
         return row;
       }).join('') : '<tr><td colspan="5" class="empty">' + (stuFilter === 'cur' ? '이번 달 수강생이 없어요. 위에 명단을 붙여넣어 주세요.' : '원생명단이 비어 있어요.') + '</td></tr>') +
       '</tbody></table></div><p class="meta" style="margin-top:8px">번호는 퇴실퀴즈와 같은 원생명단에서 관리합니다. 학생 이용을 막으려면 원생명단 시트의 「상태」 칸에 「차단」이라고 적으세요. 번호를 잊은 학생에게는 이 표의 번호를 다시 알려 주면 됩니다.</p><p id="sMsg" class="msg" role="status"></p></div>' +
       '<div class="card"><h2>반 목록</h2><p class="meta">반 이름·시간은 기록장 구글 시트의 「반」 탭에서 고칩니다. 반코드는 바꾸지 마세요.</p><div class="tw" style="margin-top:8px"><table><thead><tr><th>반코드</th><th>반 이름</th><th>종류</th><th>요일·시간</th><th class="num">학생</th></tr></thead><tbody>' +
-      D.classes.map(function (c) { return '<tr><td class="code">' + esc(c.code) + '</td><td>' + esc(c.name) + '</td><td>' + esc(c.kind) + '</td><td>' + esc(c.time) + '</td><td class="num">' + members(c.code).length + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
+      D.classes.map(function (c) { return '<tr><td class="code">' + esc(c.code) + '</td><td>' + esc(clsName(c.code)) + '</td><td>' + esc(c.kind) + '</td><td>' + esc(c.time) + '</td><td class="num">' + members(c.code).length + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
     all('#view [data-f]').forEach(function (b) { b.onclick = function () { stuFilter = b.getAttribute('data-f'); editing = ''; vStu(); }; });
     $('#issue').onclick = function () {
       var b = this; b.disabled = true;
@@ -637,7 +654,7 @@
       });
     };
     $('#cp').onclick = function () {
-      UI.copy(list.filter(function (s) { return s.active; }).map(function (s) { return [s.name, Core.fmtCode(s.code), s.classes.map(function (c) { return cls(c).name; }).join(', ')].join('\t'); }).join('\n'), $('#cpOut'));
+      UI.copy(list.filter(function (s) { return s.active; }).map(function (s) { return [s.name, Core.fmtCode(s.code), s.classes.map(function (c) { return clsName(c); }).join(', ')].join('\t'); }).join('\n'), $('#cpOut'));
     };
     all('#view [data-ed]').forEach(function (b) { b.onclick = function () { editing = editing === b.getAttribute('data-ed') ? '' : b.getAttribute('data-ed'); vStu(); }; });
     if ($('#ccCancel')) $('#ccCancel').onclick = function () { editing = ''; vStu(); };
@@ -679,7 +696,7 @@
     var opts = D.classes.filter(function (c) { return c.active || used[c.code]; });
     if (!monthCls || !opts.some(function (c) { return c.code === monthCls; })) monthCls = (opts.filter(function (c) { return used[c.code]; }).sort(function (a, b) { return members(b.code).length - members(a.code).length; })[0] || opts[0] || {}).code;
     var T = monthTable(monthCls);
-    $('#view').innerHTML = '<div class="card"><div class="fields"><div><label for="mC">반</label><select id="mC">' + opts.map(function (c) { return '<option value="' + esc(c.code) + '"' + (c.code === monthCls ? ' selected' : '') + '>' + esc(c.name) + (used[c.code] ? '' : ' (이 달 기록 없음)') + '</option>'; }).join('') + '</select></div>' +
+    $('#view').innerHTML = '<div class="card"><div class="fields"><div><label for="mC">반</label><select id="mC">' + clsOptions(opts, monthCls, function (c) { return used[c.code] ? '' : ' (이 달 기록 없음)'; }) + '</select></div>' +
       '<div style="flex:0 0 auto"><button type="button" class="btn sub" id="mCp">표 복사</button> <button type="button" class="btn sub" id="mX">엑셀 내려받기</button></div></div>' +
       '<p class="meta" style="margin-top:8px">' + esc(UI.monthLabel(month)) + ' · 평균은 테스트(소테스트·월말·모의고사)만으로 계산하고 숙제는 따로 둡니다.' + (T.real ? ' 실전반 환산점수는 맞은 개수 ÷ 문항 수 × 200 (득점등화는 학생 개인 성적표에만), 평균은 환산점수 기준이에요.' : '') + ' 학생평가는 칸을 벗어나면 저장돼요.</p><div id="mOut"></div>' +
       '<div class="tw" style="margin-top:10px"><table><thead><tr>' + T.head.map(function (h, i) { return '<th' + (i > 1 ? ' class="num"' : '') + '>' + esc(h) + '</th>'; }).join('') + '</tr></thead><tbody>' +
