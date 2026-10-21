@@ -141,6 +141,15 @@ var Logic = (function () {
     function add(c) { if (c && mine.indexOf(c) < 0) mine.push(c); }
     rs.forEach(function (r) { if (r.code === stu.code) ex.forEach(function (e) { if (e.id === r.exam) add(e.cls); }); });
     subs.forEach(function (x) { if (x.code === stu.code) hw.forEach(function (h) { if (h.id === x.hw) add(h.cls); }); });
+    // 같은 시험의 누적 평균 (반 종류 + 시험 이름이 같으면 같은 시험 — 달·반이 달라도 모두 모아서). 그달 학생 수준에 덜 흔들리게
+    var kindOfCls = {}, exById = {}, cum = {};
+    cls.forEach(function (c) { kindOfCls[c.code] = c.kind; });
+    ex.forEach(function (e) { exById[e.id] = e; });
+    rs.forEach(function (r) {
+      var e = exById[r.exam]; if (!e || !e.total || r.score > e.total) return;   // 문항 수보다 큰 점수(입력 오타)는 빼고
+      var k = (kindOfCls[e.cls] || '') + '|' + e.label, o = cum[k] || (cum[k] = { s: 0, n: 0 });
+      o.s += r.score / e.total; o.n++;
+    });
     return {
       name: stu.name, code: stu.code,
       classes: cls.filter(function (c) { return mine.indexOf(c.code) >= 0; }).sort(function (a, b) {
@@ -150,12 +159,15 @@ var Logic = (function () {
           var mine = null, all = [], convs = [];
           rs.forEach(function (r) {
             if (r.exam !== e.id) return;
-            all.push(r.score); if (r.conv !== null) convs.push(r.conv);
+            if (!(e.total && r.score > e.total)) all.push(r.score);   // 입력 오타(문항 수보다 큰 점수)는 반 평균에서 뺌
+            if (r.conv !== null) convs.push(r.conv);
             if (r.code === stu.code) mine = r;
           });
           var t = { id: e.id, month: e.month, kind: e.kind, label: e.label, date: e.date, total: e.total,
             score: mine ? mine.score : null, avg: C.mean(all), n: all.length,
             conv: mine ? mine.conv : null, convAvg: C.mean(convs), wrong: mine ? mine.wrong : [] };
+          var ck = cum[c.kind + '|' + e.label];
+          t.cum = ck ? { pct: Math.round(ck.s / ck.n * 1000) / 10, n: ck.n } : null;   // 같은 시험 누적 평균 정답률(%)·인원
           if (showKey && mine && mine.answers) t.wrongDetail = C.grade(e.key, mine.answers).wrong;   // 답안 기록이 없는(옮겨 온) 성적은 제외
           return t;
         }).filter(function (t) {

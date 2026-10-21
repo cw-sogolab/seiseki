@@ -167,7 +167,7 @@
   /* ---------- 답안 입력 ---------- */
   var KINDS = [['개념', '개념반'], ['단풀', '단풀반'], ['실전', '실전반']], entryKind = '';
   var entrySub = '', entryRound = '', entryDecade = '', decFor = '';
-  function ejuOf(label) { var m = /EJU\s*(\d{4})\s*\((\d)\)/.exec(label); return m ? { y: m[1], r: m[2] } : null; }
+  function ejuOf(label) { var m = /EJU\s*(\d{4})\s*(?:\((\d)\)|-(\d))/.exec(label); return m ? { y: m[1], r: m[2] || m[3] } : null; }   // 「EJU 2011-2」(지금), 「EJU 2011(2)」(예전)
   function decadeOf(y) { return String(y).slice(0, 3) + '0'; }
   /** 요청을 하나씩 차례로 (시트 잠금 때문에 동시에 보내지 않음) */
   function seq(tasks, done) {

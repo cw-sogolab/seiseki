@@ -330,3 +330,19 @@ td.gneg{color:var(--red);font-weight:700}
 .mchip.gpos{border-color:color-mix(in srgb,var(--green) 55%,transparent)}
 .mchip.gneg{border-color:color-mix(in srgb,var(--red) 55%,transparent)}
 @media (max-width:480px){.mm{flex-basis:40px;font-size:16px}.mrow{gap:10px}}
+/* 그래프 말풍선 */
+.chartwrap{position:relative}
+.chart .hit{cursor:pointer}
+.ctip{position:absolute;z-index:5;min-width:170px;max-width:260px;padding:10px 12px;border-radius:12px;background:var(--surface);box-shadow:0 6px 24px rgba(0,23,51,.16);font-size:13px;line-height:1.5;pointer-events:none;color:var(--ink)}
+.ctip>b{display:inline-block;font-size:13.5px}
+.ctip .tm{margin-left:6px;color:var(--faint);font-size:12px}
+.ctip div{display:flex;align-items:center;gap:6px;color:var(--ink2)}
+.ctip div i{display:inline-block;width:9px;height:9px;border-radius:50%}
+.ctip div i.av{background:transparent;border:2px solid var(--faint);width:9px;height:9px}
+.ctip div i.cu{background:var(--avg)}
+.ctip small{color:var(--faint)}
+.legend .hint{margin-left:auto;color:var(--faint);font-size:12px}
+@media (max-width:480px){.legend{flex-wrap:wrap}.legend .hint{margin-left:0;width:100%}}
+.cmp .kdot{margin-right:6px}
+.cmp b.pos{color:var(--green)}
+.cmp b.neg{color:var(--red)}
