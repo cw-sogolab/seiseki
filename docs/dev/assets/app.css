@@ -435,3 +435,11 @@ body{background:radial-gradient(1200px 520px at 15% -10%,color-mix(in srgb,var(-
 .plist .pwarn{margin:8px 0;padding-left:18px;color:var(--orange);font-size:13.5px}
 table.stab td.wrap{white-space:normal;min-width:160px}
 #pX{margin-top:16px}
+
+.sgrid.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.sgrid.two .card{margin-top:0}
+@media (max-width:860px){.sgrid.two{grid-template-columns:minmax(0,1fr)}}
+.legend{flex-wrap:wrap;row-gap:6px}
+.legend>span{white-space:nowrap}
+.sgrid.two .legend .hint{margin-left:0;width:100%;white-space:normal}
+.sgrid.two{align-items:stretch}
