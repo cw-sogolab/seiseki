@@ -36,10 +36,14 @@ var Logic = (function () {
     // 시험지: 수업 폴더 답지에서 뽑은 정답·문항 수 (강사 화면에서 시험·숙제 등록 때 골라 씀). 학생에게는 보내지 않음
     '시험지': ['시험지ID', '반종류', '과목', '종류', '회차', '이름', '문항수', '정답', '출처'],
     // 달력: 학원 연간 계획표 (숙제 마감 계산). 월 = 'YYYY-MM', 휴강 = 날짜를 쉼표로 (예: 2026-11-08, 2026-11-09)
-    '달력': ['월', '개강', '종강', '휴강', '메모']
+    '달력': ['월', '개강', '종강', '휴강', '메모'],
+    // 계획서: 지난 월간 강의계획서의 일정 줄 (월초 강의계획서 내려받기가 내용·교재 범위를 이어서 씀). 반 = 실전 D·E
+    '계획서': ['월', '반종류', '과목', '반', '회차', '날짜', '내용', '범위', '과제'],
+    // 계획서머리: 계획서 위쪽 칸 (반 종류·과목마다 가장 최근 것을 씀)
+    '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '3028faaac5';
+  var VERSION = '53c7985898';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -164,6 +168,14 @@ var Logic = (function () {
   }
   function evals(env) {
     return env.store.all('평가').map(function (r) { return { month: S(r['월']), code: S(r['번호']), text: S(r['코멘트']) }; });
+  }
+  /** 지난 강의계획서 (탭이 아직 없는 기록장이면 빈 목록) — 강사 화면 「강의계획서」 내려받기용 */
+  function planBank(env) {
+    function rows(t) {
+      var out; try { out = env.store.all(t); } catch (e) { return []; }
+      return out.map(function (r) { var o = {}; TABLES[t].forEach(function (k) { o[k] = S(r[k]); }); return o; }).filter(function (o) { return o['월'] && o['반종류']; });
+    }
+    return { rows: rows('계획서'), heads: rows('계획서머리') };
   }
   /** 시험지 목록 (탭이 아직 없는 기록장이면 빈 목록) */
   function papers(env) {
@@ -381,7 +393,7 @@ var Logic = (function () {
     var subs = hwSubs(env);
     subs.forEach(function (s) { s.late = isLate(byId[s.hw], s); });
     return ok({ classes: classes(env), students: students(env), exams: exams(env), results: results(env),
-      homework: hw, hwSubs: subs, photoWarns: photoWarns(env), evals: evals(env), papers: papers(env), today: C.dateOf(env.now()), now: stamp(env),
+      homework: hw, hwSubs: subs, photoWarns: photoWarns(env), evals: evals(env), papers: papers(env), plans: planBank(env), cal: calendar(env), today: C.dateOf(env.now()), now: stamp(env),
       warnings: warnings(env) });
   }
 

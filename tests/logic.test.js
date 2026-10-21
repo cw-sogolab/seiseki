@@ -326,4 +326,47 @@ t('관리자 비밀번호를 바꾸면(ADMIN_GEN) 예전 로그인은 무효', (
   const tk2 = Logic.handle(e, 'adminLogin', { password: 'demo', dev: 'g' }).data.token;
   assert.ok(Logic.handle(e, 'bootstrap', { token: tk2 }).ok);
 });
+
+console.log('plan (강의계획서)');
+const Plan = require('../docs/dev/assets/plan.js');
+function planBoot() { const e = Mock.seed(Mock.createEnv()); const tk = Logic.handle(e, 'adminLogin', { password: 'demo', dev: 'p' }).data.token; return Logic.handle(e, 'bootstrap', { token: tk }).data; }
+t('bootstrap 에 지난 계획서(계획서·계획서머리)와 달력이 실려 감', () => {
+  const b = planBoot();
+  assert.ok(b.plans.rows.length > 0 && b.plans.heads.length > 0 && b.cal['2026-11'].start === '2026-11-01');
+});
+t('같은 달을 다시 만들면 그 달 계획서 그대로 (날짜·내용·범위)', () => {
+  const b = planBoot();
+  const p = Plan.build({ ym: '2026-10', kind: '단풀', subj: '정치', time: '토일 13:00', cal: b.cal, bank: b.plans });
+  const src = b.plans.rows.filter(r => r['월'] === '2026-10' && r['반종류'] === '단풀');
+  assert.strictEqual(p.rows.length, src.length);
+  p.rows.forEach((r, i) => { assert.strictEqual(r.date, src[i]['날짜']); assert.strictEqual(r.content, src[i]['내용']); assert.strictEqual(r.range, src[i]['범위']); });
+  assert.strictEqual(p.sheet, '2610정치단풀'); assert.strictEqual(p.title, '2026년10월강의계획'); assert.deepStrictEqual(p.warn, []);
+});
+t('다음 달: 수업 수가 같은 지난 계획서에서 이어 쓰고, 개념반은 짝수 회차에 주간 숙제, 끝은 월말테스트', () => {
+  const b = planBoot();
+  const p = Plan.build({ ym: '2026-11', kind: '개념', subj: '경제', time: '화목 20:20', cal: b.cal, bank: b.plans });
+  assert.strictEqual(p.rows.length, 8); assert.strictEqual(p.from, '2026-07');
+  assert.deepStrictEqual(p.rows.map(r => r.date), ['11월3일', '11월5일', '11월12일', '11월17일', '11월19일', '11월24일', '11월26일', '12월1일'], '11/10 휴강 빼고');
+  assert.strictEqual(p.rows[7].content, '월말테스트');
+  assert.deepStrictEqual(p.rows.map(r => r.hw), ['', '주간 숙제', '', '주간 숙제', '', '주간 숙제', '', '주간 숙제']);
+  assert.strictEqual(p.subtitle, '< 종과개념 개념- 경제 >');
+});
+t('실전: 모의고사 줄, 지난달 계획서가 이번 달 수업(11/1)까지 잡았으면 그 다음부터', () => {
+  const b = planBoot();
+  const p = Plan.build({ ym: '2026-11', kind: '실전', ban: 'D', time: '토일 10:00', cal: b.cal, bank: b.plans });
+  assert.strictEqual(p.rows[0].date, '11월7일'); assert.ok(p.rows.every(r => r.content === '모의고사 1회 실시 및 해설' && !r.range));
+  assert.ok(/11월1일/.test(p.warn.join()), p.warn.join()); assert.strictEqual(p.sheet, '2611실전문제풀이D');
+});
+t('수업 수가 다르면 줄을 맞춤 (적으면 쪽수 적은 이웃을 합치고, 많으면 두 강이 든 줄을 나눔)', () => {
+  const items = [{ content: '1강 A', range: 'p.5-9' }, { content: '2강 B', range: 'p.10-12' }, { content: '3강 C\n4강 D', range: 'p.13-20\np.21-30' }];
+  const less = Plan.fit(items, 2, []); assert.strictEqual(less.length, 2); assert.strictEqual(less[0].content, '1강 A\n2강 B'); assert.strictEqual(less[0].range, 'p.5-12');
+  const more = Plan.fit(items, 4, []); assert.strictEqual(more.length, 4); assert.strictEqual(more[2].content, '3강 C'); assert.strictEqual(more[3].range, 'p.21-30');
+  const w = []; assert.strictEqual(Plan.fit(items, 6, w).length, 6); assert.ok(w.length);
+});
+t('과목 머리말이 없으면 다른 과목 것을 빌려 오고 과목 이름만 바꿈 + 확인 표시', () => {
+  const b = planBoot();
+  const p = Plan.build({ ym: '2026-11', kind: '단풀', subj: '지리', time: '토일 13:00', cal: b.cal, bank: b.plans });
+  assert.ok(/지리/.test(p.head['부제']) && !/정치/.test(p.head['부제']), p.head['부제']);
+  assert.ok(p.warn.some(x => /빌려/.test(x)) && p.warn.some(x => /지난 계획서가 없어서/.test(x)));
+});
 console.log(`\n${passed} passed` + (process.exitCode ? ', 실패 있음' : ''));

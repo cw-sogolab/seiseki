@@ -417,3 +417,12 @@ table.mtx td.sjcell{text-align:left}
 .card.blank{text-align:center}
 .card.blank img{width:min(220px,60%);height:auto;display:block;margin:6px auto 4px}
 @media (max-width:480px){.brand .by{display:none}}
+/* 강의계획서 탭 */
+.plist .prow2{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.plist .prow2 .check{margin:0}
+.plist .prow2 select{width:auto;min-width:120px;padding:6px 10px}
+.plist .pprev{flex-basis:100%}
+.plist .pprev summary{cursor:pointer;color:var(--blue);font-size:14px;font-weight:600}
+.plist .pwarn{margin:8px 0;padding-left:18px;color:var(--orange);font-size:13.5px}
+table.stab td.wrap{white-space:normal;min-width:160px}
+#pX{margin-top:16px}
