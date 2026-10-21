@@ -178,39 +178,6 @@ function saveImage_(o) {
   return folder.createFile(blob).getId();
 }
 
-/* ---------- AI 사진 확인 (Claude API) ---------- */
-// 스크립트 속성 ANTHROPIC_API_KEY 가 있을 때만 동작. 키는 시트 메뉴 「AI 사진 확인 — API 키 넣기」로 넣음 (저장소에 올리지 않음)
-var CHECK_MODEL_DEFAULT = 'claude-sonnet-5-5';
-function checkPhoto_(o) {
-  var props = PropertiesService.getScriptProperties(), key = props.getProperty('ANTHROPIC_API_KEY');
-  if (!key) return null;
-  var prompt = '학생이 숙제 「' + o.label + '」를 하고 찍어 올린 ' + o.order + '번째 사진입니다. 이 학생의 이름은 「' + o.name + '」입니다.\n' +
-    '사진을 보고 아래 JSON 한 줄로만 답하세요. 다른 말은 쓰지 마세요.\n' +
-    '{"isHomework":"yes|no","title":"사진에 보이는 과목·주차·제목 (안 보이면 빈칸)","titleMatch":"yes|no|unknown","nameField":"yes|no","nameWritten":"이름 칸에 쓴 글자 그대로 (비었으면 빈칸)","nameMatch":"yes|no|unknown"}\n' +
-    '- isHomework: 문제지·프린트·문제집 쪽을 찍은 사진이 아니면 no\n' +
-    '- titleMatch: 사진 속 과목이나 주차가 「' + o.label + '」와 분명히 다르면 no, 같으면 yes, 안 보이면 unknown\n' +
-    '- nameField: 사진에 「이름」「성명」「Name」 같은 이름 쓰는 칸이 보이면 yes\n' +
-    '- nameMatch: 이름 칸 손글씨가 「' + o.name + '」와 같으면 yes, 다르거나 비어 있으면 no, 이름 칸이 없으면 unknown';
-  var res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-    headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    payload: JSON.stringify({ model: props.getProperty('CHECK_MODEL') || CHECK_MODEL_DEFAULT, max_tokens: 300,
-      messages: [{ role: 'user', content: [
-        { type: 'image', source: { type: 'base64', media_type: o.mime === 'image/heic' ? 'image/jpeg' : o.mime, data: o.b64 } },
-        { type: 'text', text: prompt }] }] })
-  });
-  if (res.getResponseCode() !== 200) { Logger.log('사진 확인 실패 ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 300)); return null; }
-  var body = JSON.parse(res.getContentText()), txt = (body.content || []).map(function (c) { return c.text || ''; }).join('');
-  var m = txt.match(/\{[\s\S]*\}/); if (!m) return null;
-  var j = JSON.parse(m[0]), probs = [];
-  if (j.isHomework === 'no') probs.push('숙제 쪽 사진이 아닌 것 같아요');
-  else {
-    if (j.titleMatch === 'no') probs.push('「' + o.label + '」이 아니라 ' + (j.title ? '「' + j.title + '」' : '다른 숙제') + ' 같아요');
-    if (j.nameField === 'yes' && j.nameMatch === 'no') probs.push(String(j.nameWritten || '').trim() ? '이름 칸에 「' + String(j.nameWritten).trim() + '」라고 적혀 있어요' : '이름 칸이 비어 있어요');
-  }
-  return { ok: !probs.length, msg: probs.join(' · ') };
-}
-
 /* ---------- env 조립 ---------- */
 function makeEnv_(useCache) {
   var cache = CacheService.getScriptCache(), props = PropertiesService.getScriptProperties();
@@ -225,8 +192,7 @@ function makeEnv_(useCache) {
     now: function () { return new Date(); },
     uuid: function () { return Utilities.getUuid(); },
     rand32: function () { return parseInt(Utilities.getUuid().replace(/-/g, '').slice(0, 8), 16); },
-    saveImage: saveImage_,
-    checkPhoto: checkPhoto_
+    saveImage: saveImage_
   };
 }
 
@@ -244,7 +210,6 @@ function onOpen() {
     .addItem('3. 원생명단 시트 연결', 'connectRoster')
     .addSeparator()
     .addItem('학생 화면에 정답 보이기 켜기/끄기', 'toggleShowKey')
-    .addItem('AI 사진 확인 — API 키 넣기/빼기', 'setApiKey')
     .addItem('캐시 비우기 (시트를 고쳤는데 화면에 안 보일 때)', 'clearCache')
     .addItem('설정 상태 보기', 'showStatus')
     .addToUi();
@@ -322,18 +287,6 @@ function connectRosterById_(id) {
   return '연결했어요: ' + SpreadsheetApp.openById(id).getName() + '\n이제 학생 이름·번호는 이 명단에서 읽고, 새 원생은 이 명단에 추가합니다.';
 }
 
-function setApiKey() {
-  var ui = SpreadsheetApp.getUi(), p = PropertiesService.getScriptProperties();
-  var r = ui.prompt('AI 사진 확인 — Claude API 키',
-    '숙제 사진이 맞는 숙제인지, 이름 칸에 자기 이름을 썼는지 AI가 확인합니다.\nClaude Console 에서 만든 API 키(sk-ant-…)를 붙여넣으세요.\n비우고 확인을 누르면 키를 지우고 확인 기능을 끕니다.', ui.ButtonSet.OK_CANCEL);
-  if (r.getSelectedButton() !== ui.Button.OK) return;
-  var k = r.getResponseText().trim();
-  if (!k) { p.deleteProperty('ANTHROPIC_API_KEY'); ui.alert('키를 지웠어요. 사진 확인을 끕니다.'); return; }
-  if (!/^sk-ant-/.test(k)) { ui.alert('sk-ant- 로 시작하는 키가 아니에요. 다시 확인해 주세요.'); return; }
-  p.setProperty('ANTHROPIC_API_KEY', k);
-  ui.alert('저장했어요. 이제부터 올라오는 숙제 사진을 AI가 확인합니다.');
-}
-
 function toggleShowKey() {
   var p = PropertiesService.getScriptProperties(), on = p.getProperty('SHOW_KEY') === 'Y';
   p.setProperty('SHOW_KEY', on ? 'N' : 'Y');
@@ -347,6 +300,5 @@ function showStatus() {
     '사진 폴더: ' + (p.getProperty('PHOTO_FOLDER_ID') ? '있음' : '초기 설정 필요') + '\n' +
     '관리자 비밀번호: ' + (p.getProperty('ADMIN_PASSWORD') ? '설정됨' : '없음') + '\n' +
     '원생명단: ' + (p.getProperty('ROSTER_ID') ? '연결됨 (' + SpreadsheetApp.openById(p.getProperty('ROSTER_ID')).getName() + ')' : '연결 안 함 — 기록장의 「원생」 탭 사용') + '\n' +
-    '학생 화면 정답 공개: ' + (p.getProperty('SHOW_KEY') === 'Y' ? '켜짐' : '꺼짐') + '\n' +
-    'AI 사진 확인: ' + (p.getProperty('ANTHROPIC_API_KEY') ? '켜짐' : '꺼짐 (API 키 없음)'));
+    '학생 화면 정답 공개: ' + (p.getProperty('SHOW_KEY') === 'Y' ? '켜짐' : '꺼짐'));
 }

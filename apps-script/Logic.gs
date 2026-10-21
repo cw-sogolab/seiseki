@@ -156,7 +156,7 @@ var Logic = (function () {
           var t = { id: e.id, month: e.month, kind: e.kind, label: e.label, date: e.date, total: e.total,
             score: mine ? mine.score : null, avg: C.mean(all), n: all.length,
             conv: mine ? mine.conv : null, convAvg: C.mean(convs), wrong: mine ? mine.wrong : [] };
-          if (showKey && mine) t.wrongDetail = C.grade(e.key, mine.answers).wrong;
+          if (showKey && mine && mine.answers) t.wrongDetail = C.grade(e.key, mine.answers).wrong;   // 답안 기록이 없는(옮겨 온) 성적은 제외
           return t;
         }).filter(function (t) {
           // 지난 달은 본 시험만, 이번 달은 지금 듣는 반의 시험 전부 (반이 달마다 바뀌어도 남의 달 시험이 「미응시」로 쌓이지 않게)

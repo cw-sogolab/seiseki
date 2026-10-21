@@ -31,8 +31,6 @@ var SeisekiMock = (function () {
       uuid: function () { return 'tok-' + rand32().toString(36) + rand32().toString(36); },
       rand32: rand32,
       saveImage: function (o) { var id = 'mock-' + (++imgSeq); images[id] = 'data:' + o.mime + ';base64,' + o.b64; return id; },
-      // 미리보기: AI 사진 확인 흉내 — 2번째 사진은 「이름 칸 비어 있음」으로 걸리게
-      checkPhoto: function (o) { return o.order === 2 ? { ok: false, msg: '이름 칸이 비어 있어요' } : { ok: true, msg: '' }; },
       _tables: tables, _images: images
     };
     return env;

@@ -37,15 +37,27 @@
     return Object.keys(m).sort().reverse();
   }
 
+  var SUBJS = { '경제': '경제', '정치': '정치', '지리': '지리', '현사': '현대사회', '현대사회': '현대사회', '세계사': '세계사', '역사': '세계사', '일본사': '일본사' };
+  function subjIn(c, m) {
+    var x = c.tests.concat(c.hw).filter(function (t) { return t.month === m && SUBJS[String(t.label).split(' ')[0]]; })[0];
+    return x ? SUBJS[String(x.label).split(' ')[0]] : '';
+  }
   function renderTabs() {
     var tabs = $('#tabs');
     if (!view.classes.length) { tabs.innerHTML = ''; $('#months').innerHTML = ''; $('#panel').innerHTML = '<div class="card"><p class="empty">아직 등록된 반이 없어요. 선생님께 말씀해 주세요.</p></div>'; return; }
-    tabs.innerHTML = view.classes.map(function (c, i) {
-      return '<button class="tab" type="button" role="tab" data-i="' + i + '" aria-selected="' + (i === cur) + '">' + esc(c.name) + (c.name.indexOf(c.time) >= 0 ? (c.current === false ? '<small>지난 반</small>' : '') : '<small>' + esc(c.time) + (c.current === false ? ' · 지난 반' : '') + '</small>') + '</button>';
-    }).join('');
-    UI.all('#tabs .tab').forEach(function (b) { b.onclick = function () { cur = +b.getAttribute('data-i'); month = ''; renderTabs(); }; });
     var ms = monthsOf(view.classes[cur]);
     if (!month || ms.indexOf(month) < 0) month = ms[0] || '';
+    // 반 이름 대신 과목이 먼저 보이게: 과목은 달마다 바뀌니 (보고 있는 반은 고른 달, 다른 반은 가장 최근 달) 시험·숙제 이름에서 읽음
+    tabs.innerHTML = view.classes.map(function (c, i) {
+      var m = i === cur ? month : (monthsOf(c)[0] || ''), kind = c.kind || ({ GN: '개념', DP: '단풀', SJ: '실전' })[String(c.code).split('-')[0]] || '';
+      var big, small = [];
+      if (kind === '실전') big = '실전반 ' + String(c.code).split('-').pop();
+      else { big = subjIn(c, m) || c.name; if (kind) small.push(kind + '반'); }
+      if (c.time) small.push(c.time);
+      if (c.current === false) small.push('지난 반');
+      return '<button class="tab" type="button" role="tab" data-i="' + i + '" aria-selected="' + (i === cur) + '">' + esc(big) + (small.length ? '<small>' + esc(small.join(' · ')) + '</small>' : '') + '</button>';
+    }).join('');
+    UI.all('#tabs .tab').forEach(function (b) { b.onclick = function () { cur = +b.getAttribute('data-i'); month = ''; renderTabs(); }; });
     $('#months').innerHTML = ms.length > 1 ? ms.map(function (m) {
       return '<button class="tab" type="button" data-m="' + m + '" aria-selected="' + (m === month) + '">' + esc(UI.monthLabel(m)) + '</button>';
     }).join('') : '';
@@ -103,7 +115,8 @@
       if (t.score !== null) {
         if (t.wrongDetail) h += '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrongDetail.map(function (w) { return '<span class="chip">' + w.n + '번 정답 ' + w.key + ' · 내 답 ' + (w.ans === '0' ? '-' : w.ans) + '</span>'; }).join('') + '</div>';
         else if (t.wrong.length) h += '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrong.map(function (n) { return '<span class="chip">' + n + '번</span>'; }).join('') + '</div>';
-        else h += '<div class="chips"><span class="pill ok">전부 맞았어요</span></div>';
+        else if (t.score === t.total) h += '<div class="chips"><span class="pill ok">전부 맞았어요</span></div>';
+        // 학원 파일에서 옮겨 온 지난 성적은 점수만 있고 틀린 번호 기록이 없음 → 아무것도 안 붙임
       }
       h += '</div>';
     });
