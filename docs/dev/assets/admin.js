@@ -1005,18 +1005,24 @@
     if (!itemKind) itemKind = entryKind || '개념';
     var withRes = {}; D.results.forEach(function (r) { withRes[r.exam] = (withRes[r.exam] || 0) + 1; });
     var exs = examsOfMonth().filter(function (e) { var c = cls(e.cls); return c && c.kind === itemKind && withRes[e.id]; });
+    if (itemKind === '실전') {   // 실전반은 D·E 를 하나로: 같은 이름 시험은 한 번만 (분석도 D·E 합쳐서)
+      var seen = {}, cnt = {};
+      exs.forEach(function (e) { var k = String(e.label).replace(/\s+/g, ''); cnt[k] = (cnt[k] || 0) + withRes[e.id]; });
+      exs = exs.filter(function (e) { var k = String(e.label).replace(/\s+/g, ''); if (seen[k]) return false; seen[k] = 1; withRes[e.id] = cnt[k]; return true; });
+      if (!exs.some(function (e) { return e.id === itemExam; })) { var cur = examsOfMonth().filter(function (e) { return e.id === itemExam; })[0]; if (cur) { var same = exs.filter(function (e) { return String(e.label).replace(/\s+/g, '') === String(cur.label).replace(/\s+/g, ''); })[0]; if (same) itemExam = same.id; } }
+    }
     if (!exs.some(function (e) { return e.id === itemExam; })) itemExam = exs.length ? exs.slice().sort(function (a, b) { return (b.date || b.created).localeCompare(a.date || a.created); })[0].id : '';
     var h = '<div class="card"><h2>' + esc(UI.monthLabel(month)) + ' 문항 분석</h2>' +
       '<div class="seg" role="tablist" aria-label="반 종류">' + KINDS.map(function (k) { return '<button type="button" role="tab" data-ik="' + k[0] + '" aria-selected="' + (k[0] === itemKind) + '">' + k[1] + '</button>'; }).join('') + '</div>';
     if (!exs.length) { $('#view').innerHTML = h + '<p class="empty">이 달 ' + esc(itemKind) + '반에 답안이 들어간 시험이 없어요.</p></div>'; bindItem(); return; }
     h += '<div class="fields" style="margin-top:14px"><div><label for="iE">시험</label><select id="iE">' + exs.map(function (e) {
-      return '<option value="' + esc(e.id) + '"' + (e.id === itemExam ? ' selected' : '') + '>' + esc(clsName(e.cls) + ' · ' + e.label) + ' (' + withRes[e.id] + '명)</option>';
+      return '<option value="' + esc(e.id) + '"' + (e.id === itemExam ? ' selected' : '') + '>' + esc((itemKind === '실전' ? '실전반(D·E)' : clsName(e.cls)) + ' · ' + e.label) + ' (' + withRes[e.id] + '명)</option>';
     }).join('') + '</select></div></div>';
     var A = Logic.itemStats(D, itemExam);
     if (!A) { $('#view').innerHTML = h + '<p class="empty">문항 수가 없는 시험이에요.</p></div>'; bindItem(); return; }
     var real = A.kind === '실전', noItems = !A.items.some(function (it) { return it.here.t; }), hasCum = A.cum.n > A.here.n;   // 다른 달·반 기록이 있어야 누적이 의미 있음
     h += '<div class="tiles four itiles">' +
-      '<div class="tile"><span>이 반</span><b>' + (A.here.avg === null ? '-' : A.here.avg + '<small>%</small>') + '</b><em>' + A.here.n + '명 평균 정답률</em></div>' +
+      '<div class="tile"><span>' + (real ? '실전반(D·E)' : '이 반') + '</span><b>' + (A.here.avg === null ? '-' : A.here.avg + '<small>%</small>') + '</b><em>' + A.here.n + '명 평균 정답률</em></div>' +
       '<div class="tile"><span>누적 (같은 시험 모든 달·반)</span><b>' + (!hasCum || A.cum.avg === null ? '-' : A.cum.avg + '<small>%</small>') + '</b><em>' + (hasCum ? A.cum.n + '명 · ' + A.cum.months.map(function (m) { return (+m.slice(5)) + '월'; }).join('·') : '이 시험은 이 반 기록뿐이에요') + '</em></div>' +
       '<div class="tile"><span>이 반 낮은 문항</span><b>' + A.items.filter(function (it) { return it.flags.indexOf('low') >= 0 || it.flags.indexOf('below') >= 0; }).length + '<small>개</small></b><em>정답률 ' + 50 + '% 미만 · 누적보다 15%p↓</em></div>' +
       '<div class="tile"><span>오답 쏠림</span><b>' + A.items.filter(function (it) { return it.flags.indexOf('trap') >= 0; }).length + '<small>개</small></b><em>같은 오답을 30% 이상</em></div></div>';

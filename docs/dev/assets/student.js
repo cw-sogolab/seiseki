@@ -218,7 +218,7 @@
   /* ---------- 보기: 반 종류(개념·단풀·실전) → 과목. 달은 과목 화면 안에서 묶어 보여 줌 ---------- */
   var KINDS = ['개념', '단풀', '실전'];
   /** 묶는 기준: 개념·단풀은 과목(시험·숙제 이름 첫 낱말), 실전은 D·E */
-  function grpOf(c, x) { return kindOf(c) === '실전' ? String(c.code).split('-').pop() : (SUBJS[String(x.label).split(' ')[0]] || '기타'); }
+  function grpOf(c, x) { return kindOf(c) === '실전' ? '실전반' : (SUBJS[String(x.label).split(' ')[0]] || '기타'); }   // 실전반은 D·E 를 하나로 (2026-10-22 사용자)
   /** 들은 달: 「2·6·8월」 (해가 다르면 「25년 11월 · 2월」, 많으면 「2~9월 · 5달」) */
   function monthsText(ms) {
     ms = ms.slice().sort(); if (!ms.length) return '';
@@ -238,7 +238,8 @@
       items.forEach(function (x) {
         var s = grpOf(c, x), mo = x.month || '', e = m[s] || (m[s] = { s: s, last: '', now: false, time: '', ms: [] });
         if (mo && e.ms.indexOf(mo) < 0) e.ms.push(mo);
-        if (mo >= e.last) { e.last = mo; e.time = c.time || ''; }
+        if (mo >= e.last) e.last = mo;
+        if (c.current !== false && c.time) { e.time = c.time; e.cur = true; } else if (!e.cur && mo >= e.last) e.time = c.time || '';   // 지금 듣는 반의 요일시간
         if (c.current !== false && mo === tm) e.now = true;
       });
     });
@@ -287,7 +288,7 @@
     var subs = chips(kindSel);
     if (!subs.some(function (e) { return e.s === subjSel; })) subjSel = subs[0].s;
     $('#tabs').innerHTML = subs.map(function (e) {
-      var big = kindSel === '실전' ? '실전반 ' + e.s : e.s;
+      var big = e.s;
       var nowParts = e.parts.filter(function (p) { return p.now; });
       var small = nowParts.length ? nowParts.map(function (p) { return (kindSel === '실전' ? '' : p.k + ' ') + (p.time || ''); }).join(' · ') : monthsText(e.ms);
       return '<button class="tab" type="button" role="tab" data-s="' + esc(e.s) + '" aria-selected="' + (e.s === subjSel) + '">' + esc(big) + (small ? '<small>' + esc(small) + '</small>' : '') + '</button>';
@@ -401,7 +402,7 @@
     h += '</div>';
     // 그래프 두 개: ① 개념반 소테스트·월말 꺾은선  ② 월말 비교 — 개념반 월말과 단풀반 월말을 달마다 나란히 (단풀반을 들었을 때)
     if (real) {
-      h += '<div class="card"><h2>점수 추이 <span class="meta">실전반 ' + esc(s) + ' · 모든 달 · 정답률 %</span></h2>' + chartX(itemsOf(taken)) + '</div>';
+      h += '<div class="card"><h2>점수 추이 <span class="meta">' + esc(s) + ' · 모든 달 · 정답률 %</span></h2>' + chartX(itemsOf(taken)) + '</div>';
       if (view.subj) h += '<div class="card" id="wk"></div>';
     }
     else {

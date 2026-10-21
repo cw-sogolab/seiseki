@@ -428,6 +428,17 @@ t('시험마다 내 등수(같은 점수는 같은 등수)·인원, 다른 학�
   assert.deepStrictEqual([tt('BD774119').rank, tt('CZ297510').rank, tt('JS603412').rank], [1, 1, 3], '동점');
   assert.ok(!('scores' in tt('BD774119')) && !JSON.stringify(tt('BD774119')).includes('CZ297510'));
 });
+t('실전반 D·E 는 하나로: 같은 달 같은 이름 시험이면 반 평균·등수·인원을 합쳐서', () => {
+  const e = Mock.seed(Mock.createEnv()), T = e._tables;
+  const d = T['시험'].find(x => x['시험ID'] === 'E5');
+  T['시험'].push(Object.assign({}, d, { '시험ID': 'E5E', '반코드': 'SJ-E' }));
+  const g = Core.grade(d['정답'], d['정답']);
+  T['시험결과'].push({ '시험ID': 'E5E', '번호': 'XA000009', '답안': d['정답'], '맞은개수': String(g.score), '틀린번호': '', '환산점수': '', '입력일': '' });
+  const t = Logic.handle(e, 'login', { code: 'BD774119' }).data.classes.find(x => x.code === 'SJ-D').tests.find(x => x.id === 'E5');
+  assert.deepStrictEqual([t.n, t.rank], [4, 2], 'E반 만점 학생까지 4명, 박테스트는 2등');
+  const B = Logic.handle(e, 'adminLogin', { password: 'demo', dev: 'g' }).data.boot;
+  assert.strictEqual(Logic.itemStats(B, 'E5').here.n, 4, '문항 분석도 D·E 합쳐서');
+});
 console.log('문항 분석 (강사 화면)');
 t('이 반 정답률·누적 정답률(같은 이름·같은 정답의 다른 달·반 포함)·고른 답 분포·많이 고른 오답', () => {
   const e = Mock.seed(Mock.createEnv());

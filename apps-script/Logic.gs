@@ -43,7 +43,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '63902cc5fa';
+  var VERSION = '01a18d9208';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -171,7 +171,9 @@ var Logic = (function () {
   /** 실전반 과목별 정답률: 학생이 본 실전 시험(시험지 「문항과목」이 있는 것)마다 문항을 과목으로 나눠
    *  내 정답률과 반 평균(같은 시험을 본 학생 전체 합산)을 달별·종합으로. 취약 = (내 정답률 − 반 평균)이 가장 낮은 과목(4문항 이상)
    *  → { all: {subs, weak, n}, months: [{m, subs, weak, n}] } 또는 null */
-  function subjStats(env, stu, exById, byExam, kindOfCls) {
+  /** 실전반 D·E 는 같은 달 같은 이름 시험을 한 묶음으로 (반 평균·등수용). 다른 반 종류는 시험 하나가 한 묶음 */
+  function groupKey(e, kindOfCls) { return kindOfCls[e.cls] === '실전' ? '실전|' + e.month + '|' + labelKey(e.label) + '|' + e.total : 'x|' + e.id; }
+  function subjStats(env, stu, exById, byExam, kindOfCls, groupOf) {
     var sub = {};
     papers(env).forEach(function (p) { if (p.subjs && p.subjs.length === p.total) sub[labelKey(p.label)] = p.subjs; });
     var groups = {}, any = false;
@@ -179,8 +181,8 @@ var Logic = (function () {
     Object.keys(byExam).forEach(function (id) {
       var e = exById[id]; if (!e || kindOfCls[e.cls] !== '실전' || !e.total) return;
       var sj = sub[labelKey(e.label)]; if (!sj || sj.length !== e.total) return;
-      var rs = byExam[id], mine = null;
-      rs.forEach(function (r) { if (r.code === stu.code) mine = r; });
+      var rs = groupOf ? groupOf(e) : byExam[id], mine = null;
+      byExam[id].forEach(function (r) { if (r.code === stu.code) mine = r; });
       if (!mine) return;
       var mv = itemVec(mine, e); if (!mv) return;
       any = true;
@@ -245,10 +247,12 @@ var Logic = (function () {
         for (i = 0; i < n; i++) { it = b.items[i]; it.t++; if (r.wrong.indexOf(i + 1) < 0) it.c++; }
       }
     }
+    // 실전반은 D·E 를 하나로: 「이 반」 = 그 달 같은 이름 실전 시험 전체 (2026-10-22 사용자)
+    function isHere(x) { return x.id === e.id || (kind === '실전' && x.month === e.month); }
     (D.results || []).forEach(function (r) {
       var x = sameId[r.exam]; if (!x) return;
       add(cum, r, x);
-      if (r.exam === e.id) add(here, r, x);
+      if (isHere(x)) add(here, r, x);
     });
     function pct(a, t) { return t ? Math.round(a / t * 1000) / 10 : null; }
     function one(it, k) {
@@ -386,11 +390,15 @@ var Logic = (function () {
       o.s += r.score / e.total; o.n++;
     });
     subs.forEach(function (x) { if (x.code === stu.code) { mySub[x.hw] = x; if (hwById[x.hw]) add(hwById[x.hw].cls); } });
+    // 실전반은 D·E 가 같은 시험을 따로 등록해도 하나로 봄 (2026-10-22 사용자): 반 평균·등수·인원·환산 평균을 그 달 같은 이름 시험 전체로
+    var byGroup = {};
+    rs.forEach(function (r) { var e = exById[r.exam]; if (e) (byGroup[groupKey(e, kindOfCls)] || (byGroup[groupKey(e, kindOfCls)] = [])).push(r); });
+    function groupOf(e) { return byGroup[groupKey(e, kindOfCls)] || []; }
     var exByCls = {}, hwByCls = {};
     ex.forEach(function (e) { (exByCls[e.cls] || (exByCls[e.cls] = [])).push(e); });
     hw.forEach(function (h) { (hwByCls[h.cls] || (hwByCls[h.cls] = [])).push(h); });
     var subjInfo = null;
-    try { subjInfo = subjStats(env, stu, exById, byExam, kindOfCls); } catch (err) { subjInfo = null; }   // 시험지 탭이 없거나 이상해도 로그인은 되게
+    try { subjInfo = subjStats(env, stu, exById, byExam, kindOfCls, groupOf); } catch (err) { subjInfo = null; }   // 시험지 탭이 없거나 이상해도 로그인은 되게
     return {
       name: stu.name, code: stu.code, subj: subjInfo,
       classes: cls.filter(function (c) { return mine.indexOf(c.code) >= 0; }).sort(function (a, b) {
@@ -399,10 +407,10 @@ var Logic = (function () {
         var current = stu.classes.indexOf(c.code) >= 0;
         var tests = (exByCls[c.code] || []).slice().sort(examSort).map(function (e) {
           var me = null, all = [], convs = [];
-          (byExam[e.id] || []).forEach(function (r) {
+          (byExam[e.id] || []).forEach(function (r) { if (r.code === stu.code) me = r; });
+          groupOf(e).forEach(function (r) {
             if (!(e.total && r.score > e.total)) all.push(r.score);   // 입력 오타(문항 수보다 큰 점수)는 반 평균에서 뺌
             var cv = convOf(env, r); if (cv !== null) convs.push(cv);
-            if (r.code === stu.code) me = r;
           });
           // 등수: 같은 시험(그 반·그 달)에서 나보다 점수가 높은 사람 수 + 1 (같은 점수는 같은 등수). 다른 학생 이름·점수는 안 보냄
           var rank = me && !(e.total && me.score > e.total) ? 1 + all.filter(function (x) { return x > me.score; }).length : null;
