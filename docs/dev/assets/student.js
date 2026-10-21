@@ -174,7 +174,7 @@
     var slot = n === 1 ? W - L - R : (W - L - R) / (n - 1);
     items.forEach(function (it, i) { s += hit(Math.max(0, x(i) - slot / 2), slot, H, it); });
     s += '</svg></div><div class="legend">';
-    series.forEach(function (key) { var c0 = items.filter(function (it) { return it.s === key; })[0].col; s += '<span><i style="border-top-color:' + c0 + '"></i>' + esc(series.length === 1 ? '내 정답률' + (key && key !== '나' ? ' (' + key + ')' : '') : key) + '</span>'; });
+    series.forEach(function (key) { var c0 = items.filter(function (it) { return it.s === key; })[0].col; s += '<span><i style="border-top-color:' + c0 + '"></i>' + esc(series.length === 1 ? '내 정답률' : key) + '</span>'; });
     s += '<span><i class="a"></i>누적 평균</span><span class="hint">점에 마우스를 올리면(휴대폰은 누르면) 점수가 나와요</span>';
     return s + '</div>';
   }
