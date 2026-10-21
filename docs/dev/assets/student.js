@@ -243,42 +243,61 @@
     Object.keys(m).forEach(function (s) { out.push(m[s]); });
     return out.sort(function (a, b) { return (b.now - a.now) || b.last.localeCompare(a.last); });
   }
-  function kindsHave() { return KINDS.filter(function (k) { return subjList(k).length; }); }
+  /** 보기: 「과목」(개념반+단풀반을 과목으로 합침) / 「실전」 / 「요약」 */
+  var MODES = [['과목', '과목별'], ['실전', '실전반']];
+  function kindsOfMode(m) { return m === '과목' ? ['개념', '단풀'] : [m]; }
+  /** 그 보기의 칩: 과목(개념·단풀 합침) 또는 실전 D·E */
+  function chips(mode) {
+    var m = {}, out = [];
+    kindsOfMode(mode).forEach(function (k) {
+      subjList(k).forEach(function (e) {
+        var x = m[e.s] || (m[e.s] = { s: e.s, last: '', now: false, ms: [], parts: [] });
+        if (e.last > x.last) x.last = e.last;
+        if (e.now) x.now = true;
+        e.ms.forEach(function (mo) { if (x.ms.indexOf(mo) < 0) x.ms.push(mo); });
+        x.parts.push({ k: k, now: e.now, time: e.time });
+      });
+    });
+    Object.keys(m).forEach(function (s) { out.push(m[s]); });
+    return out.sort(function (a, b) { return (b.now - a.now) || b.last.localeCompare(a.last); });
+  }
+  function modesHave() { return MODES.map(function (x) { return x[0]; }).filter(function (md) { return chips(md).length; }); }
   /** 처음 열 때: 지금 듣는 과목 (여럿이면 가장 최근 것) */
-  function pickDefault(ks) {
+  function pickDefault(ms) {
     var best = null;
-    ks.forEach(function (k) { var e = subjList(k)[0]; if (!best || (e.now && !best.e.now) || (e.now === best.e.now && e.last > best.e.last)) best = { k: k, e: e }; });
+    ms.forEach(function (md) { var e = chips(md)[0]; if (!best || (e.now && !best.e.now) || (e.now === best.e.now && e.last > best.e.last)) best = { k: md, e: e }; });
     return best;
   }
 
-  function renderModes(ks) {
-    var M = ks.map(function (k) { return [k, k + '반']; }).concat([['요약', '요약']]);
+  function renderModes(ms) {
+    var M = MODES.filter(function (x) { return ms.indexOf(x[0]) >= 0; }).concat([['요약', '요약']]);
     $('#modes').innerHTML = M.map(function (m) { return '<button type="button" role="tab" data-mode="' + m[0] + '" aria-selected="' + (m[0] === kindSel) + '">' + m[1] + '</button>'; }).join('');
     UI.all('#modes [data-mode]').forEach(function (b) { b.onclick = function () { kindSel = b.getAttribute('data-mode'); subjSel = ''; renderTabs(); }; });
   }
 
   function renderTabs() {
-    var ks = kindsHave();
+    var ms = modesHave();
     $('#months').innerHTML = '';
-    if (!ks.length) { $('#modes').innerHTML = ''; $('#tabs').innerHTML = ''; $('#panel').innerHTML = '<div class="card blank"><img src="assets/logo-emblem.webp" alt="" width="237" height="200"><p class="empty">아직 등록된 반이 없어요. 선생님께 말씀해 주세요.</p></div>'; return; }
-    if (kindSel !== '요약' && ks.indexOf(kindSel) < 0) { var d = pickDefault(ks); kindSel = d.k; subjSel = d.e.s; }
-    renderModes(ks);
-    if (kindSel === '요약') { $('#tabs').innerHTML = ''; return renderSum(ks); }
-    var subs = subjList(kindSel);
+    if (!ms.length) { $('#modes').innerHTML = ''; $('#tabs').innerHTML = ''; $('#panel').innerHTML = '<div class="card blank"><img src="assets/logo-emblem.webp" alt="" width="237" height="200"><p class="empty">아직 등록된 반이 없어요. 선생님께 말씀해 주세요.</p></div>'; return; }
+    if (kindSel !== '요약' && ms.indexOf(kindSel) < 0) { var d = pickDefault(ms); kindSel = d.k; subjSel = d.e.s; }
+    renderModes(ms);
+    if (kindSel === '요약') { $('#tabs').innerHTML = ''; return renderSum(); }
+    var subs = chips(kindSel);
     if (!subs.some(function (e) { return e.s === subjSel; })) subjSel = subs[0].s;
     $('#tabs').innerHTML = subs.map(function (e) {
       var big = kindSel === '실전' ? '실전반 ' + e.s : e.s;
-      var small = e.now ? (e.time || '지금 듣는 반') : monthsText(e.ms);
+      var nowParts = e.parts.filter(function (p) { return p.now; });
+      var small = nowParts.length ? nowParts.map(function (p) { return (kindSel === '실전' ? '' : p.k + ' ') + (p.time || ''); }).join(' · ') : monthsText(e.ms);
       return '<button class="tab" type="button" role="tab" data-s="' + esc(e.s) + '" aria-selected="' + (e.s === subjSel) + '">' + esc(big) + (small ? '<small>' + esc(small) + '</small>' : '') + '</button>';
     }).join('');
     UI.all('#tabs [data-s]').forEach(function (b) { b.onclick = function () { subjSel = b.getAttribute('data-s'); renderTabs(); }; });
     renderSubject(kindSel, subjSel);
   }
 
-  function testItem(t, extra) {
+  function testItem(t, extra, noDate) {
     var h = '<div class="item"><div class="row"><b>' + esc(t.label) + (extra ? ' <span class="meta">' + esc(extra) + '</span>' : '') + '</b>' +
       (t.score === null ? '<span class="pill wait">아직 입력 전</span>' : '<span class="score">' + t.score + '<small> / ' + t.total + '</small></span>') + '</div>';
-    h += '<p class="meta">' + [UI.dateLabel(t.date), t.score !== null ? '정답률 ' + pct(t.score, t.total) + '%' : '', t.avg !== null ? '그때 반 평균 ' + t.avg.toFixed(1) : '', t.cum ? '누적 평균 ' + t.cum.pct + '%' : '',
+    h += '<p class="meta">' + [noDate ? '' : UI.dateLabel(t.date), t.score !== null ? '정답률 ' + pct(t.score, t.total) + '%' : '', t.avg !== null ? '그때 반 평균 ' + t.avg.toFixed(1) : '', t.cum ? '누적 평균 ' + t.cum.pct + '%' : '',
       t.conv !== null ? '환산점수 ' + t.conv + (t.convAvg !== null ? ' (반 평균 ' + Math.round(t.convAvg) + ')' : '') : ''].filter(Boolean).map(esc).join(' · ') + '</p>';
     if (t.score !== null) {
       if (t.wrongDetail) h += '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrongDetail.map(function (w) { return '<span class="chip">' + w.n + '번 정답 ' + w.key + ' · 내 답 ' + (w.ans === '0' ? '-' : w.ans) + '</span>'; }).join('') + '</div>';
@@ -316,45 +335,59 @@
     return ms.sort().reverse().map(function (m) { return { m: m, l: g[m] }; });
   }
 
-  /* 과목 하나: 모든 달의 테스트·숙제 */
-  function renderSubject(k, s) {
+  /* 과목 하나: 모든 달의 테스트·숙제. 「과목」 보기는 개념반·단풀반을 한 화면에 (위에 합친 그래프, 아래에 반마다) */
+  function renderSubject(mode, s) {
     TIPS = [];
-    var tests = [], hws = [];
+    var kinds = kindsOfMode(mode), tests = [], hws = [];
     view.classes.forEach(function (c) {
-      if (kindOf(c) !== k) return;
+      var k = kindOf(c); if (kinds.indexOf(k) < 0) return;
       c.tests.forEach(function (t) { if (grpOf(c, t) === s) tests.push({ c: c, t: t, kind: k, subj: subjOfT(c, t) }); });
       c.hw.forEach(function (w) { if (grpOf(c, w) === s) hws.push(w); });
     });
     tests.sort(order);
-    var taken = tests.filter(function (x) { return x.t.score !== null; }), gap = gapPct(taken), last = taken[taken.length - 1];
+    var real = mode === '실전', taken = tests.filter(function (x) { return x.t.score !== null; }), gap = gapPct(taken), last = taken[taken.length - 1];
+    var by = {}; kinds.forEach(function (k) { by[k] = taken.filter(function (x) { return x.kind === k; }); });
+    var both = !real && by['개념'].length && by['단풀'].length;
     var done = hws.filter(function (w) { return w.done; }).length, nm = byMonth(taken, function (x) { return x.t.month; }).length;
-    var col = subjColor(k === '실전' ? '실전 (EJU)' : s), name = k === '실전' ? '실전반 ' + s : s + ' ' + k + '반';
+    var col = subjColor(real ? '실전 (EJU)' : s);
     var conv = taken.filter(function (x) { return x.t.conv !== null && x.t.conv !== undefined; });
-    var h = '<div class="tiles four">' +
-      tile('평균 정답률', avgPct(taken), '%', 'hi', taken.length ? (nm > 1 ? nm + '달 · ' : '') + '테스트 ' + taken.length + '개' : '', col) +
-      tile('누적 평균과 비교', gap === null ? null : (gap > 0 ? '+' : '') + gap, '%p', gap === null ? '' : gap >= 0 ? 'gpos' : 'gneg', gap === null ? '' : gapText(gap)) +
-      (conv.length ? tile('환산점수 평균', Math.round(conv.reduce(function (a, x) { return a + +x.t.conv; }, 0) / conv.length), '', '', '모의고사 ' + conv.length + '개')
-        : tile('최근 테스트', last ? pct(last.t.score, last.t.total) : null, '%', '', last ? esc(monthShort(last.t.month) + ' ' + shortLabel(last.t)) : '')) +
-      tile('숙제 제출', hws.length ? done + ' / ' + hws.length : null, '', '', '') + '</div>';
-    h += '<div class="card"><h2>' + (k === '단풀' ? '월말 테스트' : '점수 추이') + ' <span class="meta">' + esc(name) + ' · 모든 달 · 정답률 %</span></h2>' +
-      (k === '단풀' ? barsX(itemsOf(taken, null, function (x) { return shortLabel(x.t); })) : chartX(itemsOf(taken))) + '</div>';
-    var tCard = '<div class="card"><h2>테스트 결과</h2>';
-    if (!tests.length) tCard += '<p class="empty">아직 등록된 테스트가 없어요.</p>';
-    byMonth(tests, function (x) { return x.t.month; }).forEach(function (g) {
-      tCard += '<h3 class="mhd">' + esc(g.m ? UI.monthLabel(g.m) : '') + '</h3>' + g.l.map(function (x) { return testItem(x.t); }).join('');
-    });
-    tCard += '</div>';
+    var h = '<div class="tiles four">';
+    if (both) h += tile('<i class="kdot" style="background:' + toneOf('개념', s) + '"></i>개념반 평균', avgPct(by['개념']), '%', 'hi', '테스트 ' + by['개념'].length + '개', col) +
+      tile('<i class="kdot" style="background:' + toneOf('단풀', s) + '"></i>단풀반 평균', avgPct(by['단풀']), '%', 'hi', '월말 ' + by['단풀'].length + '번', col);
+    else h += tile('평균 정답률', avgPct(taken), '%', 'hi', taken.length ? (nm > 1 ? nm + '달 · ' : '') + '테스트 ' + taken.length + '개' : '', col);
+    h += tile('누적 평균과 비교', gap === null ? null : (gap > 0 ? '+' : '') + gap, '%p', gap === null ? '' : gap >= 0 ? 'gpos' : 'gneg', gap === null ? '' : gapText(gap));
+    if (!both) h += conv.length ? tile('환산점수 평균', Math.round(conv.reduce(function (a, x) { return a + +x.t.conv; }, 0) / conv.length), '', '', '모의고사 ' + conv.length + '개')
+      : tile('최근 테스트', last ? pct(last.t.score, last.t.total) : null, '%', '', last ? esc(monthShort(last.t.month) + ' ' + shortLabel(last.t)) : '');
+    if (!real) h += tile('숙제 제출', hws.length ? done + ' / ' + hws.length : null, '', '', hws.length ? '개념반 일문일답' : '');
+    h += '</div>';
+    // 그래프: 과목은 개념반·단풀반 한 그래프에 (개념반 진하게, 단풀반 연하게)
+    var kindsIn = kinds.filter(function (k) { return by[k] && by[k].length; });
+    var title = real ? '점수 추이' : kindsIn.length > 1 ? '개념반 · 단풀반 점수 추이' : (kindsIn[0] || '') + '반 점수 추이';
+    h += '<div class="card"><h2>' + esc(title) + ' <span class="meta">' + esc(real ? '실전반 ' + s : s) + ' · 모든 달 · 정답률 %</span></h2>' +
+      (real ? chartX(itemsOf(taken)) : kindsIn.length === 1 && kindsIn[0] === '단풀' ? barsX(itemsOf(taken, null, function (x) { return shortLabel(x.t); }))
+        : chartX(itemsOf(taken, kindsIn.length > 1 ? function (x) { return x.kind + '반'; } : null))) + '</div>';
+    function testsCard(k, ttl) {
+      var list = tests.filter(function (x) { return x.kind === k; });
+      if (!list.length) return '';
+      var c = '<div class="card"><h2>' + (real ? '' : '<i class="kdot" style="background:' + toneOf(k, s) + '"></i>') + esc(ttl) + '</h2>';
+      byMonth(list, function (x) { return x.t.month; }).forEach(function (g) {
+        c += '<h3 class="mhd">' + esc(g.m ? UI.monthLabel(g.m) : '') + '</h3>' + g.l.map(function (x) { return testItem(x.t, null, real); }).join('');
+      });
+      return c + '</div>';
+    }
+    var left = real ? testsCard('실전', '테스트 결과') : testsCard('개념', '개념반 소테스트·월말') + testsCard('단풀', '단풀반 월말');
+    if (!left) left = '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';
     if (hws.length) {
-      var wCard = '<div class="card"><h2>숙제</h2>';
+      var wCard = '<div class="card"><h2><i class="kdot" style="background:' + toneOf('개념', s) + '"></i>개념반 숙제</h2>';
       byMonth(hws, function (w) { return w.month; }).forEach(function (g) { wCard += '<h3 class="mhd">' + esc(g.m ? UI.monthLabel(g.m) : '') + '</h3>' + g.l.map(hwItem).join(''); });
-      h += '<div class="sgrid hwfirst"><div class="col1">' + tCard + '</div><div class="col2">' + wCard + '</div></div></div>';
-    } else h += tCard;
+      h += '<div class="sgrid hwfirst"><div class="col1">' + left + '</div><div class="col2">' + wCard + '</div></div></div>';
+    } else h += left;
     $('#panel').innerHTML = h; bindTips($('#panel'));
     UI.all('#panel [data-hw]').forEach(function (b) { b.onclick = function () { openUpload(b.getAttribute('data-hw')); }; });
   }
 
   /* 요약: 반 종류 × 과목 표 하나 */
-  function renderSum(ks) {
+  function renderSum() {
     TIPS = [];
     var tk = allTaken(), hwAll = [];
     view.classes.forEach(function (c) { hwAll = hwAll.concat(c.hw); });
@@ -386,7 +419,7 @@
     }
     h += '</div>';
     $('#panel').innerHTML = h;
-    UI.all('#panel [data-k]').forEach(function (r) { r.onclick = function () { kindSel = r.getAttribute('data-k'); subjSel = r.getAttribute('data-s'); renderTabs(); window.scrollTo(0, 0); }; });
+    UI.all('#panel [data-k]').forEach(function (r) { r.onclick = function () { kindSel = r.getAttribute('data-k') === '실전' ? '실전' : '과목'; subjSel = r.getAttribute('data-s'); renderTabs(); window.scrollTo(0, 0); }; });
   }
 
   /** 사진 줄이기(긴 쪽 1600px JPEG) + 같은 사진 찾기용 지문(17×16 회색 → 옆 칸 밝기 비교 256비트, 16진수 64자) */
