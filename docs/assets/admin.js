@@ -3,7 +3,7 @@
   var $ = UI.$, all = UI.all, esc = UI.esc;
   var token = UI.store.get('seiseki.token', sessionStorage) || '';
   var D = null, tab = 'entry', month = '', curExam = '', curHw = '', monthCls = '';
-  var TABS = [['entry', '답안 입력'], ['exams', '시험'], ['item', '문항 분석'], ['hw', '숙제'], ['stu', '학생·번호'], ['month', '학생평가'], ['plan', '강의계획서']];
+  var TABS = [['entry', '답안 입력'], ['hw', '숙제'], ['exams', '시험'], ['item', '문항 분석'], ['stu', '학생·번호'], ['plan', '강의계획서'], ['month', '학생평가']];
 
   if (Api.demo) $('#demo').hidden = false;
 
@@ -163,17 +163,21 @@
   }
   function render() { $('#period').hidden = tab === 'plan'; renderPeriod(); ({ entry: vEntry, exams: vExams, item: vItem, hw: vHw, stu: vStu, month: vMonth, plan: vPlan })[tab](); }
 
-  /** 틀린 문항을 시험지에 체크하기 쉽게: 문항 / 정답 / 학생 세 줄 표 (10문항씩 끊음) */
-  function wrongTable(wrong) {
-    if (!wrong.length) return '<p class="allok">전부 맞았어요</p>';
-    var h = '';
-    for (var i = 0; i < wrong.length; i += 10) {
-      var part = wrong.slice(i, i + 10);
-      h += '<table class="wt"><tbody>' +
-        '<tr class="n"><th>문항</th>' + part.map(function (w) { return '<td>' + w.n + '</td>'; }).join('') + '</tr>' +
-        '<tr class="k"><th>정답</th>' + part.map(function (w) { return '<td>' + w.key + '</td>'; }).join('') + '</tr>' +
-        '<tr class="a"><th>학생</th>' + part.map(function (w) { return '<td>' + (w.ans === '0' ? '–' : w.ans) + '</td>'; }).join('') + '</tr>' +
-        '</tbody></table>';
+  /** 채점표: 답지처럼 5문항씩 묶어서 모든 문항을 보여 줌 (한 줄에 10문항 = 5칸 묶음 둘). 맞은 문항은 ○, 틀린 문항은 학생 답을 빨갛게 — 시험지에 바로 체크하기 쉽게 */
+  function gradeTable(key, ans) {
+    var n = key.length; ans = Core.padAnswers(ans, n);
+    var h = '', cols = [];
+    function g5(j) { return (j % 5 === 0 && j % 10 !== 0) ? ' g5' : ''; }   // 5칸마다 띄움
+    function row(cls, th, f) { return '<tr class="' + cls + '"><th>' + th + '</th>' + cols.map(f).join('') + '</tr>'; }
+    for (var i = 0; i < n; i += 10) {
+      cols = []; for (var j = i; j < Math.min(i + 10, n); j++) cols.push(j);
+      h += '<table class="wt all"><tbody>' +
+        row('n', '문항', function (j) { return '<td class="' + g5(j) + '">' + (j + 1) + '</td>'; }) +
+        row('k', '정답', function (j) { return '<td class="' + g5(j) + '">' + key.charAt(j) + '</td>'; }) +
+        row('a', '학생', function (j) {
+          var a = ans.charAt(j), ok = a === key.charAt(j);
+          return '<td class="' + (ok ? 'o' : 'x') + g5(j) + '">' + (ok ? '○' : (a === '0' ? '–' : a)) + '</td>';
+        }) + '</tbody></table>';
     }
     return '<div class="wtw">' + h + '</div>';
   }
@@ -391,7 +395,7 @@
       if (!v) { $('#prev').innerHTML = ''; return; }
       var g = Core.grade(ex.key, v);
       $('#prev').innerHTML = '<div class="result"><b>' + g.score + ' / ' + ex.total + '</b><span class="meta">틀린 문항 ' + g.wrong.length + '개</span></div>' +
-        wrongTable(g.wrong);
+        (g.wrong.length ? '' : '<p class="allok">전부 맞았어요</p>') + gradeTable(ex.key, v);
     }
     function roster() {
       $('#roster').innerHTML = '<div class="tw"><table><thead><tr><th>이름</th><th>번호</th><th class="num">점수</th><th>상태</th></tr></thead><tbody>' +
@@ -1014,15 +1018,17 @@
     if (noItems) h += '<p class="msg">이 시험은 답안·틀린 번호 기록이 없어서(점수만 옮겨 온 성적) 문항별로는 볼 수 없어요.</p>';
     h += '</div>';
     if (!noItems) {
-      var flagged = A.items.filter(function (it) { return it.flags.length; }).sort(function (a, b) { return (a.here.rate === null ? 101 : a.here.rate) - (b.here.rate === null ? 101 : b.here.rate); });
-      h += '<div class="card"><h2>눈여겨볼 문항 <span class="meta">정답률 낮은 순</span></h2>' + (flagged.length ? '<div class="plist">' + flagged.map(function (it) {
+      // 눈여겨볼 문항은 10개까지: 이 반 정답률 낮은 순 → 같으면 표시가 많은 순 (나머지는 아래 전체 표에서)
+      var flaggedAll = A.items.filter(function (it) { return it.flags.length; }).sort(function (a, b) { return ((a.here.rate === null ? 101 : a.here.rate) - (b.here.rate === null ? 101 : b.here.rate)) || (b.flags.length - a.flags.length); });
+      var flagged = flaggedAll.slice(0, 10);
+      h += '<div class="card"><h2>눈여겨볼 문항 <span class="meta">정답률 낮은 순 ' + flagged.length + '개' + (flaggedAll.length > 10 ? ' · 표시된 ' + flaggedAll.length + '개 중' : '') + '</span></h2>' + (flagged.length ? '<div class="plist">' + flagged.map(function (it) {
         var g = it.here.rate !== null && it.cum.rate !== null && A.cum.n > A.here.n ? Math.round((it.here.rate - it.cum.rate) * 10) / 10 : null;
         var tr = it.here.trap && it.here.trap.cnt >= 2 && it.here.trap.pct >= 30 ? it.here.trap : (hasCum && it.cum.trap && it.cum.trap.cnt >= 3 && it.cum.trap.pct >= 30 ? it.cum.trap : null), trIsCum = tr && tr !== it.here.trap;
         return '<div class="prow"><div><b>' + it.i + '번</b>' +
           '<span class="meta">' + (it.subj ? esc(it.subj) + ' · ' : '') + '정답 ' + circ(it.key) + ' · 이 반 ' + (it.here.rate === null ? '-' : it.here.rate + '%') + (hasCum ? ' · 누적 ' + (it.cum.rate === null ? '-' : it.cum.rate + '%') : '') + (g === null ? '' : ' (' + (g > 0 ? '+' : '') + g + '%p)') +
           (tr ? ' · 많이 고른 오답 ' + circ(tr.ch) + ' ' + tr.pct + '%' + (trIsCum ? '(누적)' : '') : '') + '</span></div>' +
           '<div class="pills">' + it.flags.map(function (f) { return '<span class="pill ' + FLAG[f][1] + '">' + FLAG[f][0] + '</span>'; }).join('') + '</div></div>';
-      }).join('') + '</div>' : '<p class="empty">특별히 낮거나 오답이 몰린 문항이 없어요.</p>') + '</div>';
+      }).join('') + '</div>' + (flaggedAll.length > 10 ? '<p class="meta" style="margin-top:8px">나머지 ' + (flaggedAll.length - 10) + '개는 아래 전체 문항 표에서 왼쪽 빨간 줄로 보여요.</p>' : '') : '<p class="empty">특별히 낮거나 오답이 몰린 문항이 없어요.</p>') + '</div>';
       var rows = A.items.slice();
       if (itemSort === 'r') rows.sort(function (a, b) { return (a.here.rate === null ? 101 : a.here.rate) - (b.here.rate === null ? 101 : b.here.rate); });
       if (itemSort === 'g') rows.sort(function (a, b) { function d(x) { return x.here.rate === null || x.cum.rate === null ? 999 : x.here.rate - x.cum.rate; } return d(a) - d(b); });
