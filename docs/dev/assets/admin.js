@@ -288,11 +288,18 @@
         var firstOpen = set.map(function (p) { return exs.filter(function (e) { return e.label === p.label; })[0]; }).filter(function (e) { return e && !D.results.some(function (r) { return r.exam === e.id; }); })[0];
         ex = firstOpen || exs[exs.length - 1] || null;
       }
-      picker = '<div class="chiprow years" aria-label="시험">' + set.map(function (p) {
-          var got = exs.filter(function (e) { return e.label === p.label; })[0];
-          var short = p.kind === '월말테스트' ? '월말' : (+p.round ? p.round + '주차' : p.label);
-          return '<button type="button" class="tab' + (got ? ' has' : '') + '" data-ep="' + esc(p.id) + '" aria-selected="' + (!!(ex && got && got.id === ex.id)) + '">' + esc(short) + '</button>';
-        }).join('') + extra.map(function (e) { return '<button type="button" class="tab has" data-pick="' + esc(e.id) + '" aria-selected="' + (!!(ex && e.id === ex.id)) + '">' + esc(e.label) + '</button>'; }).join('') + '</div>';
+      // 1줄: 1주차·2주차·3주차…  2줄: EJU 기출·월말(·그 밖의 시험). 과목은 위에서 골랐으니 이름에서 뺌
+      function noSubj(lb) { return String(lb).replace(new RegExp('^' + subj + '\\s*'), '').replace(/^(현대사회|역사|세계사)\s*/, '') || lb; }
+      function chip(p) {
+        var got = exs.filter(function (e) { return e.label === p.label; })[0];
+        var short = p.kind === '월말테스트' ? '월말' : (+p.round ? p.round + '주차' : noSubj(p.label));
+        return '<button type="button" class="tab' + (got ? ' has' : '') + '" data-ep="' + esc(p.id) + '" aria-selected="' + (!!(ex && got && got.id === ex.id)) + '">' + esc(short) + '</button>';
+      }
+      var weekly = set.filter(function (p) { return p.kind === '소테스트' && +p.round; });
+      var rest = set.filter(function (p) { return weekly.indexOf(p) < 0; }).sort(function (a, b) { return (a.kind === '월말테스트') - (b.kind === '월말테스트'); });
+      picker = '<div class="chiprow years" aria-label="주차별 시험">' + weekly.map(chip).join('') + '</div>' +
+        '<div class="chiprow years" aria-label="기출·월말">' + rest.map(chip).join('') +
+        extra.map(function (e) { return '<button type="button" class="tab has" data-pick="' + esc(e.id) + '" aria-selected="' + (!!(ex && e.id === ex.id)) + '">' + esc(noSubj(e.label)) + '</button>'; }).join('') + '</div>';
       if (!ex) {
         $('#view').innerHTML = '<div class="card">' + head + picker + '<p class="empty">시험을 고르면 바로 입력할 수 있어요.</p><p id="emsg" class="msg" role="status"></p></div>';
         bindHead(); bindPaper(); return;
