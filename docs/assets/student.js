@@ -1,7 +1,7 @@
 /* 학생 화면: 번호로 들어와 성적 조회 + 숙제 사진 제출 */
 (function () {
   var $ = UI.$, esc = UI.esc;
-  var view = null, code = '', tok = '', kindSel = '', subjSel = '', busy = false;
+  var view = null, code = '', tok = '', kindSel = '', subjSel = '', wkSel = '', busy = false;
 
   if (Api.demo) $('#demo').hidden = false;
 
@@ -62,17 +62,19 @@
 
   var SUBJS = { '경제': '경제', '정치': '정치', '지리': '지리', '현사': '현대사회', '현대사회': '현대사회', '세계사': '세계사', '역사': '세계사', '일본사': '일본사' };
   var KIND_COLOR = { '개념': 'var(--me)', '단풀': 'var(--orange)', '실전': 'var(--green)' };
-  /** 과목마다 그래프 색 (학생이 한눈에 과목을 구분하게) */
-  var SUBJ_COLOR = { '경제': '#3182F6', '정치': '#8B5CF6', '지리': '#0EA5A4', '현대사회': '#F59E0B', '세계사': '#EC4899', '일본사': '#64748B', '실전 (EJU)': '#10B981', '기타': '#94A3B8' };
+  /** 과목마다 그래프 색 — 수업 자료(개념·단풀 PPT·워드)의 과목색과 같게 (2026-10-21) */
+  var SUBJ_COLOR = { '경제': '#5A6FD6', '정치': '#FC5230', '지리': '#5F9467', '현대사회': '#2E9ED8', '세계사': '#D99A00', '일본사': '#64748B', '실전 (EJU)': '#10B981', '기타': '#94A3B8' };
   function subjColor(sj) { return SUBJ_COLOR[sj] || '#94A3B8'; }
   /** 과목 색: 개념반은 진하게·단풀반은 연하게 (과목이 없으면 반 색) */
   function toneOf(k, sj) {
     if (!sj) return KIND_COLOR[k] || 'var(--me)';
     var base = subjColor(sj);
-    return k === '단풀' ? 'color-mix(in srgb, ' + base + ' 45%, var(--surface))' : base;
+    return k === '단풀' ? 'color-mix(in srgb, ' + base + ' 50%, #fff)' : base;   // 단풀반은 같은 과목색을 연하게 (다크 모드에서도 밝게)
   }
   function kindOf(c) { return c.kind || ({ GN: '개념', DP: '단풀', SJ: '실전' })[String(c.code).split('-')[0]] || ''; }
   function subjOfT(c, t) { return kindOf(c) === '실전' ? '실전 (EJU)' : (SUBJS[String(t.label).split(' ')[0]] || '기타'); }
+  /** 반 평균 정답률 — 누적 평균처럼 소수 첫째 자리까지 (%) */
+  function pct1(a, t) { return t ? Math.round(a / t * 1000) / 10 : 0; }
   function pct(a, t) { return t ? Math.round(a / t * 100) : 0; }
   /** 같은 달 안에서 1주차 → 2주차 → … → 월말 순서 */
   function rank(t) { var m = /(\d+)\s*주차/.exec(t.label); return m ? +m[1] : (/월말/.test(t.label) ? 90 : 50); }
@@ -109,7 +111,7 @@
   function tipHtml(it) {
     return '<b>' + esc(it.title) + '</b>' + (it.m ? '<span class="tm">' + (+it.m.slice(5)) + '월</span>' : '') +
       '<div><i style="background:' + it.col + '"></i>내 점수 <b>' + (it.sc !== undefined ? it.sc + '/' + it.tot + ' · ' : '') + it.p + '%</b></div>' +
-      (it.av !== null && it.av !== undefined ? '<div><i class="av"></i>그때 반 평균 ' + (+it.av).toFixed(1) + (it.tot ? '/' + it.tot : '') + '</div>' : '') +
+      (it.av !== null && it.av !== undefined && it.tot ? '<div><i class="av"></i>그때 반 평균 ' + pct1(it.av, it.tot) + '%</div>' : '') +
       (it.cum ? '<div><i class="cu"></i>누적 평균 ' + it.cum.pct + '%' + (it.cum.n ? ' <small>(' + it.cum.n + '명)</small>' : '') + '</div>' : '');
   }
   function hit(x, w, H, it) { TIPS.push(it); return '<rect class="hit" x="' + x + '" y="0" width="' + w + '" height="' + H + '" fill="transparent" data-tip="' + (TIPS.length - 1) + '"/>'; }
@@ -297,7 +299,7 @@
   function testItem(t, extra, noDate) {
     var h = '<div class="item"><div class="row"><b>' + esc(t.label) + (extra ? ' <span class="meta">' + esc(extra) + '</span>' : '') + '</b>' +
       (t.score === null ? '<span class="pill wait">아직 입력 전</span>' : '<span class="score">' + t.score + '<small> / ' + t.total + '</small></span>') + '</div>';
-    h += '<p class="meta">' + [noDate ? '' : UI.dateLabel(t.date), t.score !== null ? '정답률 ' + pct(t.score, t.total) + '%' : '', t.avg !== null ? '그때 반 평균 ' + t.avg.toFixed(1) : '', t.cum ? '누적 평균 ' + t.cum.pct + '%' : '',
+    h += '<p class="meta">' + [noDate ? '' : UI.dateLabel(t.date), t.score !== null ? '정답률 ' + pct(t.score, t.total) + '%' : '', t.avg !== null && t.total ? '그때 반 평균 ' + pct1(t.avg, t.total) + '%' : '', t.cum ? '누적 평균 ' + t.cum.pct + '%' : '',
       t.conv !== null ? '환산점수 ' + t.conv + (t.convAvg !== null ? ' (반 평균 ' + Math.round(t.convAvg) + ')' : '') : ''].filter(Boolean).map(esc).join(' · ') + '</p>';
     if (t.score !== null) {
       if (t.wrongDetail) h += '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrongDetail.map(function (w) { return '<span class="chip">' + w.n + '번 정답 ' + w.key + ' · 내 답 ' + (w.ans === '0' ? '-' : w.ans) + '</span>'; }).join('') + '</div>';
@@ -335,6 +337,38 @@
     return ms.sort().reverse().map(function (m) { return { m: m, l: g[m] }; });
   }
 
+  /** 달마다 막대 두 개(개념반 월말·단풀반 월말). rows: [{m, vals: {kind: pct|null}, by: {kind: [...]}}] */
+  function barChart(rows, kinds, sj, half) {
+    if (!rows.length) return '<p class="empty">아직 입력된 월말 점수가 없어요.</p>';
+    kinds = kinds.filter(function (kd) { return rows.some(function (r) { return r.vals[kd] !== null && r.vals[kd] !== undefined; }); });   // 점수가 있는 반만 (막대 자리·범례)
+    var pw = (($('#panel') && $('#panel').clientWidth) || window.innerWidth - 32) / (half && window.innerWidth > 860 ? 2 : 1), pad = window.innerWidth <= 480 ? 36 : 44;
+    var fs = window.innerWidth > 860 ? 12 : 10, n = rows.length, k = kinds.length;
+    var W = Math.max(260, pw - pad, n * (k * 26 + 30)), H = fs === 12 ? 230 : 190, L = 34, R = 10, T = 20, B = fs * 2.6;
+    var slot = Math.min((W - L - R) / n, 160), bw = Math.min(34, (slot - 18) / k), x0s = L + ((W - L - R) - slot * n) / 2;   // 달이 적어도 막대가 넓게 퍼지지 않게 가운데로
+    function y(p) { return T + (100 - Math.min(100, p)) * (H - T - B) / 100; }
+    var s = '<div class="chartwrap"><svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="달마다 개념반·단풀반 월말 정답률">';
+    [0, 50, 100].forEach(function (g) {
+      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(g) + '" y2="' + y(g) + '" stroke="var(--line)"/>';
+      s += '<text x="' + (L - 6) + '" y="' + (y(g) + 4) + '" text-anchor="end" font-size="' + fs + '" fill="var(--muted)">' + g + '</text>';
+    });
+    rows.forEach(function (r, i) {
+      var cx = x0s + slot * i + slot / 2, x0 = cx - bw * k / 2 - (k - 1) * 2;
+      kinds.forEach(function (kd, j) {
+        var v = r.vals[kd]; if (v === null || v === undefined) return;
+        var x = x0 + j * (bw + 4), top = y(v), lst = r.by[kd], ca = cumAvg(lst);
+        s += '<rect x="' + x + '" y="' + top + '" width="' + bw + '" height="' + (y(0) - top) + '" rx="5" fill="' + toneOf(kd, sj) + '"/>';
+        if (ca !== null) s += '<line x1="' + (x - 3) + '" x2="' + (x + bw + 3) + '" y1="' + y(ca) + '" y2="' + y(ca) + '" stroke="var(--ink2)" stroke-width="2" stroke-dasharray="4 3"/>';
+        s += hit(x - 2, bw + 4, H, { title: kd + '반 ' + lst[0].t.label, m: r.m, p: v, col: toneOf(kd, sj), sc: lst.length === 1 ? lst[0].t.score : undefined, tot: lst.length === 1 ? lst[0].t.total : undefined,
+          av: lst.length === 1 ? lst[0].t.avg : null, cum: ca === null ? null : { pct: ca } });
+        s += '<text x="' + (x + bw / 2) + '" y="' + (top - 4) + '" text-anchor="middle" font-size="' + (fs - 1) + '" font-weight="700" fill="var(--ink2)">' + v + '</text>';
+      });
+      s += '<text x="' + cx + '" y="' + (H - fs * 0.8) + '" text-anchor="middle" font-size="' + fs + '" font-weight="700" fill="var(--ink2)">' + (+r.m.slice(5)) + '월</text>';
+    });
+    s += '</svg></div><div class="legend">' + kinds.map(function (kd) { return '<span><i class="sq" style="background:' + toneOf(kd, sj) + '"></i>' + kd + '반 월말</span>'; }).join('') +
+      '<span><i class="a" style="border-top-color:var(--ink2)"></i>누적 평균</span><span class="hint">막대에 마우스를 올리면(휴대폰은 누르면) 점수가 나와요</span></div>';
+    return s;
+  }
+
   /* 과목 하나: 모든 달의 테스트·숙제. 「과목」 보기는 개념반·단풀반을 한 화면에 (위에 합친 그래프, 아래에 반마다) */
   function renderSubject(mode, s) {
     TIPS = [];
@@ -360,12 +394,26 @@
       : tile('최근 테스트', last ? pct(last.t.score, last.t.total) : null, '%', '', last ? esc(monthShort(last.t.month) + ' ' + shortLabel(last.t)) : '');
     if (!real) h += tile('숙제 제출', hws.length ? done + ' / ' + hws.length : null, '', '', hws.length ? '개념반 일문일답' : '');
     h += '</div>';
-    // 그래프: 과목은 개념반·단풀반 한 그래프에 (개념반 진하게, 단풀반 연하게)
-    var kindsIn = kinds.filter(function (k) { return by[k] && by[k].length; });
-    var title = real ? '점수 추이' : kindsIn.length > 1 ? '개념반 · 단풀반 점수 추이' : (kindsIn[0] || '') + '반 점수 추이';
-    h += '<div class="card"><h2>' + esc(title) + ' <span class="meta">' + esc(real ? '실전반 ' + s : s) + ' · 모든 달 · 정답률 %</span></h2>' +
-      (real ? chartX(itemsOf(taken)) : kindsIn.length === 1 && kindsIn[0] === '단풀' ? barsX(itemsOf(taken, null, function (x) { return shortLabel(x.t); }))
-        : chartX(itemsOf(taken, kindsIn.length > 1 ? function (x) { return x.kind + '반'; } : null))) + '</div>';
+    // 그래프 두 개: ① 개념반 소테스트·월말 꺾은선  ② 월말 비교 — 개념반 월말과 단풀반 월말을 달마다 나란히 (단풀반을 들었을 때)
+    if (real) {
+      h += '<div class="card"><h2>점수 추이 <span class="meta">실전반 ' + esc(s) + ' · 모든 달 · 정답률 %</span></h2>' + chartX(itemsOf(taken)) + '</div>';
+      if (view.subj) h += '<div class="card" id="wk"></div>';
+    }
+    else {
+      var g2 = by['단풀'].length > 0, gc = '';
+      if (by['개념'].length) gc += '<div class="card"><h2><i class="kdot" style="background:' + toneOf('개념', s) + '"></i>개념반 <span class="meta">' + esc(s) + ' · 소테스트·월말 · 정답률 %</span></h2>' + chartX(itemsOf(by['개념']), g2) + '</div>';
+      if (g2) {
+        var fin = taken.filter(function (x) { return x.t.kind === '월말테스트' || /월말/.test(x.t.label); }), ms2 = [];
+        fin.forEach(function (x) { if (ms2.indexOf(x.t.month) < 0) ms2.push(x.t.month); });
+        var rows2 = ms2.sort().map(function (m) {
+          var r = { m: m, vals: {}, by: {} };
+          ['개념', '단풀'].forEach(function (k) { var l = fin.filter(function (x) { return x.kind === k && x.t.month === m; }); r.by[k] = l; r.vals[k] = l.length ? avgPct(l) : null; });
+          return r;
+        });
+        gc += '<div class="card"><h2>월말 비교 <span class="meta">' + esc(s) + ' · 개념반 월말 · 단풀반 월말 · 정답률 %</span></h2>' + barChart(rows2, ['개념', '단풀'], s, by['개념'].length > 0) + '</div>';
+      }
+      h += by['개념'].length && g2 ? '<div class="sgrid two">' + gc + '</div>' : gc;
+    }
     function testsCard(k, ttl) {
       var list = tests.filter(function (x) { return x.kind === k; });
       if (!list.length) return '';
@@ -383,7 +431,37 @@
       h += '<div class="sgrid hwfirst"><div class="col1">' + left + '</div><div class="col2">' + wCard + '</div></div></div>';
     } else h += left;
     $('#panel').innerHTML = h; bindTips($('#panel'));
+    if ($('#wk')) drawWeak();
     UI.all('#panel [data-hw]').forEach(function (b) { b.onclick = function () { openUpload(b.getAttribute('data-hw')); }; });
+  }
+
+  /* 실전반 과목별 정답률 · 취약 과목 (서버 view.subj: 시험지 「문항과목」으로 문항을 과목별로 나눔). 종합 | 달마다 */
+  function sjCol(sj) { return subjColor(sj === '역사' ? '세계사' : sj); }
+  function gapP(o) { return o.avg === null ? null : Math.round((o.me - o.avg) * 10) / 10; }
+  function drawWeak() {
+    var S = view.subj, box = $('#wk'); if (!S || !box) return;
+    var g = wkSel ? S.months.filter(function (m) { return m.m === wkSel; })[0] : null;
+    if (!g) { wkSel = ''; g = S.all; }
+    var h = '<h2>과목별 정답률 · 취약 과목 <span class="meta">내 정답률 · 반 평균(같은 시험을 본 학생 전체) · 취약 = 반 평균과 비교해 가장 약한 과목</span></h2>';
+    h += '<div class="chiprow" role="tablist"><button type="button" class="tab" role="tab" data-wm="" aria-selected="' + (!wkSel) + '">종합</button>' +
+      S.months.map(function (m) { return '<button type="button" class="tab" role="tab" data-wm="' + m.m + '" aria-selected="' + (wkSel === m.m) + '">' + esc(monthShort(m.m)) + '</button>'; }).join('') + '</div>';
+    var w = g.weak ? g.subs.filter(function (o) { return o.s === g.weak; })[0] : null, d = w ? gapP(w) : null;
+    if (w) h += '<p class="wkline">' + (d < 0
+      ? '취약 과목 <b><i class="kdot" style="background:' + sjCol(w.s) + '"></i>' + esc(w.s) + '</b> — 반 평균보다 <b class="neg">' + Math.abs(d) + '%p</b> 낮아요'
+      : '취약 과목 <b><i class="kdot" style="background:' + sjCol(w.s) + '"></i>' + esc(w.s) + '</b> — 모든 과목이 반 평균 이상이지만, 반 평균과 차이가 가장 작아요 (+' + d + '%p)') + '</p>';
+    h += '<div class="wk">' + g.subs.map(function (o) {
+      var dd = gapP(o), weak = o.s === g.weak;
+      return '<div class="wkrow' + (weak ? ' weak' : '') + '"><div class="wkn"><i class="kdot" style="background:' + sjCol(o.s) + '"></i>' + esc(o.s) + (weak ? '<span class="wktag">취약</span>' : '') + '</div>' +
+        '<div class="wkb"><span class="me" style="width:' + o.me + '%;background:' + sjCol(o.s) + '"></span>' + (o.avg === null ? '' : '<span class="av" style="width:' + o.avg + '%"></span>') + '</div>' +
+        '<div class="wkv"><b>' + o.me + '%</b><small>반 평균 ' + (o.avg === null ? '-' : o.avg + '%') + '</small><small>' + (dd === null ? '' : '<em class="' + (dd >= 0 ? 'pos' : 'neg') + '">' + (dd > 0 ? '+' : '') + dd + '%p</em>') + '<span class="ct">' + (dd === null ? '' : ' · ') + o.c + '/' + o.t + '문항</span></small></div></div>';
+    }).join('') + '</div>';
+    h += '<div class="legend"><span><i class="bm"></i>내 정답률</span><span><i class="ba"></i>반 평균</span><span>시험 ' + g.n + '개</span></div>';
+    if (!wkSel && S.months.length > 1) h += '<p class="wkm"><span>달마다 취약 과목</span>' + S.months.map(function (m) {
+      var o = m.weak ? m.subs.filter(function (x) { return x.s === m.weak; })[0] : null, dd = o ? gapP(o) : null;
+      return '<button type="button" class="sjb" data-wm="' + m.m + '"><b>' + esc(monthShort(m.m)) + '</b> ' + (o ? '<i class="kdot" style="background:' + sjCol(o.s) + '"></i>' + esc(o.s) + ' <small class="' + (dd < 0 ? 'gneg' : 'gpos') + '">' + (dd > 0 ? '+' : '') + dd + '%p</small>' : '<em>-</em>') + '</button>';
+    }).join('') + '</p>';
+    box.innerHTML = h;
+    UI.all('#wk [data-wm]').forEach(function (b) { b.onclick = function () { wkSel = b.getAttribute('data-wm'); drawWeak(); }; });
   }
 
   /* 요약: 반 종류 × 과목 표 하나 */

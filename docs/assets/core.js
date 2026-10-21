@@ -167,6 +167,71 @@ var Core = (function () {
   }
   function sameHash(a, b) { return hashDist(a, b) <= DUP_BITS; }
 
+  /* ---------- 득점등화 (Rasch) — 실전반 환산점수 ----------
+   * 선생님 실전 채점 파일(실전.xlsx 「등화_*」 시트)과 같은 방식:
+   * 한 달 안의 모든 회차·모든 학생 응답(문항마다 맞음 1 / 틀림 0 / 안 씀 빈칸)으로 문항 난이도 b 를 함께 추정(학생 능력은 그 달 동안 같다고 봄, 난이도 평균 0).
+   * 회차마다 정답 수 r → 능력 θ (그 회차 문항으로 Σσ(θ−b) = r, 0점·만점은 0.3 보정),
+   * 환산점수 = 200 × (그 달 모든 문항에서 θ 의 평균 정답 확률) — 「그 달 평균 난이도 시험을 봤다면 받았을 점수」.
+   * 같은 회차에서 정답 수가 같으면 환산점수도 같음. 실전.xlsx 7~10월 값과 비교: 84% 같음, 99.5% ±1점 안, 최대 2점 차이.
+   * rows: [{ p: 학생, exam: 시험ID, x: [1|0|null, …] (문항 수만큼) }] → { b: {시험ID: [난이도…]}, score(exam, r, mask) } 또는 null(자료 부족) */
+  function sig(z) { return 1 / (1 + Math.exp(-z)); }
+  function equate(rows) {
+    var items = [], idx = {}, persons = [], pi = {}, cells = [];
+    rows.forEach(function (r) {
+      if (!(r.p in pi)) { pi[r.p] = persons.length; persons.push(r.p); }
+      (r.x || []).forEach(function (v, j) {
+        if (v === null || v === undefined) return;
+        var k = r.exam + '#' + j;
+        if (!(k in idx)) { idx[k] = items.length; items.push({ exam: r.exam, j: j }); }
+        cells.push([pi[r.p], idx[k], v ? 1 : 0]);
+      });
+    });
+    var P = persons.length, I = items.length;
+    if (P < 2 || I < 2) return null;
+    var pk = [], ik = [], k, c;
+    for (k = 0; k < P; k++) pk.push(true);
+    for (k = 0; k < I; k++) ik.push(true);
+    for (var pass = 0; pass < 5; pass++) {   // 모두 맞힘·모두 틀림인 학생·문항은 추정에서 빼고 (문항은 아래에서 따로)
+      var ps = new Array(P).fill(0), pn = new Array(P).fill(0), is = new Array(I).fill(0), inn = new Array(I).fill(0);
+      cells.forEach(function (e) { if (pk[e[0]] && ik[e[1]]) { ps[e[0]] += e[2]; pn[e[0]]++; is[e[1]] += e[2]; inn[e[1]]++; } });
+      for (k = 0; k < P; k++) if (pk[k] && (ps[k] === 0 || ps[k] === pn[k])) pk[k] = false;
+      for (k = 0; k < I; k++) if (ik[k] && (is[k] === 0 || is[k] === inn[k])) ik[k] = false;
+    }
+    var live = cells.filter(function (e) { return pk[e[0]] && ik[e[1]]; });
+    if (!live.length) return null;
+    var th = new Array(P).fill(0), b = new Array(I).fill(0);
+    for (var it = 0; it < 500; it++) {
+      var gp = new Array(P).fill(0), hp = new Array(P).fill(0);
+      live.forEach(function (e) { var q = sig(th[e[0]] - b[e[1]]); gp[e[0]] += e[2] - q; hp[e[0]] += q * (1 - q); });
+      for (k = 0; k < P; k++) if (pk[k]) th[k] += Math.max(-1, Math.min(1, gp[k] / Math.max(hp[k], 1e-9)));
+      var gi = new Array(I).fill(0), hi = new Array(I).fill(0);
+      live.forEach(function (e) { var q = sig(th[e[0]] - b[e[1]]); gi[e[1]] += e[2] - q; hi[e[1]] += q * (1 - q); });
+      var mx = 0, sum = 0, cnt = 0;
+      for (k = 0; k < I; k++) if (ik[k]) { var db = Math.max(-1, Math.min(1, -gi[k] / Math.max(hi[k], 1e-9))); b[k] += db; mx = Math.max(mx, Math.abs(db)); sum += b[k]; cnt++; }
+      for (k = 0; k < I; k++) if (ik[k]) b[k] -= sum / cnt;
+      if (mx < 1e-6) break;
+    }
+    for (k = 0; k < I; k++) if (!ik[k]) {   // 극단 문항: 푼 학생들의 능력으로 0.5 보정해서 난이도 추정
+      var tt = [], s = 0;
+      cells.forEach(function (e) { if (e[1] === k && pk[e[0]]) { tt.push(th[e[0]]); s += e[2]; } else if (e[1] === k) s += e[2]; });
+      var N = cells.filter(function (e) { return e[1] === k; }).length, tgt = Math.min(Math.max(s, 0.5), N - 0.5), bb = 0;
+      if (!tt.length) { b[k] = s ? -4 : 4; continue; }
+      for (var t2 = 0; t2 < 100; t2++) { var f = 0, h2 = 0; tt.forEach(function (x) { var q = sig(x - bb); f += q; h2 += q * (1 - q); }); bb -= (tgt - f) / Math.max(h2, 1e-9); }
+      b[k] = bb;
+    }
+    var byExam = {};
+    items.forEach(function (x, k2) { (byExam[x.exam] || (byExam[x.exam] = []))[x.j] = b[k2]; });
+    function score(exam, r, mask) {
+      var bs = (byExam[exam] || []).filter(function (v, j) { return v !== undefined && (!mask || mask[j]); });
+      if (!bs.length) return null;
+      var n = bs.length, rr = Math.min(Math.max(r, 0.3), n - 0.3), t = 0;
+      for (var i = 0; i < 100; i++) { var f = 0, h = 0; bs.forEach(function (x) { var q = sig(t - x); f += q; h += q * (1 - q); }); var st = (rr - f) / Math.max(h, 1e-9); t += st; if (Math.abs(st) < 1e-9) break; }
+      var m = 0; b.forEach(function (x) { m += sig(t - x); });
+      return Math.round(200 * m / b.length);
+    }
+    return { b: byExam, score: score };
+  }
+
   /** 'YYYY-MM' */
   function monthOf(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
   function dateOf(d) { return monthOf(d) + '-' + ('0' + d.getDate()).slice(-2); }
@@ -175,7 +240,7 @@ var Core = (function () {
     LETTERS: LETTERS, normCode: normCode, isValidCode: isValidCode, luhnOk: luhnOk, withCheck: withCheck, codeProblem: codeProblem, fmtCode: fmtCode, genCode: genCode,
     cleanAnswers: cleanAnswers, cleanKey: cleanKey, padAnswers: padAnswers,
     grade: grade, mean: mean, parseRoster: parseRoster, matchClass: matchClass, monthOf: monthOf, dateOf: dateOf, baseName: baseName, S: S,
-    classDays: classDays, lessons: lessons, nextMonth: nextMonth, hwDue: hwDue, fmtDue: fmtDue, hashDist: hashDist, sameHash: sameHash, DUP_BITS: DUP_BITS
+    classDays: classDays, lessons: lessons, nextMonth: nextMonth, hwDue: hwDue, fmtDue: fmtDue, hashDist: hashDist, sameHash: sameHash, DUP_BITS: DUP_BITS, equate: equate
   };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Core;

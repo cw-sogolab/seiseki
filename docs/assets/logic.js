@@ -34,7 +34,7 @@ var Logic = (function () {
     '숙제사진': ['숙제ID', '번호', '순서', '파일ID', '올린시각', '검사', '검사메모', '해시'],
     '평가': ['월', '번호', '코멘트', '수정일'],
     // 시험지: 수업 폴더 답지에서 뽑은 정답·문항 수 (강사 화면에서 시험·숙제 등록 때 골라 씀). 학생에게는 보내지 않음
-    '시험지': ['시험지ID', '반종류', '과목', '종류', '회차', '이름', '문항수', '정답', '출처'],
+    '시험지': ['시험지ID', '반종류', '과목', '종류', '회차', '이름', '문항수', '정답', '출처', '문항과목'],   // 문항과목: 실전 시험 문항마다 정·경·현·지·역 한 글자 (취약 과목용)
     // 달력: 학원 연간 계획표 (숙제 마감 계산). 월 = 'YYYY-MM', 휴강 = 날짜를 쉼표로 (예: 2026-11-08, 2026-11-09)
     '달력': ['월', '개강', '종강', '휴강', '메모'],
     // 계획서: 지난 월간 강의계획서의 일정 줄 (월초 강의계획서 내려받기가 내용·교재 범위를 이어서 씀). 반 = 실전 D·E
@@ -43,7 +43,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '53c7985898';
+  var VERSION = 'dd2a7dd8ea';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -123,6 +123,100 @@ var Logic = (function () {
         wrong: S(r['틀린번호']).split(',').filter(Boolean).map(Number), conv: S(r['환산점수']) === '' ? null : num(r['환산점수']), at: S(r['입력일']) };
     }).filter(function (r) { return r.exam; });
   }
+  /** 실전반 환산점수(득점등화, Core.equate) — 「시험결과」 환산점수 칸이 비어 있는 실전 모의고사·월말에 씀.
+   *  칸에 값이 있으면(7~10월 실전.xlsx 에서 옮겨 온 공식 값) 그 값을 그대로 둠. 달마다 그 달 실전 응답 전부로 다시 계산되므로 새 답안이 들어오면 자동 반영.
+   *  → { '시험ID|번호': 환산점수 } */
+  function equated(env) {
+    return memo('equated', function () {
+      // 시험결과·시험이 바뀌지 않았으면 캐시 (계산은 수십 ms 지만 학생 로그인마다 하지 않게)
+      var rs = results(env), last = '';
+      rs.forEach(function (r) { if (r.at > last) last = r.at; });
+      var ck = 'eq1:' + rs.length + ':' + last + ':' + exams(env).length;
+      var hit = env.cache && env.cache.get(ck);
+      if (hit) { try { return JSON.parse(hit); } catch (e) { /* 다시 계산 */ } }
+      var kind = {}, out = {}, byMonth = {};
+      classes(env).forEach(function (c) { kind[c.code] = c.kind; });
+      var ex = {};
+      exams(env).forEach(function (e) { if (kind[e.cls] === '실전' && (e.kind === '모의고사' || e.kind === '월말테스트') && e.total) ex[e.id] = e; });
+      results(env).forEach(function (r) {
+        var e = ex[r.exam]; if (!e || r.score > e.total) return;
+        var v = itemVec(r, e), x = v ? v.x : null, mask = v ? v.mask : null;
+        (byMonth[e.month] || (byMonth[e.month] = [])).push({ r: r, row: x ? { p: r.code, exam: e.id, x: x } : null, mask: mask });
+      });
+      Object.keys(byMonth).forEach(function (m) {
+        var list = byMonth[m], q = C.equate(list.map(function (o) { return o.row; }).filter(Boolean));
+        if (!q) return;
+        list.forEach(function (o) { var v = q.score(o.r.exam, o.r.score, o.mask); if (v !== null) out[o.r.exam + '|' + o.r.code] = v; });
+      });
+      try { if (env.cache) env.cache.put(ck, JSON.stringify(out), 21600); } catch (e) { /* 캐시 크기 넘으면 그냥 둠 */ }
+      return out;
+    });
+  }
+  /** 한 응답의 문항별 정오 { x:[1|0|null], mask } — 답안이 있으면 답안으로(안 쓴 문항 = null), 옮겨 온 성적은 틀린 번호로. 알 수 없으면 null */
+  function itemVec(r, e) {
+    var x = [], mask = null, i;
+    if (r.answers && e.key && e.key.length === e.total) {
+      var a = C.padAnswers(r.answers, e.total); mask = [];
+      for (i = 0; i < e.total; i++) { var ch = a.charAt(i); x.push(ch === '0' ? null : (ch === e.key.charAt(i) ? 1 : 0)); mask.push(ch !== '0'); }
+      return { x: x, mask: mask };
+    }
+    if (r.score === e.total || (r.wrong.length && r.score + r.wrong.length === e.total)) {
+      for (i = 1; i <= e.total; i++) x.push(r.wrong.indexOf(i) >= 0 ? 0 : 1);
+      return { x: x, mask: null };
+    }
+    return null;
+  }
+  var SUBJ_CODE = { '경': '경제', '정': '정치', '현': '현대사회', '지': '지리', '역': '역사' }, SUBJ_ORDER = ['경제', '정치', '현대사회', '지리', '역사'];
+  function labelKey(l) { return S(l).replace(/\s+/g, '').replace(/\((\d)\)$/, '-$1'); }   // 「EJU 2011(2)」 = 「EJU 2011-2」
+  /** 실전반 과목별 정답률: 학생이 본 실전 시험(시험지 「문항과목」이 있는 것)마다 문항을 과목으로 나눠
+   *  내 정답률과 반 평균(같은 시험을 본 학생 전체 합산)을 달별·종합으로. 취약 = (내 정답률 − 반 평균)이 가장 낮은 과목(4문항 이상)
+   *  → { all: {subs, weak, n}, months: [{m, subs, weak, n}] } 또는 null */
+  function subjStats(env, stu, exById, byExam, kindOfCls) {
+    var sub = {};
+    papers(env).forEach(function (p) { if (p.subjs && p.subjs.length === p.total) sub[labelKey(p.label)] = p.subjs; });
+    var groups = {}, any = false;
+    function grp(k) { return groups[k] || (groups[k] = { me: {}, all: {}, n: 0 }); }
+    Object.keys(byExam).forEach(function (id) {
+      var e = exById[id]; if (!e || kindOfCls[e.cls] !== '실전' || !e.total) return;
+      var sj = sub[labelKey(e.label)]; if (!sj || sj.length !== e.total) return;
+      var rs = byExam[id], mine = null;
+      rs.forEach(function (r) { if (r.code === stu.code) mine = r; });
+      if (!mine) return;
+      var mv = itemVec(mine, e); if (!mv) return;
+      any = true;
+      [grp('all'), grp(e.month)].forEach(function (g) {
+        g.n++;
+        function add(bag, v) {
+          for (var i = 0; i < e.total; i++) {
+            if (v.x[i] === null) continue;
+            var nm = SUBJ_CODE[sj.charAt(i)]; if (!nm) continue;
+            var o = bag[nm] || (bag[nm] = [0, 0]); o[0] += v.x[i]; o[1]++;
+          }
+        }
+        add(g.me, mv);
+        rs.forEach(function (r) { if (r.score > e.total) return; var v = itemVec(r, e); if (v) add(g.all, v); });
+      });
+    });
+    if (!any) return null;
+    function pack(g) {
+      var subs = SUBJ_ORDER.filter(function (nm) { return g.me[nm]; }).map(function (nm) {
+        var a = g.me[nm], b = g.all[nm] || [0, 0];
+        return { s: nm, c: a[0], t: a[1], me: Math.round(a[0] / a[1] * 1000) / 10, avg: b[1] ? Math.round(b[0] / b[1] * 1000) / 10 : null };
+      });
+      var weak = null, gap = Infinity;
+      subs.forEach(function (o) { if (o.t < 4 || o.avg === null) return; var d = o.me - o.avg; if (d < gap || (d === gap && o.me < weak.me)) { gap = d; weak = o; } });
+      return { subs: subs, weak: weak ? weak.s : null, n: g.n };
+    }
+    return { all: pack(groups.all), months: Object.keys(groups).filter(function (k) { return k !== 'all'; }).sort().map(function (m) { var o = pack(groups[m]); o.m = m; return o; }) };
+  }
+  /** 학생에게 보여 줄 환산점수: 칸에 득점등화 값(7~10월 실전.xlsx)이 있으면 그 값, 비었거나 단순 비례 값(6월처럼 정답 수/문항 수×200)이면 계산한 득점등화 값 */
+  function convOf(env, r) {
+    var e = memo('exById', function () { var m = {}; exams(env).forEach(function (x) { m[x.id] = x; }); return m; })[r.exam];
+    var simple = r.conv !== null && e && e.total && Math.abs(r.conv - r.score / e.total * 200) < 0.06;
+    if (r.conv !== null && !simple) return r.conv;
+    var v = equated(env)[r.exam + '|' + r.code];
+    return v === undefined ? r.conv : v;
+  }
   /** 숙제 목록 + 마감(due). 마감 칸이 비면 숙제 k(이름의 「N주차」, 없으면 그 반·그 달 등록 순서) = 2k+1번째 수업 시작 */
   function homework(env) { return memo('homework', function () { return homework_(env); }); }
   function homework_(env) {
@@ -183,7 +277,7 @@ var Logic = (function () {
     try { rows = env.store.all('시험지'); } catch (e) { return []; }
     return rows.map(function (r) {
       return { id: S(r['시험지ID']), ban: S(r['반종류']), subj: S(r['과목']), kind: S(r['종류']), round: num(r['회차']),
-        label: S(r['이름']), total: num(r['문항수']), key: C.cleanKey(r['정답']), src: S(r['출처']) };
+        label: S(r['이름']), total: num(r['문항수']), key: C.cleanKey(r['정답']), src: S(r['출처']), subjs: S(r['문항과목']).replace(/\s+/g, '') };
     }).filter(function (p) { return p.id && p.label && p.total > 0; });
   }
   function findStudent(env, code) {
@@ -231,8 +325,10 @@ var Logic = (function () {
     var exByCls = {}, hwByCls = {};
     ex.forEach(function (e) { (exByCls[e.cls] || (exByCls[e.cls] = [])).push(e); });
     hw.forEach(function (h) { (hwByCls[h.cls] || (hwByCls[h.cls] = [])).push(h); });
+    var subjInfo = null;
+    try { subjInfo = subjStats(env, stu, exById, byExam, kindOfCls); } catch (err) { subjInfo = null; }   // 시험지 탭이 없거나 이상해도 로그인은 되게
     return {
-      name: stu.name, code: stu.code,
+      name: stu.name, code: stu.code, subj: subjInfo,
       classes: cls.filter(function (c) { return mine.indexOf(c.code) >= 0; }).sort(function (a, b) {
         return (stu.classes.indexOf(a.code) < 0) - (stu.classes.indexOf(b.code) < 0); // 지금 듣는 반 먼저
       }).map(function (c) {
@@ -241,12 +337,12 @@ var Logic = (function () {
           var me = null, all = [], convs = [];
           (byExam[e.id] || []).forEach(function (r) {
             if (!(e.total && r.score > e.total)) all.push(r.score);   // 입력 오타(문항 수보다 큰 점수)는 반 평균에서 뺌
-            if (r.conv !== null) convs.push(r.conv);
+            var cv = convOf(env, r); if (cv !== null) convs.push(cv);
             if (r.code === stu.code) me = r;
           });
           var t = { id: e.id, month: e.month, kind: e.kind, label: e.label, date: e.date, total: e.total,
             score: me ? me.score : null, avg: C.mean(all), n: all.length,
-            conv: me ? me.conv : null, convAvg: C.mean(convs), wrong: me ? me.wrong : [] };
+            conv: me ? convOf(env, me) : null, convAvg: C.mean(convs), wrong: me ? me.wrong : [] };
           var ck = cum[c.kind + '|' + e.label];
           t.cum = ck ? { pct: Math.round(ck.s / ck.n * 1000) / 10, n: ck.n } : null;   // 같은 시험 누적 평균 정답률(%)·인원
           if (showKey && me && me.answers) t.wrongDetail = C.grade(e.key, me.answers).wrong;   // 답안 기록이 없는(옮겨 온) 성적은 제외
