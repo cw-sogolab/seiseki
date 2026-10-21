@@ -21,7 +21,14 @@
     });
   }
 
+  /** 이번 달 (한국 시간). 선생님이 다음 달 시험·숙제를 미리 등록해 둬도 학생에게는 그 달이 시작되기 전까지 안 보이게 */
+  function thisMonth() { var d = new Date(Date.now() + 9 * 3600 * 1000); return d.toISOString().slice(0, 7); }
   function show(data) {
+    var tm = thisMonth();
+    (data.classes || []).forEach(function (c) {
+      c.tests = (c.tests || []).filter(function (t) { return !t.month || t.month <= tm; });
+      c.hw = (c.hw || []).filter(function (h) { return !h.month || h.month <= tm; });
+    });
     view = data;
     if (cur >= view.classes.length) cur = 0;
     $('#nm').textContent = view.name;
