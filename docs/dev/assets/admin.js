@@ -1074,7 +1074,7 @@
     var yms = [today, Core.nextMonth(today), Core.nextMonth(Core.nextMonth(today))];
     var list = D.classes.filter(function (c) { return c.active && ['개념', '단풀', '실전'].indexOf(c.kind) >= 0; });
     var bankN = ((D.plans || {}).rows || []).length;
-    var h = '<div class="card"><h2>월초 강의계획서</h2><p class="meta">반마다 시트 하나씩, 학원 워드 양식 그대로 엑셀 파일 하나로 내려받아요. 날짜는 「달력」 탭과 반 요일로, 수업 내용·교재 범위는 「계획서」 탭에 모아 둔 지난 계획서(' + bankN + '줄)에서 이어서 채워요.</p>' +
+    var h = '<div class="card"><h2>월초 강의계획서</h2><p class="meta">학원 공식 워드 양식에 반마다 파일 하나씩 채워서 내려받아요(여러 반은 zip 하나로). 날짜는 「달력」 탭과 반 요일로, 수업 내용·교재 범위는 「계획서」 탭에 모아 둔 지난 계획서(' + bankN + '줄)에서 이어서 채워요.</p>' +
       '<div class="chiprow" aria-label="달">' + yms.map(function (m) { return '<button type="button" class="tab" data-pym="' + m + '" aria-selected="' + (m === planYm) + '">' + esc(UI.monthLabel(m)) + '</button>'; }).join('') + '</div>';
     if (!bankN) h += '<p class="msg err">기록장에 「계획서」 탭이 없거나 비어 있어요. 내용·교재 범위 없이 날짜만 채워져요.</p>';
     h += '<div class="plist">';
@@ -1091,7 +1091,8 @@
         else if (!p) h += '<span class="msg err">과목을 골라 주세요</span>';
         else {
           var d0 = p.rows[0], d1 = p.rows[p.rows.length - 1];
-          h += '<span class="meta">' + esc(p.sheet) + ' · 수업 ' + p.rows.length + '번' + (d0 ? ' · ' + d0.date + '~' + d1.date : '') + (p.from ? ' · ' + (+p.from.slice(5)) + '월 계획서 바탕' : '') + '</span>';
+          h += '<button type="button" class="btn soft sm" data-pdoc="' + esc(c.code) + '">' + esc(Plan.docName(p)) + '</button>';
+          h += '<span class="meta">수업 ' + p.rows.length + '번' + (d0 ? ' · ' + d0.date + '~' + d1.date : '') + (p.from ? ' · ' + (+p.from.slice(5)) + '월 계획서 바탕' : '') + '</span>';
           h += '<details class="pprev"><summary>미리 보기' + (p.warn.length ? ' <span class="pill late">확인 ' + p.warn.length + '</span>' : '') + '</summary>' +
             (p.warn.length ? '<ul class="pwarn">' + p.warn.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>' : '') +
             '<p class="meta">' + esc(p.title) + ' ' + esc(p.subtitle) + '</p><div class="tw"><table class="stab"><thead><tr><th>No.</th><th>날짜</th><th>수업 내용</th><th>교재 범위</th><th>과제</th></tr></thead><tbody>' +
@@ -1102,12 +1103,56 @@
       });
     });
     var yymm = planYm.slice(2, 4) + planYm.slice(5, 7);
-    h += '</div><button id="pX" class="btn" type="button">' + yymm + '강의계획서.xlsx 내려받기</button><div id="pOut"></div>' +
+    h += '</div><button id="pD" class="btn" type="button">' + yymm + ' 강의계획서 워드 전부 내려받기</button><div id="pOut"></div>' +
+      '<p class="meta" style="margin-top:8px"><button id="pX" class="linkbtn" type="button">엑셀 한 파일로 받기(반마다 시트)</button></p>' +
       '<p class="meta" style="margin-top:10px">내려받은 뒤 내용을 확인하고 보내 주세요. 지난 계획서와 수업 수가 다르면 줄을 맞추고 「확인」 표시를 해요. 새 달 계획서를 다 쓰면 「계획서」 탭에 그 달 줄을 넣어 두면 다음 달에 이어서 써요.</p></div>';
     $('#view').innerHTML = h;
     all('#view [data-pym]').forEach(function (b) { b.onclick = function () { planYm = b.getAttribute('data-pym'); vPlan(); }; });
     all('#view [data-psub]').forEach(function (s) { s.onchange = function () { UI.store.set(planKey(planYm, s.getAttribute('data-psub')), s.value); vPlan(); }; });
     all('#view [data-pon]').forEach(function (x) { x.onchange = function () { var k = planKey(planYm, x.getAttribute('data-pon')) + '.off'; if (x.checked) UI.store.del(k); else UI.store.set(k, '1'); vPlan(); }; });
+    function save(data, name, type) {
+      var blob = new Blob([data], { type: type }), a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    }
+    var DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    function makeDocs(plans) {
+      return Promise.all([loadZip(), getBuf('assets/plan-template.docx')]).then(function (x) {
+        return Promise.all(plans.map(function (p) { return Plan.docx(x[0], x[1], p).then(function (u8) { return { name: Plan.docName(p), data: u8 }; }); })).then(function (files) { return { JSZip: x[0], files: files }; });
+      });
+    }
+    function getBuf(u) {   // XHR: 미리보기(file://)에서도 읽힘
+      return new Promise(function (res, rej) {
+        var x = new XMLHttpRequest(); x.open('GET', u); x.responseType = 'arraybuffer';
+        x.onload = function () { (x.status === 200 || (x.status === 0 && x.response && x.response.byteLength)) ? res(x.response) : rej(new Error('양식')); };
+        x.onerror = function () { rej(new Error('양식')); }; x.send();
+      });
+    }
+    function docErr() { $('#pOut').innerHTML = '<p class="msg err">워드 양식을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.</p>'; }
+    all('#view [data-pdoc]').forEach(function (b) {
+      b.onclick = function () {
+        var c = list.filter(function (x) { return x.code === b.getAttribute('data-pdoc'); })[0], p = c && planFor(c, planYm); if (!p) return;
+        b.disabled = true;
+        makeDocs([p]).then(function (r) { save(r.files[0].data, r.files[0].name, DOCX); $('#pOut').innerHTML = '<p class="msg ok">' + esc(r.files[0].name) + '를 내려받았어요.</p>'; }, docErr)
+          .then(function () { b.disabled = false; });
+      };
+    });
+    $('#pD').onclick = function () {
+      var b = this, plans = list.filter(function (c) { return planOn(planYm, c.code); }).map(function (c) { return planFor(c, planYm); }).filter(Boolean);
+      var miss = list.filter(function (c) { return planOn(planYm, c.code) && !planFor(c, planYm); });
+      if (!plans.length) { $('#pOut').innerHTML = '<p class="msg err">내려받을 반이 없어요. 반을 고르고 과목을 골라 주세요.</p>'; return; }
+      var label = b.textContent; b.disabled = true; b.textContent = '만드는 중…';
+      makeDocs(plans).then(function (r) {
+        var used = {}; r.files.forEach(function (f) { var n = f.name, k = 2; while (used[n]) n = f.name.replace(/\.docx$/, '(' + (k++) + ').docx'); used[n] = 1; f.name = n; });
+        var tail = miss.length ? ' 과목을 안 고른 ' + miss.length + '개 반은 빠졌어요.' : '';
+        if (r.files.length === 1) { save(r.files[0].data, r.files[0].name, DOCX); $('#pOut').innerHTML = '<p class="msg ok">' + esc(r.files[0].name) + '를 내려받았어요.' + tail + '</p>'; return; }
+        var z = new r.JSZip(); r.files.forEach(function (f) { z.file(f.name, f.data); });
+        return z.generateAsync({ type: 'uint8array' }).then(function (u8) {
+          save(u8, yymm + '강의계획서.zip', 'application/zip');
+          $('#pOut').innerHTML = '<p class="msg ok">' + yymm + '강의계획서.zip (워드 ' + r.files.length + '개: ' + r.files.map(function (f) { return esc(f.name); }).join(', ') + ')를 내려받았어요.' + tail + '</p>';
+        });
+      }, docErr).then(function () { b.disabled = false; b.textContent = label; });
+    };
     $('#pX').onclick = function () {
       var b = this, plans = list.filter(function (c) { return planOn(planYm, c.code); }).map(function (c) { return planFor(c, planYm); }).filter(Boolean);
       var miss = list.filter(function (c) { return planOn(planYm, c.code) && !planFor(c, planYm); });
@@ -1122,10 +1167,21 @@
           $('#pOut').innerHTML = '<p class="msg ok">' + yymm + '강의계획서.xlsx (시트 ' + plans.length + '개)를 내려받았어요.' + (miss.length ? ' 과목을 안 고른 ' + miss.length + '개 반은 빠졌어요.' : '') + '</p>';
         });
       }).catch(function () { $('#pOut').innerHTML = '<p class="msg err">엑셀 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.</p>'; })
-        .then(function () { b.disabled = false; b.textContent = yymm + '강의계획서.xlsx 내려받기'; });
+        .then(function () { b.disabled = false; b.textContent = '엑셀 한 파일로 받기(반마다 시트)'; });
     };
   }
 
+  var zipP = null;
+  function loadZip() {
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    if (!zipP) zipP = new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = function () { window.JSZip ? res(window.JSZip) : rej(); }; s.onerror = function () { zipP = null; rej(); };
+      document.head.appendChild(s);
+    });
+    return zipP;
+  }
   var excelP = null;
   function loadExcel() {
     if (window.ExcelJS) return Promise.resolve(window.ExcelJS);

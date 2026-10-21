@@ -16,7 +16,7 @@ def check(cond, what):
     if not cond: fails.append(what)
 
 with sync_playwright() as p:
-    b = p.chromium.launch()
+    b = p.chromium.launch(args=['--allow-file-access-from-files'])   # 강의계획서 워드 양식을 file:// 에서 fetch
     for base, width in ((ROOT, 1200), (ROOT, 390), (ROOT / 'dev', 390)):
         isdev = base.name == 'dev'
         pg = b.new_page(viewport={'width': width, 'height': 900}); errs = []
@@ -65,6 +65,10 @@ with sync_playwright() as p:
         pg = b.new_page(viewport={'width': width, 'height': 900}); errs = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.route('**/fonts.googleapis.com/**', lambda r: r.abort()); pg.route('**/fonts.gstatic.com/**', lambda r: r.abort())
+        VENDOR = ROOT.parent / 'tests' / '.vendor'   # 이 컴퓨터에 cdnjs 대신 쓸 사본이 있으면 (jszip.min.js·exceljs.min.js)
+        for lib in ['jszip', 'exceljs']:
+            f = VENDOR / (lib + '.min.js')
+            if f.exists(): pg.route('**/cdnjs.cloudflare.com/ajax/libs/' + lib + '/**', (lambda path: lambda r: r.fulfill(path=path, content_type='application/javascript'))(str(f)))
         if isdev:   # 강사 화면도 같은 주소 + #teacher
             pg.goto((base / 'index.html').as_uri() + '?demo#teacher'); pg.wait_for_selector('#pw')
             check('admin' in pg.url, '주소 + #teacher → 강사 화면')
@@ -159,6 +163,20 @@ with sync_playwright() as p:
             t = pg.inner_text('#view')
             check('2611경제개념' in t and '7월 계획서 바탕' in t and '2611실전문제풀이D' in t, '강의계획서: 반마다 시트 이름·바탕 계획서 표시')
             check('과목을 골라 주세요' in t, '강의계획서: 과목 안 고른 반 안내')
+            if pg.locator('#pD').count():   # 워드(학원 공식 양식) — 반 하나 버튼, 전부(zip)
+                import io, zipfile
+                from docx import Document
+                with pg.expect_download(timeout=30000) as dl: pg.click('[data-pdoc="GN-HM"]')
+                d = Document(dl.value.path()); tb = d.tables[0]
+                cells = [c.text for c in tb.rows[10].cells]
+                check(dl.value.suggested_filename == '2611경제개념.docx' and d.paragraphs[0].text == '2026년11월강의계획' and '경제' in d.paragraphs[1].text
+                      and cells[0] == '01' and '11월' in cells[1] and cells[3].strip() != '', '강의계획서 워드: 양식에 날짜·내용 채움 (' + ' | '.join(dict.fromkeys(cells)) + ')')
+                with pg.expect_download(timeout=30000) as dl: pg.click('#pD')
+                names = zipfile.ZipFile(dl.value.path()).namelist()
+                check(dl.value.suggested_filename == '2611강의계획서.zip' and '2611경제개념.docx' in names and '2611실전문제풀이D.docx' in names, '강의계획서 워드 전부 zip (' + ', '.join(names) + ')')
+                dz = Document(io.BytesIO(zipfile.ZipFile(dl.value.path()).read('2611실전문제풀이D.docx')))
+                check('모의고사' in dz.tables[0].rows[10].cells[3].text and dz.paragraphs[1].text.strip().startswith('<'), '실전 워드: 모의고사 줄·부제')
+            pg.evaluate("document.querySelector('#pOut').innerHTML = ''")
             pg.click('#pX'); pg.wait_for_function("document.querySelector('#pOut').innerText.length > 0", timeout=20000)
             check('내려받았어요' in pg.inner_text('#pOut') or '불러오지 못했어요' in pg.inner_text('#pOut'), '강의계획서 엑셀 내려받기 (' + pg.inner_text('#pOut')[:40] + ')')
         check(pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth + 1'), '가로 스크롤 없음')
