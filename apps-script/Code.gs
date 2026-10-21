@@ -232,8 +232,10 @@ function setup() {
     if (!sh) sh = ss.insertSheet(name);
     sh.getRange(1, 1, sh.getMaxRows(), Math.max(head.length, 1)).setNumberFormat('@');
     var cur = sh.getRange(1, 1, 1, head.length).getValues()[0].map(String);
-    if (cur.join('') === '') sh.getRange(1, 1, 1, head.length).setValues([head]);
-    else if (cur.join('|') !== head.join('|')) throw new Error('「' + name + '」 시트의 첫 줄이 예상과 달라요: ' + head.join(', '));
+    // 새로 생긴 칸(뒤에 붙는 칸)은 머리글만 채움 — 앞의 칸은 이미 있는 것과 같아야 함
+    var bad = cur.some(function (h, i) { return h !== '' && h !== head[i]; }) || cur.some(function (h, i) { return h === '' && cur.slice(i).join('') !== ''; });
+    if (bad) throw new Error('「' + name + '」 시트의 첫 줄이 예상과 달라요: ' + head.join(', '));
+    sh.getRange(1, 1, 1, head.length).setValues([head]);
     sh.getRange(1, 1, 1, head.length).setFontWeight('bold').setBackground('#12233F').setFontColor('#FFFFFF');
     sh.setFrozenRows(1);
   });

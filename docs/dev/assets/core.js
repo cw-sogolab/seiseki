@@ -116,6 +116,71 @@ var Core = (function () {
     return { rows: rows, unknown: unknown };
   }
 
+  /* ---------- 수업 달력 (숙제 마감 계산용) ----------
+   * 학원 연간 계획표의 달별 개강·종강·휴강일. tools/class-plan/calendar_YYYY.json 과 같아야 함 (tests/logic.test.js 가 확인).
+   * 새해 계획표가 오면 JSON 을 만들고 여기에도 그 해 달을 넣을 것. */
+  var CAL = {
+    '2026-01': { start: '2026-01-02', end: '2026-01-29', off: ['2026-01-01'] },
+    '2026-02': { start: '2026-01-30', end: '2026-03-03', off: ['2026-02-15','2026-02-16','2026-02-17','2026-02-18'] },
+    '2026-03': { start: '2026-03-04', end: '2026-03-31', off: [] },
+    '2026-04': { start: '2026-04-01', end: '2026-04-28', off: [] },
+    '2026-05': { start: '2026-04-29', end: '2026-05-28', off: [] },
+    '2026-06': { start: '2026-05-29', end: '2026-06-28', off: ['2026-06-21'] },
+    '2026-07': { start: '2026-06-29', end: '2026-07-28', off: [] },
+    '2026-08': { start: '2026-07-29', end: '2026-08-29', off: ['2026-08-02','2026-08-03','2026-08-04'] },
+    '2026-09': { start: '2026-08-30', end: '2026-10-01', off: ['2026-09-24','2026-09-25','2026-09-26','2026-09-27'] },
+    '2026-10': { start: '2026-10-02', end: '2026-10-31', off: [] },
+    '2026-11': { start: '2026-11-01', end: '2026-12-01', off: ['2026-11-08','2026-11-09','2026-11-10'] },
+    '2026-12': { start: '2026-12-02', end: '2026-12-30', off: ['2026-12-25'] }
+  };
+  var WD = '일월화수목금토';
+  function ymd(t) { var d = new Date(t); return d.getUTCFullYear() + '-' + ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + d.getUTCDate()).slice(-2); }
+  function utc(s) { var p = S(s).split('-'); return Date.UTC(+p[0], +p[1] - 1, +p[2]); }
+  /** 반의 요일시간(예: 「토일 15:00」) → { days:[0~6], time:'15:00' } */
+  function classDays(time) {
+    var s = S(time), days = [], m = /(\d{1,2}):(\d{2})/.exec(s);
+    for (var i = 0; i < s.length; i++) { var k = WD.indexOf(s.charAt(i)); if (k >= 0 && days.indexOf(k) < 0) days.push(k); }
+    return { days: days, time: m ? ('0' + m[1]).slice(-2) + ':' + m[2] : '' };
+  }
+  /** 그 달(학원 달력 기준) 수업일 목록 ['YYYY-MM-DD'] — 달력에 없는 달은 달력상 1일~말일 */
+  function lessons(ym, days) {
+    var m = CAL[ym], out = [];
+    if (!days || !days.length) return out;
+    var s = m ? m.start : ym + '-01', e = m ? m.end : ymd(Date.UTC(+ym.slice(0, 4), +ym.slice(5), 0)), off = m ? m.off : [];
+    for (var t = utc(s); t <= utc(e); t += 86400000) {
+      var d = ymd(t);
+      if (days.indexOf(new Date(t).getUTCDay()) >= 0 && off.indexOf(d) < 0) out.push(d);
+    }
+    return out;
+  }
+  function nextMonth(ym) { var y = +ym.slice(0, 4), m = +ym.slice(5) + 1; if (m > 12) { y++; m = 1; } return y + '-' + ('0' + m).slice(-2); }
+  /** 숙제 k 마감 = 그 달 2k+1번째 수업 시작 (2번 수업마다 숙제 하나). 그 달에 그 수업이 없으면 다음 달 첫 수업. → 'YYYY-MM-DD HH:MM' 또는 '' */
+  function hwDue(ym, time, k) {
+    var cd = classDays(time);
+    if (!cd.days.length || !(k >= 1)) return '';
+    var l = lessons(ym, cd.days), d = l[2 * k] || lessons(nextMonth(ym), cd.days)[0];
+    return d ? d + ' ' + (cd.time || '00:00') : '';
+  }
+  /** 'YYYY-MM-DD HH:MM' → 「10/24(토) 15:00」 */
+  function fmtDue(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}:\d{2}))?/.exec(S(s));
+    if (!m) return '';
+    return (+m[2]) + '/' + (+m[3]) + '(' + WD.charAt(new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay()) + ')' + (m[4] && m[4] !== '00:00' ? ' ' + m[4] : '');
+  }
+
+  /* ---------- 같은 사진 찾기 ----------
+   * 화면이 사진을 17×16 회색으로 줄여 옆 칸과 밝기를 비교한 256비트(16진수 64자) 지문을 보냄.
+   * 같은 사진을 다시 보내거나 카톡으로 받아 올리면 거의 같고(몇 비트 차이), 새로 찍은 사진은 수십 비트 넘게 다름. */
+  var DUP_BITS = 20;
+  function hashDist(a, b) {
+    a = S(a); b = S(b);
+    if (!/^[0-9a-f]{64}$/.test(a) || !/^[0-9a-f]{64}$/.test(b)) return 999;
+    var n = 0;
+    for (var i = 0; i < 64; i++) { var x = parseInt(a.charAt(i), 16) ^ parseInt(b.charAt(i), 16); while (x) { n += x & 1; x >>= 1; } }
+    return n;
+  }
+  function sameHash(a, b) { return hashDist(a, b) <= DUP_BITS; }
+
   /** 'YYYY-MM' */
   function monthOf(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
   function dateOf(d) { return monthOf(d) + '-' + ('0' + d.getDate()).slice(-2); }
@@ -123,7 +188,8 @@ var Core = (function () {
   return {
     LETTERS: LETTERS, normCode: normCode, isValidCode: isValidCode, luhnOk: luhnOk, withCheck: withCheck, codeProblem: codeProblem, fmtCode: fmtCode, genCode: genCode,
     cleanAnswers: cleanAnswers, cleanKey: cleanKey, padAnswers: padAnswers,
-    grade: grade, mean: mean, parseRoster: parseRoster, matchClass: matchClass, monthOf: monthOf, dateOf: dateOf, baseName: baseName, S: S
+    grade: grade, mean: mean, parseRoster: parseRoster, matchClass: matchClass, monthOf: monthOf, dateOf: dateOf, baseName: baseName, S: S,
+    CAL: CAL, classDays: classDays, lessons: lessons, nextMonth: nextMonth, hwDue: hwDue, fmtDue: fmtDue, hashDist: hashDist, sameHash: sameHash, DUP_BITS: DUP_BITS
   };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Core;
