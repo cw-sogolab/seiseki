@@ -8,7 +8,8 @@
  */
 var Plan = (function () {
   var C = (typeof Core !== 'undefined') ? Core : require('./core.js');
-  var SUBJ_NAME = { '현사': '현대사회', '역사': '세계사' };
+  var SUBJ_NAME = { '현사': '현대사회', '세계사': '역사' };   // 이 사이트에서는 「세계사」 → 「역사」 (2026-10-22)
+  function subjKey(x) { x = S(x); return x === '세계사' ? '역사' : x; }
   var MAX_ROWS = 13;   // 워드 표는 늘 01~13 줄
   var MOCK = '모의고사 1회 실시 및 해설', FINAL = '월말테스트', HW = '주간 숙제';
 
@@ -48,7 +49,7 @@ var Plan = (function () {
     var g = {};
     (bank.rows || []).forEach(function (r) {
       if (S(r['반종류']) !== kind) return;
-      if (kind === '실전' ? false : S(r['과목']) !== subj) return;
+      if (kind === '실전' ? false : subjKey(r['과목']) !== subjKey(subj)) return;
       var key = S(r['월']) + '|' + S(r['반']);
       (g[key] = g[key] || { m: S(r['월']), ban: S(r['반']), rows: [] }).rows.push(r);
     });
@@ -59,7 +60,7 @@ var Plan = (function () {
   }
   function headFor(bank, kind, subj, ban) {
     var hs = (bank.heads || []).filter(function (h) { return S(h['반종류']) === kind; });
-    var exact = hs.filter(function (h) { return kind === '실전' ? S(h['반']) === ban : S(h['과목']) === subj; });
+    var exact = hs.filter(function (h) { return kind === '실전' ? S(h['반']) === ban : subjKey(h['과목']) === subjKey(subj); });
     var pick = (exact.length ? exact : hs).slice().sort(function (a, b) { return S(b['월']).localeCompare(S(a['월'])); })[0];
     if (!pick) return null;
     var h = {}; Object.keys(pick).forEach(function (k) { h[k] = S(pick[k]); });
@@ -235,6 +236,86 @@ var Plan = (function () {
     return wb;
   }
 
-  return { build: build, xlsx: xlsx, fit: fit, parseDate: parseDate, MAX_ROWS: MAX_ROWS };
+  /* ---------- 워드 (학원 공식 양식 assets/plan-template.docx 에 그대로 채움) ----------
+   * 양식의 글꼴·칸·색·머리글·바닥글 그림은 손대지 않고, 빈 칸에 글만 넣음 (글자 모양은 그 칸에 정해진 것).
+   * 표: 0~7줄 머리(강의명·목표·강사·기간/시간·강의실·교재·질문·평가방법), 8 「강 의 세 부 일 정」, 9 머리글, 10~22 = 01~13. 수업이 13번보다 많으면 줄을 늘림. */
+  var WNS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main', XNS = 'http://www.w3.org/XML/1998/namespace';
+  function kids(el, name) { var out = []; for (var c = el.firstChild; c; c = c.nextSibling) if (c.nodeType === 1 && c.namespaceURI === WNS && c.localName === name) out.push(c); return out; }
+  function kid(el, name) { return kids(el, name)[0] || null; }
+  function dropIds(el) {   // 줄을 복사할 때 문단 ID(w14:paraId 등)가 겹치지 않게 지움
+    if (el.nodeType !== 1) return;
+    for (var i = el.attributes.length - 1; i >= 0; i--) { var a = el.attributes[i]; if (/^w14:(paraId|textId)$/.test(a.name) || /^w:rsid/.test(a.name)) el.removeAttribute(a.name); }
+    for (var c = el.firstChild; c; c = c.nextSibling) dropIds(c);
+  }
+  /** 문단 하나에 글 한 줄: 글자 모양은 그 문단 첫 글자(없으면 문단 기호)의 것 */
+  function setPara(p, text, rPr) {
+    var doc = p.ownerDocument, pPr = kid(p, 'pPr');
+    if (!rPr) { var r0 = kid(p, 'r'); rPr = r0 && kid(r0, 'rPr') ? kid(r0, 'rPr') : (pPr && kid(pPr, 'rPr')); }
+    rPr = rPr ? rPr.cloneNode(true) : null;
+    for (var c = p.firstChild; c;) { var n = c.nextSibling; if (c !== pPr) p.removeChild(c); c = n; }
+    if (!text) return;
+    var r = doc.createElementNS(WNS, 'w:r'); if (rPr) r.appendChild(rPr);
+    var t = doc.createElementNS(WNS, 'w:t'); t.setAttributeNS(XNS, 'xml:space', 'preserve'); t.textContent = text;
+    r.appendChild(t); p.appendChild(r);
+  }
+  /** 칸 하나에 글 (줄바꿈은 문단을 나눔 — 선생님이 워드에서 엔터 친 것과 같게) */
+  function setCell(tc, text, rPrUse) {
+    var ps = kids(tc, 'p'), p0 = ps[0], doc = tc.ownerDocument; if (!p0) return;
+    var r0 = kid(p0, 'r'), pPr0 = kid(p0, 'pPr'), rPr = rPrUse || (r0 && kid(r0, 'rPr') ? kid(r0, 'rPr') : (pPr0 && kid(pPr0, 'rPr')));
+    rPr = rPr ? rPr.cloneNode(true) : null;
+    ps.slice(1).forEach(function (p) { tc.removeChild(p); });
+    var lines = S(text).split('\n').map(function (l) { return l.replace(/\s+$/, ''); });
+    setPara(p0, lines[0], rPr);
+    var after = p0;
+    lines.slice(1).forEach(function (l) {
+      var p = doc.createElementNS(WNS, 'w:p'); if (pPr0) p.appendChild(pPr0.cloneNode(true));
+      setPara(p, l, rPr); tc.insertBefore(p, after.nextSibling); after = p;
+    });
+  }
+  function fillDoc(xmlDoc, p) {
+    var body = xmlDoc.getElementsByTagNameNS(WNS, 'body')[0], paras = kids(body, 'p'), tbl = kid(body, 'tbl');
+    setPara(paras[0], p.title); setPara(paras[1], p.subtitle);
+    var rows = kids(tbl, 'tr'), h = p.head || {};
+    function tc(r, i) { return kids(rows[r], 'tc')[i]; }
+    setCell(tc(0, 1), h['강의명']); setCell(tc(1, 1), h['강의목표']);
+    setCell(tc(2, 1), h['담당강사']); setCell(tc(2, 3), h['연락처']);
+    setCell(tc(3, 1), h['강의기간']); setCell(tc(3, 3), h['강의시간']);
+    setCell(tc(4, 1), h['강의실']); setCell(tc(5, 1), h['교재']);
+    setCell(tc(6, 1), h['질문시간']); setCell(tc(6, 3), h['질문방법']);
+    if (S(h['평가방법'])) setCell(tc(7, 1), h['평가방법']);   // 비어 있으면 양식의 「Daily Test ( ) 단원평가 ( ) …」 그대로
+    var FIRST = 10, base = rows.length - FIRST, last = rows[rows.length - 1];
+    for (var k = base; k < p.rows.length; k++) { var nr = last.cloneNode(true); dropIds(nr); tbl.appendChild(nr); rows.push(nr); last = nr; }
+    // 양식 몇 줄은 문단 설정이 조금 다름(04 줄 수업 내용만 가운데 정렬이 빠짐 등) → 모든 줄을 01 줄 칸과 같은 문단·글자 모양으로
+    var ref = kids(rows[FIRST], 'tc').map(function (c) {
+      var p0 = kid(c, 'p'), pPr = p0 && kid(p0, 'pPr'), r0 = p0 && kid(p0, 'r');
+      return { pPr: pPr, rPr: r0 && kid(r0, 'rPr') ? kid(r0, 'rPr') : (pPr && kid(pPr, 'rPr')) };
+    });
+    for (var i = 0; i < rows.length - FIRST; i++) {
+      var x = p.rows[i] || {}, cs = kids(rows[FIRST + i], 'tc');
+      cs.forEach(function (c, j) {
+        var p0 = kid(c, 'p'); if (!p0 || !ref[j] || !ref[j].pPr) return;
+        var old = kid(p0, 'pPr'), nu = ref[j].pPr.cloneNode(true);
+        if (old) p0.replaceChild(nu, old); else p0.insertBefore(nu, p0.firstChild);
+      });
+      var put = function (j, v) { if (cs[j]) setCell(cs[j], v, ref[j] && ref[j].rPr); };
+      put(0, ('0' + (i + 1)).slice(-2)); put(1, x.date); put(2, x.content); put(3, x.range); put(4, x.hw);
+    }
+  }
+  /** 반 하나 → 워드 파일 (Uint8Array). xml = { parse(str) → Document, serialize(Document) → str } (브라우저는 기본값) */
+  function docx(JSZip, template, p, xml) {
+    xml = xml || { parse: function (s) { return new DOMParser().parseFromString(s, 'application/xml'); }, serialize: function (d) { return new XMLSerializer().serializeToString(d); } };
+    return JSZip.loadAsync(template).then(function (zip) {
+      return zip.file('word/document.xml').async('string').then(function (s) {
+        var d = xml.parse(s); fillDoc(d, p);
+        var out = xml.serialize(d);
+        if (!/^<\?xml/.test(out)) out = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' + out;
+        zip.file('word/document.xml', out);
+        return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+      });
+    });
+  }
+  function docName(p) { return p.sheet + '.docx'; }
+
+  return { build: build, xlsx: xlsx, docx: docx, docName: docName, fit: fit, parseDate: parseDate, MAX_ROWS: MAX_ROWS };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Plan;

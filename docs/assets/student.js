@@ -60,10 +60,10 @@
     renderTabs();
   }
 
-  var SUBJS = { '경제': '경제', '정치': '정치', '지리': '지리', '현사': '현대사회', '현대사회': '현대사회', '세계사': '세계사', '역사': '세계사', '일본사': '일본사' };
+  var SUBJS = { '경제': '경제', '정치': '정치', '지리': '지리', '현사': '현대사회', '현대사회': '현대사회', '세계사': '역사', '역사': '역사', '일본사': '일본사' };
   var KIND_COLOR = { '개념': 'var(--me)', '단풀': 'var(--orange)', '실전': 'var(--green)' };
   /** 과목마다 그래프 색 — 수업 자료(개념·단풀 PPT·워드)의 과목색과 같게 (2026-10-21) */
-  var SUBJ_COLOR = { '경제': '#5A6FD6', '정치': '#FC5230', '지리': '#5F9467', '현대사회': '#2E9ED8', '세계사': '#D99A00', '일본사': '#64748B', '실전 (EJU)': '#10B981', '기타': '#94A3B8' };
+  var SUBJ_COLOR = { '경제': '#5A6FD6', '정치': '#FC5230', '지리': '#5F9467', '현대사회': '#2E9ED8', '역사': '#D99A00', '일본사': '#64748B', '실전 (EJU)': '#10B981', '기타': '#94A3B8' };
   function subjColor(sj) { return SUBJ_COLOR[sj] || '#94A3B8'; }
   /** 과목 색: 개념반은 진하게·단풀반은 연하게 (과목이 없으면 반 색) */
   function toneOf(k, sj) {
@@ -79,7 +79,7 @@
   /** 같은 달 안에서 1주차 → 2주차 → … → 월말 순서 */
   function rank(t) { var m = /(\d+)\s*주차/.exec(t.label); return m ? +m[1] : (/월말/.test(t.label) ? 90 : 50); }
   function order(a, b) { return (a.t.month || '').localeCompare(b.t.month || '') || (a.t.date || '').localeCompare(b.t.date || '') || rank(a.t) - rank(b.t) || String(a.t.label).localeCompare(String(b.t.label)); }
-  /** 그래프 아래에 쓸 짧은 이름: 과목명은 빼고 (「세계사 1주차」 → 「1주차」, 「EJU 2024(2)」 → 「2024(2)」) */
+  /** 그래프 아래에 쓸 짧은 이름: 과목명은 빼고 (「역사 1주차」 → 「1주차」, 「EJU 2024(2)」 → 「2024(2)」) */
   function shortLabel(t) {
     var s = String(t.label).replace(/^(경제|정치|지리|현사|현대사회|세계사|역사|일본사)\s*/, '');
     var m = /^EJU\s*(\d{4})\s*(?:\((\d)\)|-(\d))?$/.exec(s);
@@ -281,7 +281,7 @@
   function renderTabs() {
     var ms = modesHave();
     $('#months').innerHTML = '';
-    if (!ms.length) { $('#modes').innerHTML = ''; $('#tabs').innerHTML = ''; $('#panel').innerHTML = '<div class="card blank"><img src="assets/logo-emblem.webp" alt="" width="237" height="200"><p class="empty">아직 등록된 반이 없어요. 선생님께 말씀해 주세요.</p></div>'; return; }
+    if (!ms.length) { $('#modes').innerHTML = ''; $('#tabs').innerHTML = ''; $('#panel').innerHTML = '<div class="card blank"><picture><source srcset="assets/logo-dark.svg" media="(prefers-color-scheme: dark)"><img src="assets/logo-light.svg" alt="" width="540" height="490"></picture><p class="empty">아직 등록된 반이 없어요. 선생님께 말씀해 주세요.</p></div>'; return; }
     if (kindSel !== '요약' && ms.indexOf(kindSel) < 0) { var d = pickDefault(ms); kindSel = d.k; subjSel = d.e.s; }
     renderModes(ms);
     if (kindSel === '요약') { $('#tabs').innerHTML = ''; return renderSum(); }
@@ -458,7 +458,7 @@
   }
 
   /* 실전반 과목별 정답률 · 취약 과목 (서버 view.subj: 시험지 「문항과목」으로 문항을 과목별로 나눔). 종합 | 달마다 */
-  function sjCol(sj) { return subjColor(sj === '역사' ? '세계사' : sj); }
+  function sjCol(sj) { return subjColor(sj === '세계사' ? '역사' : sj); }
   function gapP(o) { return o.avg === null ? null : Math.round((o.me - o.avg) * 10) / 10; }
   function drawWeak() {
     var S = view.subj, box = $('#wk'); if (!S || !box) return;
@@ -492,7 +492,7 @@
     var tk = allTaken(), hwAll = [];
     view.classes.forEach(function (c) { hwAll = hwAll.concat(c.hw); });
     var g = gapPct(tk), hd = hwAll.filter(function (w) { return w.done; }).length;
-    var cols = ['경제', '정치', '지리', '현대사회', '세계사', '일본사', '기타'].filter(function (s) { return tk.some(function (x) { return x.kind !== '실전' && x.subj === s; }); });
+    var cols = ['경제', '정치', '지리', '현대사회', '역사', '일본사', '기타'].filter(function (s) { return tk.some(function (x) { return x.kind !== '실전' && x.subj === s; }); });
     var sj = tk.filter(function (x) { return x.kind === '실전'; }), sjG = [];
     sj.forEach(function (x) { var gg = grpOf(x.c, x.t); if (sjG.indexOf(gg) < 0) sjG.push(gg); });
     var h = '<div class="tiles four">' + tile('전체 평균 정답률', avgPct(tk), '%', 'hi', '테스트 ' + tk.length + '개') +

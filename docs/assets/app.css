@@ -414,17 +414,17 @@ table.mtx td.sjcell{text-align:left}
 @media (max-width:860px){.sgrid.hwfirst .col2{order:-1}}
 /* cw-sogolab 로고 (2026-10-21) */
 .hero{display:block;text-align:center;margin:0 auto 22px}
-.hero img{display:inline-block;width:min(320px,86%);height:auto}
+.hero img{display:inline-block;width:170px;height:auto}
 .gate .hero{margin-bottom:0}
-.gate .hero img{width:min(270px,84%)}
+.gate .hero img{width:150px}
 /* 로고 느낌: 바탕에 아주 옅은 보라·민트 빛 */
 body{background:radial-gradient(1200px 520px at 15% -10%,color-mix(in srgb,var(--blue) 9%,transparent),transparent 70%),radial-gradient(900px 420px at 95% 0%,color-mix(in srgb,var(--green) 7%,transparent),transparent 70%),var(--bg);background-attachment:fixed}
 .appbar{background:color-mix(in srgb,var(--bg) 82%,transparent)}
 .card h2,h2{font-family:var(--f-round)}
-.brand .by img,.foot img{width:auto;height:15px;display:inline-block;vertical-align:-3px;margin-right:4px}
-.foot img{height:14px}
+.brand .by img,.foot img{width:16px;height:16px;display:inline-block;vertical-align:-3px;margin-right:4px}
+.foot img{width:15px;height:15px}
 .card.blank{text-align:center}
-.card.blank img{width:min(220px,60%);height:auto;display:block;margin:6px auto 4px}
+.card.blank img{width:130px;height:auto;display:block;margin:6px auto 10px}
 @media (max-width:480px){.brand .by{display:none}}
 /* 강의계획서 탭 */
 .plist .prow2{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 0;border-bottom:1px solid var(--line)}
