@@ -346,3 +346,47 @@ td.gneg{color:var(--red);font-weight:700}
 .cmp .kdot{margin-right:6px}
 .cmp b.pos{color:var(--green)}
 .cmp b.neg{color:var(--red)}
+
+/* 숙제 마감·늦음 (2026-10-21) */
+.pill.late{background:var(--orange-soft);color:var(--orange)}
+.pills{display:flex;gap:6px;align-items:center;flex:0 0 auto;flex-wrap:wrap;justify-content:flex-end}
+.meta.due{margin-top:2px}
+.meta.due.over b{color:var(--red)}
+/* 카메라로 찍어 올리기 */
+.up{position:relative}
+.vh{position:absolute!important;left:0;top:0;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.uphint{font-size:14px;color:var(--muted);margin:10px 0}
+label.btn.cam{display:flex;align-items:center;justify-content:center;cursor:pointer;margin:0}
+.thumbs .th{position:relative;display:inline-block}
+.thumbs .th .x{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;border:0;background:var(--ink);color:var(--surface);font-size:15px;line-height:24px;padding:0;cursor:pointer}
+.up label.btn.cam{background:var(--surface);color:var(--blue-ink);border:1.5px dashed var(--blue);font-weight:700}
+.up label.btn.cam:hover{background:var(--blue-soft)}
+.up:has(.vh:focus-visible) label.btn.cam{outline:2px solid var(--blue);outline-offset:2px}
+/* 강사: 숙제 마감 줄·빠른 검사 */
+.duebox{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;margin-top:10px;padding:10px 14px;background:var(--fill);border-radius:14px;font-size:14px}
+.rvov{padding:0}
+.dlg.rv{max-width:1100px;max-height:100vh;height:100%;border-radius:0;display:flex;flex-direction:column;padding:18px 20px}
+@media (min-width:900px){.rvov{padding:20px}.dlg.rv{height:auto;max-height:94vh;border-radius:24px}}
+.rv #rvBody{display:flex;flex-direction:column;min-height:0;flex:1}
+.rvhead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.rvhead h2{margin:4px 0 0;font-size:22px}
+.rvhead h2 .meta{font-size:14px;font-weight:600}
+.rvphotos{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px;margin-top:14px;overflow:auto;flex:1;min-height:200px}
+.rvphotos a{display:block;text-decoration:none;border-radius:14px;overflow:hidden;background:var(--fill);border:2px solid transparent}
+.rvphotos a.bad{border-color:var(--orange)}
+.rvphotos img{display:block;width:100%;max-height:calc(100vh - 330px);min-height:240px;object-fit:contain;background:#000}
+.rvphotos span{display:block;font-size:12.5px;color:var(--muted);padding:6px 10px}
+.rvphotos span b{color:var(--orange)}
+.rvbtns{display:flex;gap:8px;margin-top:12px}
+.rvbtns .btn{margin-top:0;flex:1}
+.rvbtns .btn:last-child{flex:2}
+.rvkeys{margin-top:8px;font-size:12px}
+.rvdone{text-align:center;padding:40px 10px}
+.rvdone b{font-size:22px}
+@media (max-width:560px){.rvkeys{display:none}}
+/* 강사 화면 맨 위 경고 (서버 버전·달력·칸) */
+#warns .topwarn{margin:12px 0 0;padding:14px 18px;border-radius:16px;background:var(--red-soft);color:var(--ink);font-size:14px}
+#warns .topwarn b{color:var(--red)}
+#warns .topwarn ul{margin:6px 0 0;padding-left:18px}
+.gonep{display:flex;align-items:center;justify-content:center;aspect-ratio:3/4;border-radius:12px;background:var(--fill);color:var(--muted);font-size:13px;text-align:center;padding:10px}
+.rvphotos .gonep{aspect-ratio:auto;min-height:200px}

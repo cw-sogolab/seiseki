@@ -384,3 +384,9 @@ label.btn.cam{display:flex;align-items:center;justify-content:center;cursor:poin
 .rvdone{text-align:center;padding:40px 10px}
 .rvdone b{font-size:22px}
 @media (max-width:560px){.rvkeys{display:none}}
+/* 강사 화면 맨 위 경고 (서버 버전·달력·칸) */
+#warns .topwarn{margin:12px 0 0;padding:14px 18px;border-radius:16px;background:var(--red-soft);color:var(--ink);font-size:14px}
+#warns .topwarn b{color:var(--red)}
+#warns .topwarn ul{margin:6px 0 0;padding-left:18px}
+.gonep{display:flex;align-items:center;justify-content:center;aspect-ratio:3/4;border-radius:12px;background:var(--fill);color:var(--muted);font-size:13px;text-align:center;padding:10px}
+.rvphotos .gonep{aspect-ratio:auto;min-height:200px}

@@ -21,8 +21,22 @@ var Api = (function () {
     // text/plain 으로 보내야 브라우저가 사전 확인(CORS preflight) 없이 Apps Script 로 보냅니다.
     return fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: action, payload: payload }) })
       .then(function (r) { return r.ok ? r.json() : { ok: false, error: '서버 응답 오류 (' + r.status + ')' }; })
+      .then(function (r) { checkVer(r); return r; })
       .catch(function () { return { ok: false, error: '인터넷 연결을 확인하고 다시 시도해 주세요.' }; });
   }
+  /** 화면을 열자마자 서버를 미리 깨움 (번호·비밀번호를 치는 동안). 결과는 버림 */
+  function warm() { if (!demo) call('ping', {}); }
+
+  /** 서버(Apps Script)에 붙여넣은 코드가 이 화면과 다르면 경고 — 강사 화면은 빨간 띠, 학생 화면은 콘솔에만 */
+  var verWarned = false, verListeners = [];
+  function checkVer(r) {
+    if (!r || !r.ver || typeof Logic === 'undefined' || !Logic.VERSION || r.ver === Logic.VERSION || verWarned) return;
+    verWarned = true;
+    var msg = '서버 코드(' + r.ver + ')가 화면 코드(' + Logic.VERSION + ')와 달라요. Apps Script 에 새 코드를 붙여넣고 새 버전으로 배포해야 해요.';
+    if (window.console) console.warn('[성적노트] ' + msg);
+    verListeners.forEach(function (f) { f(msg); });
+  }
+  function onVerMismatch(f) { verListeners.push(f); }
 
   function photoUrl(id, w) {
     if (String(id).indexOf('mock-') === 0) return SeisekiMock.imageUrl(id);
@@ -42,7 +56,7 @@ var Api = (function () {
     document.body.insertBefore(bar, document.body.firstChild);
   }
 
-  return { call: call, demo: demo, env: env, photoUrl: photoUrl, photoLink: photoLink };
+  return { call: call, warm: warm, onVerMismatch: onVerMismatch, demo: demo, env: env, photoUrl: photoUrl, photoLink: photoLink };
 })();
 
 /* 화면 공통 도우미 */

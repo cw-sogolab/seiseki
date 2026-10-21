@@ -7,6 +7,16 @@ const Core = require('../docs/dev/assets/core.js');
 const Logic = require('../docs/dev/assets/logic.js');
 const Mock = require('../docs/dev/assets/mock.js');
 
+// 숙제 제출은 로그인 열쇠(tok)로만 → 테스트에서는 번호를 주면 로그인해서 열쇠로 바꿔 보냄
+const TOKS = new WeakMap();
+function auto(e, a, p) {
+  if ((a === 'hwPhoto' || a === 'hwFinish') && p && p.code && !p.tok) {
+    const m = TOKS.get(e) || new Map(); TOKS.set(e, m);
+    if (!m.has(p.code)) { const r = Logic.handle(e, 'login', { code: p.code, dev: 'tok-' + p.code }); m.set(p.code, r.ok ? r.data.tok : 'x'); }
+    p = Object.assign({}, p, { tok: m.get(p.code) }); delete p.code;
+  }
+  return p;
+}
 let passed = 0;
 function t(name, fn) { try { fn(); passed++; console.log('  ok  ' + name); } catch (e) { console.error('  FAIL ' + name + '\n       ' + e.message); process.exitCode = 1; } }
 
@@ -51,20 +61,22 @@ t('Core.gs·Logic.gs가 개발판 파일과 같은지', () => {
   }
 });
 
-t('수업 달력이 calendar_2026.json 과 같음', () => {
-  const j = JSON.parse(fs.readFileSync(path.join(__dirname, '../tools/class-plan/calendar_2026.json'), 'utf8')).months;
-  for (const ym of Object.keys(j)) {
-    const c = Core.CAL[ym]; assert.ok(c, ym);
-    assert.strictEqual(c.start, j[ym].start); assert.strictEqual(c.end, j[ym].end);
-    assert.deepStrictEqual(c.off, j[ym].off.map(x => x[0]), ym);
-    for (const [pat, n] of Object.entries(j[ym].counts)) assert.strictEqual(Core.lessons(ym, Core.classDays(pat).days).length, n, ym + ' ' + pat);
-  }
+const CAL26 = (() => { const j = JSON.parse(fs.readFileSync(path.join(__dirname, '../tools/class-plan/calendar_2026.json'), 'utf8')).months, o = {};
+  for (const [ym, m] of Object.entries(j)) o[ym] = { start: m.start, end: m.end, off: m.off.map(x => x[0]) }; return [j, o]; })();
+t('수업 달력 계산이 연간 계획표 횟수와 같음, 미리보기 「달력」도 계획표와 같음', () => {
+  const [j, cal] = CAL26;
+  for (const ym of Object.keys(j)) for (const [pat, n] of Object.entries(j[ym].counts)) assert.strictEqual(Core.lessons(ym, Core.classDays(pat).days, cal).length, n, ym + ' ' + pat);
+  const mt = Mock.seed(Mock.createEnv())._tables['달력'];
+  assert.strictEqual(mt.length, Object.keys(j).length);
+  for (const r of mt) { const c = cal[r['월']]; assert.ok(c, r['월']); assert.strictEqual(r['개강'], c.start); assert.strictEqual(r['종강'], c.end); assert.deepStrictEqual(r['휴강'] ? r['휴강'].split(', ') : [], c.off); }
 });
 t('숙제 마감: 숙제 k = 2k+1번째 수업 시작, 넘치면 다음 달 첫 수업', () => {
-  assert.strictEqual(Core.hwDue('2026-10', '토일 15:00', 1), '2026-10-10 15:00');
-  assert.strictEqual(Core.hwDue('2026-10', '토일 15:00', 3), '2026-10-24 15:00');
-  assert.strictEqual(Core.hwDue('2026-10', '화목 20:20', 4), '2026-11-03 20:20', '10월 화목은 8번 → 9번째는 11월 첫 수업');
-  assert.strictEqual(Core.hwDue('2026-11', '토일 15:00', 1), '2026-11-14 15:00', '11/8 EJU 휴강 빼고');
+  const cal = CAL26[1];
+  assert.strictEqual(Core.hwDue('2026-10', '토일 15:00', 1, cal), '2026-10-10 15:00');
+  assert.strictEqual(Core.hwDue('2026-10', '토일 15:00', 3, cal), '2026-10-24 15:00');
+  assert.strictEqual(Core.hwDue('2026-10', '화목 20:20', 4, cal), '2026-11-03 20:20', '10월 화목은 8번 → 9번째는 11월 첫 수업');
+  assert.strictEqual(Core.hwDue('2026-11', '토일 15:00', 1, cal), '2026-11-14 15:00', '11/8 EJU 휴강 빼고');
+  assert.strictEqual(Core.hwDue('2027-01', '토일 15:00', 1, cal), '2027-01-09 15:00', '달력에 없는 달은 1일~말일');
   assert.strictEqual(Core.fmtDue('2026-10-24 15:00'), '10/24(토) 15:00');
 });
 t('같은 사진 지문 비교', () => {
@@ -73,7 +85,7 @@ t('같은 사진 지문 비교', () => {
 });
 console.log('logic');
 const env = Mock.createEnv({ now: () => new Date('2026-11-03T21:00:00+09:00') });
-const H = (a, p) => Logic.handle(env, a, p);
+const H = (a, p) => Logic.handle(env, a, auto(env, a, p));
 env._tables['반'] = [{ '반코드': 'GN-HM', '반이름': '개념반 화목 20:20', '종류': '개념', '요일시간': '화목 20:20', '활성': 'Y' },
   { '반코드': 'DP-SS', '반이름': '단풀반 토일 13:00', '종류': '단풀', '요일시간': '토일 13:00', '활성': 'Y' }];
 // 원생명단에 이미 있는 학생 (퇴실퀴즈에서 쓰던 번호)
@@ -164,14 +176,14 @@ t('숙제 등록·사진 제출·마무리·확인', () => {
   hw = H('addHomework', { token, cls: 'GN-HM', label: '1주차 숙제', book: '문제집', p0: 20, p1: 29, total: 51, month: '2026-11' }).data;
   const c = codes['가학생(동작)'];
   assert.ok(!H('hwFinish', { code: c, hw: hw.id, count: 40 }).ok, '사진 없이 마무리 불가');
-  assert.ok(H('hwPhoto', { code: c, hw: hw.id, order: 1, mime: 'image/jpeg', b64: 'AAAA' }).ok);
-  const p2 = H('hwPhoto', { code: c, hw: hw.id, order: 2, mime: 'image/jpeg', b64: 'AAAA' }); assert.ok(p2.ok); assert.strictEqual(p2.data.check, null, '사진 확인 기능 없음');
+  assert.ok(H('hwPhoto', { code: c, hw: hw.id, order: 1, mime: 'image/jpeg', b64: '/9j/AAAA' }).ok);
+  const p2 = H('hwPhoto', { code: c, hw: hw.id, order: 2, mime: 'image/jpeg', b64: '/9j/AAAA' }); assert.ok(p2.ok); assert.strictEqual(p2.data.check, null, '사진 확인 기능 없음');
   const fin = H('hwFinish', { code: c, hw: hw.id, count: 40 }); assert.ok(fin.ok, fin.error);
   const mine = fin.data.classes.filter(x => x.code === 'GN-HM')[0].hw[0]; assert.ok(mine.done); assert.strictEqual(mine.photos, 2);
   assert.ok(H('setChecked', { token, hw: hw.id, code: c, checked: true }).ok);
   assert.strictEqual(H('hwPhotos', { token, hw: hw.id, code: c }).data.length, 2);
   assert.strictEqual(H('bootstrap', { token }).data.photoWarns.filter(x => x.hw === hw.id).length, 0);
-  assert.ok(!H('hwPhoto', { code: codes['다학생'], hw: 'NOPE', b64: 'A' }).ok);
+  assert.ok(!H('hwPhoto', { code: codes['다학생'], hw: 'NOPE', b64: '/9j/A' }).ok);
 });
 t('정답 수정 → 다시 채점', () => {
   const r = H('updateExamKey', { token, exam: exam.id, key: '21341' }); assert.ok(r.ok, r.error);
@@ -211,25 +223,25 @@ t('예시 데이터로 학생 화면 만들기', () => {
 });
 t('숙제 마감·늦음: 처음 낸 시각 기준, 대신 입력은 늦음 아님, 마감 직접 정하기', () => {
   let now = new Date('2026-10-26T10:00:00+09:00');
-  const e = Mock.seed(Mock.createEnv({ now: () => now })), X = (a, p) => Logic.handle(e, a, p);
+  const e = Mock.seed(Mock.createEnv({ now: () => now })), X = (a, p) => Logic.handle(e, a, auto(e, a, p));
   const tk = X('adminLogin', { password: 'demo', dev: 'l' }).data.token;
   e._tables['숙제'].forEach(r => { r['월'] = '2026-10'; });
   const b = X('bootstrap', { token: tk }).data, h1 = b.homework.filter(h => /3주차/.test(h.label) && h.cls === 'GN-HM')[0];
   assert.strictEqual(b.homework.filter(h => /1주차/.test(h.label) && h.cls === 'GN-HM')[0].due, '2026-10-13 20:20', '화목 1주차 = 3번째 수업 10/13');
   assert.strictEqual(h1.due, '2026-10-27 20:20');
   const code = 'TR520615';
-  assert.ok(X('hwPhoto', { code, hw: h1.id, order: 1, b64: 'AAAA' }).ok);
+  assert.ok(X('hwPhoto', { code, hw: h1.id, order: 1, b64: '/9j/AAAA' }).ok);
   let v = X('hwFinish', { code, hw: h1.id, count: 5 }); assert.ok(v.ok, v.error);
   let w = v.data.classes.filter(c => c.code === 'GN-HM')[0].hw.filter(x => x.id === h1.id)[0];
   assert.strictEqual(w.late, false); assert.strictEqual(w.due, '2026-10-27 20:20');
   now = new Date('2026-10-28T09:00:00+09:00');   // 마감 뒤에 사진 더 올려도 처음 낸 시각 그대로 → 늦음 아님
-  assert.ok(X('hwPhoto', { code, hw: h1.id, order: 2, b64: 'AAAB' }).ok);
+  assert.ok(X('hwPhoto', { code, hw: h1.id, order: 2, b64: '/9j/AAAB' }).ok);
   v = X('hwFinish', { code, hw: h1.id, count: '' }); w = v.data.classes.filter(c => c.code === 'GN-HM')[0].hw.filter(x => x.id === h1.id)[0];
   assert.strictEqual(w.late, false); assert.strictEqual(w.count, 5, '맞은 개수 비우면 그대로');
   const c2 = 'FH109318';
   let w2 = X('login', { code: c2, dev: 'l2' }).data.classes.filter(c => c.code === 'GN-HM')[0].hw.filter(x => x.id === h1.id)[0];
   assert.ok(w2.overdue && !w2.done, '마감 지났는데 안 냄');
-  assert.ok(X('hwPhoto', { code: c2, hw: h1.id, order: 1, b64: 'AAAC' }).ok);
+  assert.ok(X('hwPhoto', { code: c2, hw: h1.id, order: 1, b64: '/9j/AAAC' }).ok);
   w2 = X('hwFinish', { code: c2, hw: h1.id, count: 3 }).data.classes.filter(c => c.code === 'GN-HM')[0].hw.filter(x => x.id === h1.id)[0];
   assert.ok(w2.late && w2.done, '늦게 냄');
   assert.ok(X('bootstrap', { token: tk }).data.hwSubs.filter(s => s.hw === h1.id && s.code === c2)[0].late);
@@ -241,21 +253,67 @@ t('숙제 마감·늦음: 처음 낸 시각 기준, 대신 입력은 늦음 아�
   assert.strictEqual(X('setHwDue', { token: tk, hw: h1.id, due: '' }).data.due, '2026-10-27 20:20');
 });
 t('같은 사진: 같은 숙제는 다시 저장 안 함, 내 다른 숙제는 거절, 다른 학생 것은 받고 ⚠', () => {
-  const e = Mock.seed(Mock.createEnv()), X = (a, p) => Logic.handle(e, a, p);
+  const e = Mock.seed(Mock.createEnv()), X = (a, p) => Logic.handle(e, a, auto(e, a, p));
   const tk = X('adminLogin', { password: 'demo', dev: 'd' }).data.token;
   const hws = X('bootstrap', { token: tk }).data.homework.filter(h => h.cls === 'GN-HM');
   const A = 'a'.repeat(64), A2 = 'a'.repeat(62) + 'bb', B = '5'.repeat(64);
-  assert.ok(X('hwPhoto', { code: 'TR520615', hw: hws[0].id, order: 1, b64: 'AAAA', hash: A }).ok);
+  assert.ok(X('hwPhoto', { code: 'TR520615', hw: hws[0].id, order: 1, b64: '/9j/AAAA', hash: A }).ok);
   const n0 = e._tables['숙제사진'].length;
-  const again = X('hwPhoto', { code: 'TR520615', hw: hws[0].id, order: 2, b64: 'AAAA', hash: A2 });
+  const again = X('hwPhoto', { code: 'TR520615', hw: hws[0].id, order: 2, b64: '/9j/AAAA', hash: A2 });
   assert.ok(again.ok && again.data.dup === 'same'); assert.strictEqual(e._tables['숙제사진'].length, n0, '다시 저장 안 함');
-  const other = X('hwPhoto', { code: 'TR520615', hw: hws[1].id, order: 1, b64: 'AAAA', hash: A });
+  const other = X('hwPhoto', { code: 'TR520615', hw: hws[1].id, order: 1, b64: '/9j/AAAA', hash: A });
   assert.ok(!other.ok && /새로 찍어/.test(other.error), other.error);
-  const copy = X('hwPhoto', { code: 'FH109318', hw: hws[0].id, order: 1, b64: 'AAAA', hash: A2 });
+  const copy = X('hwPhoto', { code: 'FH109318', hw: hws[0].id, order: 1, b64: '/9j/AAAA', hash: A2 });
   assert.ok(copy.ok && !copy.data.dup, '받음');
   const warn = X('bootstrap', { token: tk }).data.photoWarns.filter(x => x.code === 'FH109318');
   assert.strictEqual(warn.length, 1); assert.ok(/이샘플\(TR520615\)/.test(warn[0].msg), warn[0].msg);
-  assert.ok(X('hwPhoto', { code: 'FH109318', hw: hws[0].id, order: 2, b64: 'AAAA', hash: B }).ok, '다른 사진은 그냥');
+  assert.ok(X('hwPhoto', { code: 'FH109318', hw: hws[0].id, order: 2, b64: '/9j/AAAA', hash: B }).ok, '다른 사진은 그냥');
   assert.strictEqual(X('bootstrap', { token: tk }).data.photoWarns.filter(x => x.code === 'FH109318').length, 1);
+});
+t('숙제 제출은 로그인 열쇠로만 (번호만으로는 안 됨), 열쇠가 없으면 다시 로그인 요청', () => {
+  const e = Mock.seed(Mock.createEnv()), R = (a, p) => Logic.handle(e, a, p);
+  const byCode = R('hwPhoto', { code: 'TR520615', hw: 'H3', order: 1, b64: '/9j/AAAA' });
+  assert.ok(!byCode.ok && byCode.needLogin, '번호만 → 거절');
+  assert.ok(R('hwPhoto', { tok: 'guess', hw: 'H3', b64: '/9j/AAAA' }).needLogin, '아무 열쇠 → 거절');
+  const tok = R('login', { code: 'TR520615', dev: 'k' }).data.tok; assert.ok(tok);
+  assert.ok(R('hwPhoto', { tok, hw: 'H3', order: 1, b64: '/9j/AAAA' }).ok);
+  assert.ok(!/TR520615/.test(JSON.stringify(R('hwPhoto', { tok: 'nope', hw: 'H3', b64: '/9j/A' }))), '틀린 열쇠 응답에 학생 정보 없음');
+});
+t('사진: 3MB 넘거나 사진이 아니면 거절, 숙제 하나에 24장까지', () => {
+  const e = Mock.seed(Mock.createEnv()), R = (a, p) => Logic.handle(e, a, p);
+  const tok = R('login', { code: 'TR520615', dev: 'k' }).data.tok;
+  assert.ok(/3MB/.test(R('hwPhoto', { tok, hw: 'H3', b64: '/9j/' + 'A'.repeat(4.2 * 1024 * 1024) }).error));
+  assert.ok(/사진 파일만/.test(R('hwPhoto', { tok, hw: 'H3', b64: 'iVBORw0K' }).error));
+  for (let i = 0; i < 24; i++) assert.ok(R('hwPhoto', { tok, hw: 'H3', order: i + 1, b64: '/9j/AAAA' }).ok);
+  assert.ok(/24장까지/.test(R('hwPhoto', { tok, hw: 'H3', order: 25, b64: '/9j/AAAA' }).error));
+});
+t('3개월 지난 사진 지우기: 휴지통으로, 시트에는 지운 표시', () => {
+  let now = new Date('2026-10-21T10:00:00+09:00');
+  const e = Mock.seed(Mock.createEnv({ now: () => now })), R = (a, p) => Logic.handle(e, a, p);
+  const trashed = [];
+  let r = Logic.cleanupPhotos(e, id => trashed.push(id)); assert.strictEqual(r.removed, 0);
+  now = new Date('2027-01-20T10:00:00+09:00');
+  r = Logic.cleanupPhotos(e, id => trashed.push(id)); assert.strictEqual(r.removed, 6); assert.strictEqual(trashed.length, 6);
+  const tk = R('adminLogin', { password: 'demo', dev: 'c' }).data.token;
+  const ph = R('hwPhotos', { token: tk, hw: 'H2', code: 'KM482919' }).data;
+  assert.ok(ph[0].gone && /3개월 지나 지움/.test(ph[0].note));
+  assert.strictEqual(Logic.cleanupPhotos(e, id => trashed.push(id)).removed, 0, '두 번 지우지 않음');
+});
+t('강사 경고: 달력에 없는 달, 요일 모르는 반, 시트에 없는 칸 / 로그인과 첫 불러오기 한 번에', () => {
+  let now = new Date('2026-12-10T10:00:00+09:00');
+  const e = Mock.seed(Mock.createEnv({ now: () => now })), R = (a, p) => Logic.handle(e, a, p);
+  const lg = R('adminLogin', { password: 'demo', dev: 'w' }); assert.ok(lg.data.boot && lg.data.boot.classes.length, '로그인 응답에 기록이 같이 옴');
+  let w = lg.data.boot.warnings.join('\n');
+  assert.ok(/2027년 1월/.test(w) && !/2026년 12월/.test(w), w);
+  e._tables['반'][0]['요일시간'] = '시간 미정';
+  e.store.head = t => t === '숙제' ? ['숙제ID', '반코드'] : Logic.TABLES[t];
+  w = R('bootstrap', { token: lg.data.token }).data.warnings.join('\n');
+  assert.ok(/요일을 못 읽었어요/.test(w) && /「숙제」 탭 첫 줄에 「월」/.test(w), w);
+});
+t('모든 응답에 서버 버전(ver)이 붙고, sync-gas.sh 가 넣은 값과 같음', () => {
+  assert.strictEqual(Logic.handle(Mock.createEnv(), 'ping', {}).ver, Logic.VERSION);
+  const strip = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace(/var VERSION = '[^']*';/, "var VERSION = '';");
+  const h = require('crypto').createHash('sha1').update(strip('docs/dev/assets/core.js') + strip('docs/dev/assets/logic.js') + strip('apps-script/Code.gs')).digest('hex').slice(0, 10);
+  assert.strictEqual(Logic.VERSION, h, 'tools/sync-gas.sh 를 실행하세요');
 });
 console.log(`\n${passed} passed` + (process.exitCode ? ', 실패 있음' : ''));

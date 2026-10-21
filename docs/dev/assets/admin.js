@@ -27,7 +27,7 @@
     Api.call('adminLogin', { password: pw }).then(function (r) {
       if (!r.ok) { busy(false); $('#loginMsg').textContent = r.error; $('#pw').select(); return; }
       token = r.data.token; UI.store.set('seiseki.token', token, sessionStorage); $('#pw').value = '';
-      load(true);
+      if (r.data.boot) opened(r.data.boot); else load(true);   // 로그인 응답에 기록이 같이 옴 (한 번 덜 기다림)
     });
   }
   function logout(msg) {
@@ -42,12 +42,24 @@
     Api.call('bootstrap', { token: token }).then(function (r) {
       if (!r.ok && r.needLogin && justLoggedIn && !retried) { setTimeout(function () { load(true, true); }, 800); return; }
       if (!r.ok) { if (r.needLogin) logout('다시 로그인해 주세요.'); else { busy(false); $('#loginMsg').textContent = r.error; } return; }
-      D = r.data; busy(false);
-      if (!month) month = D.today.slice(0, 7);
-      document.body.classList.remove('locked');
-      $('#login').hidden = true; $('#view').hidden = false; $('#period').hidden = false; $('#nav').hidden = false; $('#topRight').hidden = false;
-      renderMonths(); renderNav(); render();
+      opened(r.data);
     });
+  }
+  function opened(data) {
+    D = data; busy(false);
+    if (!month) month = D.today.slice(0, 7);
+    document.body.classList.remove('locked');
+    $('#login').hidden = true; $('#view').hidden = false; $('#period').hidden = false; $('#nav').hidden = false; $('#topRight').hidden = false;
+    renderWarns(); renderMonths(); renderNav(); render();
+  }
+  /* 맨 위 경고: 서버 코드 버전이 다름 / 달력에 없는 달 / 요일 모르는 반 / 시트에 없는 칸 */
+  var verMsg = '';
+  Api.onVerMismatch(function (m) { verMsg = m; renderWarns(); });
+  function renderWarns() {
+    var box = $('#warns');
+    if (!box) { box = document.createElement('div'); box.id = 'warns'; $('#view').parentNode.insertBefore(box, $('#period') || $('#view')); }
+    var list = (verMsg ? [verMsg] : []).concat((D && D.warnings) || []);
+    box.innerHTML = list.length ? '<div class="topwarn" role="alert"><b>확인해 주세요</b><ul>' + list.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : '';
   }
 
   /* ---------- 데이터 도우미 ---------- */
@@ -211,7 +223,9 @@
     paperSet(kind, subj, true).forEach(function (p) { if (!hasPaper(code, p)) tasks.push(p.kind === '일문일답' ? regHw(code, p) : regExam(code, p)); });
     seq(tasks, done);
   }
+  var entryRender = 0, saving = 0, failed = {};   // failed: 저장 못 한 답안 (시험|번호 → 입력값) — 다시 누르면 채워 줌
   function vEntry() {
+    var myRender = ++entryRender;
     var all_ = examsOfMonth();
     function kindOf(e) { return cls(e.cls).kind; }
     var cx = all_.filter(function (e) { return e.id === curExam; })[0];
@@ -360,7 +374,7 @@
     bindHead(); bindReal(); bindPaper();
     function meta() { $('#exMeta').textContent = ex.total + '문항 · 입력 ' + mem.filter(function (s) { return resultOf(ex.id, s.code); }).length + ' / ' + mem.length + '명'; }
     meta();
-    $('#stList').innerHTML = mem.map(function (s) { return '<option value="' + esc(s.name) + '" label="' + Core.fmtCode(s.code) + '"></option>'; }).join('');
+    $('#stList').innerHTML = mem.map(function (s) { return '<option value="' + esc(s.name) + '" label="' + esc(Core.fmtCode(s.code)) + '"></option>'; }).join('');
     $('#ansIn').maxLength = ex.total;
     function resolve() {
       var q = $('#stIn').value.trim(), n = Core.normCode(q), hit = $('#hit'); cur = null;
@@ -381,26 +395,38 @@
     }
     function roster() {
       $('#roster').innerHTML = '<div class="tw"><table><thead><tr><th>이름</th><th>번호</th><th class="num">점수</th><th>상태</th></tr></thead><tbody>' +
-        mem.map(function (s) { var r = resultOf(ex.id, s.code); return '<tr class="click" data-c="' + esc(s.code) + '"><td>' + esc(s.name) + '</td><td class="code">' + Core.fmtCode(s.code) + '</td><td class="num">' + (r ? r.score + '/' + ex.total : '-') + '</td><td>' + (r ? '<span class="pill ok">입력됨</span>' : '<span class="pill no">미입력</span>') + '</td></tr>'; }).join('') +
+        mem.map(function (s) { var r = resultOf(ex.id, s.code), f = failed[ex.id + '|' + s.code]; return '<tr class="click" data-c="' + esc(s.code) + '"><td>' + esc(s.name) + '</td><td class="code">' + esc(Core.fmtCode(s.code)) + '</td><td class="num">' + (r ? r.score + '/' + ex.total : '-') + '</td><td>' + (f !== undefined ? '<span class="pill no">저장 실패</span>' : r && r.pending ? '<span class="pill wait">저장 중</span>' : r ? '<span class="pill ok">입력됨</span>' : '<span class="pill no">미입력</span>') + '</td></tr>'; }).join('') +
         '</tbody></table></div><p class="meta" style="margin-top:8px">줄을 누르면 그 학생을 불러옵니다. 미입력 ' + mem.filter(function (s) { return !resultOf(ex.id, s.code); }).length + '명</p>';
       all('#roster tr.click').forEach(function (tr) {
-        tr.onclick = function () { var s = stu(tr.getAttribute('data-c')), r = resultOf(ex.id, s.code); $('#stIn').value = s.name; resolve(); $('#ansIn').value = r ? r.answers.replace(/0+$/, '') : ''; preview(); $('#ansIn').focus(); };
+        tr.onclick = function () { var s = stu(tr.getAttribute('data-c')), r = resultOf(ex.id, s.code), f = failed[ex.id + '|' + s.code]; $('#stIn').value = s.name; resolve(); $('#ansIn').value = f !== undefined ? f : r ? r.answers.replace(/0+$/, '') : ''; preview(); $('#ansIn').focus(); };
       });
     }
+    // 저장은 기다리지 않음: 채점 결과를 바로 표에 넣고 다음 학생으로 넘어가며, 서버 저장은 뒤에서 (실패하면 표에 「저장 실패」)
     function save() {
-      var m = $('#emsg'), v = $('#ansIn').value, btn = $('#save');
+      var m = $('#emsg'), v = $('#ansIn').value;
       resolve();
       if (!cur) return msg(m, false, '학생을 먼저 정해 주세요.');
       if (!v) return msg(m, false, '답안을 입력해 주세요.');
-      btn.disabled = true;
-      var who = cur;
-      req('saveResult', { exam: ex.id, code: who.code, answers: v }).then(function (r) {
-        btn.disabled = false;
-        if (!r.ok) return msg(m, false, r.error);
-        replace(D.results, function (x) { return x.exam === ex.id && x.code === who.code; }, r.data);
-        msg(m, true, who.name + ' 저장: ' + r.data.score + '/' + ex.total + (r.data.wrong.length ? ' · 틀린 문항 ' + r.data.wrong.join(', ') : ' · 만점'));
-        $('#stIn').value = ''; $('#ansIn').value = ''; $('#hit').textContent = ''; $('#prev').innerHTML = ''; $('#cnt').textContent = '';
-        meta(); roster(); $('#stIn').focus();
+      var who = cur, e0 = ex, ans = Core.padAnswers(Core.cleanAnswers(v, e0.total), e0.total), g = Core.grade(e0.key, ans);
+      var same = function (x) { return x.exam === e0.id && x.code === who.code; }, before = resultOf(e0.id, who.code);
+      var prov = { exam: e0.id, code: who.code, answers: ans, score: g.score, wrong: g.wrong.map(function (w) { return w.n; }), conv: null, at: '', pending: true };
+      replace(D.results, same, prov);
+      saving++;
+      msg(m, true, who.name + ' ' + g.score + '/' + e0.total + (g.wrong.length ? ' · 틀린 문항 ' + prov.wrong.join(', ') : ' · 만점') + ' — 저장 중…');
+      $('#stIn').value = ''; $('#ansIn').value = ''; $('#hit').textContent = ''; $('#prev').innerHTML = ''; $('#cnt').textContent = '';
+      meta(); roster(); $('#stIn').focus();
+      req('saveResult', { exam: e0.id, code: who.code, answers: v }).then(function (r) {
+        saving--;
+        var here = myRender === entryRender && $('#emsg');
+        if (!r.ok) {
+          if (before) replace(D.results, same, before); else D.results = D.results.filter(function (x) { return x !== prov; });
+          failed[e0.id + '|' + who.code] = v;
+          if (here) { msg($('#emsg'), false, who.name + ' 저장 못 했어요: ' + r.error + ' — 표에서 이름을 눌러 다시 저장해 주세요.'); roster(); meta(); }
+          return;
+        }
+        delete failed[e0.id + '|' + who.code];
+        replace(D.results, same, r.data);
+        if (here) { roster(); meta(); if (!saving && /저장 중/.test($('#emsg').textContent)) msg($('#emsg'), true, $('#emsg').textContent.replace(' — 저장 중…', ' — 저장했어요')); }
       });
     }
     $('#stIn').oninput = resolve;
@@ -601,7 +627,7 @@
         var u = subOf(hw.id, s.code);
         var pw = (D.photoWarns || []).filter(function (x) { return x.hw === hw.id && x.code === s.code; });
         var warn = pw.length && !(u && u.checked) ? ' <span class="pill no" title="' + esc(pw.map(function (x) { return x.order + '번째: ' + x.msg; }).join('\n')) + '">⚠ 사진 확인</span><div class="meta warnline">' + pw.map(function (x) { return x.order + '번째 ' + esc(x.msg); }).join('<br>') + '</div>' : '';
-        return '<tr><td>' + esc(s.name) + '</td><td class="code">' + Core.fmtCode(s.code) + '</td><td>' + (u ? (u.proxy ? '<span class="pill wait">대신 입력</span>' : '<span class="pill ok">제출</span>') + (u.late ? ' <span class="pill late" title="처음 낸 시각 ' + esc(u.first) + '">늦음</span>' : '') : '<span class="pill no">미제출</span>') + warn +
+        return '<tr><td>' + esc(s.name) + '</td><td class="code">' + esc(Core.fmtCode(s.code)) + '</td><td>' + (u ? (u.proxy ? '<span class="pill wait">대신 입력</span>' : '<span class="pill ok">제출</span>') + (u.late ? ' <span class="pill late" title="처음 낸 시각 ' + esc(u.first) + '">늦음</span>' : '') : '<span class="pill no">미제출</span>') + warn +
           (u && !u.proxy && u.first ? '<div class="meta">' + esc(u.first.slice(5)) + '</div>' : '') + '</td>' +
           '<td class="num">' + (u && u.count !== null ? u.count + (hw.total ? '/' + hw.total : '') : '-') + '</td><td class="num">' + (u ? u.photos + '장' : '-') + '</td>' +
           '<td>' + (u ? '<label class="check" style="margin:0"><input type="checkbox" data-ck="' + esc(s.code) + '"' + (u.checked ? ' checked' : '') + '> 확인</label>' : '') + '</td>' +
@@ -701,6 +727,7 @@
     req('hwPhotos', { hw: hw.id, code: s.code }).then(function (r) {
       if (!r.ok) { $('#phs', ov).innerHTML = '<p class="msg err">' + esc(r.error) + '</p>'; return; }
       $('#phs', ov).innerHTML = r.data.length ? r.data.map(function (p) {
+        if (p.gone) return '<div class="gonep"><span>' + p.order + '번째 · ' + esc(p.at) + '<br>3개월 지나 지운 사진</span></div>';
         return '<a href="' + esc(Api.photoLink(p.fileId)) + '" target="_blank" rel="noopener"><img src="' + esc(Api.photoUrl(p.fileId, 600)) + '" alt="' + p.order + '번째 사진" loading="lazy"><span>' + p.order + '번째 · ' + esc(p.at) + (p.check === '확인필요' ? ' · <b class="bad">⚠ ' + esc(p.note) + '</b>' : p.check === 'OK' ? ' · AI 확인 OK' : '') + '</span></a>';
       }).join('') : '<p class="empty">사진이 없어요.</p>';
     });
@@ -765,11 +792,12 @@
         if (at !== i || !$('#rvPh', ov)) return;
         if (!r.ok) { $('#rvPh', ov).innerHTML = '<p class="msg err">' + esc(r.error) + '</p>'; return; }
         $('#rvPh', ov).innerHTML = r.data.length ? r.data.map(function (p) {
+          if (p.gone) return '<div class="gonep"><span>' + p.order + '번째 · 3개월 지나 지운 사진</span></div>';
           return '<a href="' + esc(Api.photoLink(p.fileId)) + '" target="_blank" rel="noopener"' + (p.check === '확인필요' ? ' class="bad"' : '') + '><img src="' + esc(Api.photoUrl(p.fileId, 1200)) + '" alt="' + p.order + '번째 사진"><span>' + p.order + '번째 · ' + esc(p.at) + (p.check === '확인필요' ? ' · <b>⚠ ' + esc(p.note) + '</b>' : '') + '</span></a>';
         }).join('') : '<p class="empty">사진이 없어요.</p>';
       });
       if (list[i + 1]) photosOf(list[i + 1].s.code).then(function (r) {   // 다음 학생 사진 미리 받아 두기
-        if (r.ok) r.data.forEach(function (p) { var im = new Image(); im.src = Api.photoUrl(p.fileId, 1200); });
+        if (r.ok) r.data.forEach(function (p) { if (!p.gone) { var im = new Image(); im.src = Api.photoUrl(p.fileId, 1200); } });
       });
     }
     draw();
@@ -792,7 +820,7 @@
       '<button type="button" class="btn sub sm" id="cp">번호표 복사 (이름·번호·반)</button></div><div id="cpOut"></div>' +
       '<div class="tw" style="margin-top:10px"><table><thead><tr><th>이름</th><th>번호</th><th>반</th><th>상태</th><th></th></tr></thead><tbody>' +
       (list.length ? list.map(function (s) {
-        var row = '<tr><td>' + esc(s.name) + '</td><td class="code">' + Core.fmtCode(s.code) + '</td><td>' + (s.classes.map(function (c) { return esc(clsName(c)); }).join(', ') || '<span class="meta">없음</span>') + '</td>' +
+        var row = '<tr><td>' + esc(s.name) + '</td><td class="code">' + esc(Core.fmtCode(s.code)) + '</td><td>' + (s.classes.map(function (c) { return esc(clsName(c)); }).join(', ') || '<span class="meta">없음</span>') + '</td>' +
           '<td>' + (!s.active ? '<span class="pill no">차단</span>' : s.classes.length ? '<span class="pill ok">수강 중</span>' : '<span class="pill wait">수강 없음</span>') + '</td>' +
           '<td><button type="button" class="btn sub sm" data-ed="' + esc(s.code) + '">반 수정</button></td></tr>';
         if (editing === s.code) {
@@ -814,7 +842,7 @@
         D.students = r.data.students;
         var x = r.data, h = '';
         h += '<div class="okbox">명단에서 찾음 ' + x.updated.length + '명 · 새 번호 ' + x.added.length + '명(원생명단에 추가)' + (x.deactivated.length ? ' · 반 비움 ' + x.deactivated.length + '명' : '') + '</div>';
-        if (x.added.length) h += '<div class="tw" style="margin-top:8px"><table><thead><tr><th>새 원생</th><th>번호</th></tr></thead><tbody>' + x.added.map(function (a) { return '<tr><td>' + esc(a.name) + '</td><td class="code">' + Core.fmtCode(a.code) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+        if (x.added.length) h += '<div class="tw" style="margin-top:8px"><table><thead><tr><th>새 원생</th><th>번호</th></tr></thead><tbody>' + x.added.map(function (a) { return '<tr><td>' + esc(a.name) + '</td><td class="code">' + esc(Core.fmtCode(a.code)) + '</td></tr>'; }).join('') + '</tbody></table></div>';
         if (x.unknown.length) h += '<div class="warnbox">확인이 필요한 줄 ' + x.unknown.length + '개<br>' + x.unknown.map(function (u) { return esc(u.line) + ' → ' + esc(u.reason); }).join('<br>') + '</div>';
         stuFilter = 'cur'; editing = ''; vStu(); $('#iOut').innerHTML = h;
       });
@@ -960,5 +988,5 @@
   };
   $('#logout').onclick = function () { logout(''); };
   $('#month').onchange = function () { month = this.value; render(); };
-  if (token) load(); else $('#pw').focus();
+  if (token) load(); else { $('#pw').focus(); Api.warm(); }   // 비밀번호를 치는 동안 서버를 미리 깨워 둠
 })();

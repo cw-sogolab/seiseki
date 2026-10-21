@@ -119,22 +119,8 @@ var Core = (function () {
   }
 
   /* ---------- 수업 달력 (숙제 마감 계산용) ----------
-   * 학원 연간 계획표의 달별 개강·종강·휴강일. tools/class-plan/calendar_YYYY.json 과 같아야 함 (tests/logic.test.js 가 확인).
-   * 새해 계획표가 오면 JSON 을 만들고 여기에도 그 해 달을 넣을 것. */
-  var CAL = {
-    '2026-01': { start: '2026-01-02', end: '2026-01-29', off: ['2026-01-01'] },
-    '2026-02': { start: '2026-01-30', end: '2026-03-03', off: ['2026-02-15','2026-02-16','2026-02-17','2026-02-18'] },
-    '2026-03': { start: '2026-03-04', end: '2026-03-31', off: [] },
-    '2026-04': { start: '2026-04-01', end: '2026-04-28', off: [] },
-    '2026-05': { start: '2026-04-29', end: '2026-05-28', off: [] },
-    '2026-06': { start: '2026-05-29', end: '2026-06-28', off: ['2026-06-21'] },
-    '2026-07': { start: '2026-06-29', end: '2026-07-28', off: [] },
-    '2026-08': { start: '2026-07-29', end: '2026-08-29', off: ['2026-08-02','2026-08-03','2026-08-04'] },
-    '2026-09': { start: '2026-08-30', end: '2026-10-01', off: ['2026-09-24','2026-09-25','2026-09-26','2026-09-27'] },
-    '2026-10': { start: '2026-10-02', end: '2026-10-31', off: [] },
-    '2026-11': { start: '2026-11-01', end: '2026-12-01', off: ['2026-11-08','2026-11-09','2026-11-10'] },
-    '2026-12': { start: '2026-12-02', end: '2026-12-30', off: ['2026-12-25'] }
-  };
+   * cal = { 'YYYY-MM': { start, end, off:['YYYY-MM-DD'] } } — 기록장 「달력」 탭(학원 연간 계획표)에서 읽음 (logic.js calendar()).
+   * 달력에 없는 달은 달력상 1일~말일로 계산하고, 강사 화면이 경고함. */
   var WD = '일월화수목금토';
   function ymd(t) { var d = new Date(t); return d.getUTCFullYear() + '-' + ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + d.getUTCDate()).slice(-2); }
   function utc(s) { var p = S(s).split('-'); return Date.UTC(+p[0], +p[1] - 1, +p[2]); }
@@ -145,8 +131,8 @@ var Core = (function () {
     return { days: days, time: m ? ('0' + m[1]).slice(-2) + ':' + m[2] : '' };
   }
   /** 그 달(학원 달력 기준) 수업일 목록 ['YYYY-MM-DD'] — 달력에 없는 달은 달력상 1일~말일 */
-  function lessons(ym, days) {
-    var m = CAL[ym], out = [];
+  function lessons(ym, days, cal) {
+    var m = (cal || {})[ym], out = [];
     if (!days || !days.length) return out;
     var s = m ? m.start : ym + '-01', e = m ? m.end : ymd(Date.UTC(+ym.slice(0, 4), +ym.slice(5), 0)), off = m ? m.off : [];
     for (var t = utc(s); t <= utc(e); t += 86400000) {
@@ -157,10 +143,10 @@ var Core = (function () {
   }
   function nextMonth(ym) { var y = +ym.slice(0, 4), m = +ym.slice(5) + 1; if (m > 12) { y++; m = 1; } return y + '-' + ('0' + m).slice(-2); }
   /** 숙제 k 마감 = 그 달 2k+1번째 수업 시작 (2번 수업마다 숙제 하나). 그 달에 그 수업이 없으면 다음 달 첫 수업. → 'YYYY-MM-DD HH:MM' 또는 '' */
-  function hwDue(ym, time, k) {
+  function hwDue(ym, time, k, cal) {
     var cd = classDays(time);
     if (!cd.days.length || !(k >= 1)) return '';
-    var l = lessons(ym, cd.days), d = l[2 * k] || lessons(nextMonth(ym), cd.days)[0];
+    var l = lessons(ym, cd.days, cal), d = l[2 * k] || lessons(nextMonth(ym), cd.days, cal)[0];
     return d ? d + ' ' + (cd.time || '00:00') : '';
   }
   /** 'YYYY-MM-DD HH:MM' → 「10/24(토) 15:00」 */
@@ -191,7 +177,7 @@ var Core = (function () {
     LETTERS: LETTERS, normCode: normCode, isValidCode: isValidCode, luhnOk: luhnOk, withCheck: withCheck, codeProblem: codeProblem, fmtCode: fmtCode, genCode: genCode,
     cleanAnswers: cleanAnswers, cleanKey: cleanKey, padAnswers: padAnswers,
     grade: grade, mean: mean, parseRoster: parseRoster, matchClass: matchClass, monthOf: monthOf, dateOf: dateOf, baseName: baseName, S: S,
-    CAL: CAL, classDays: classDays, lessons: lessons, nextMonth: nextMonth, hwDue: hwDue, fmtDue: fmtDue, hashDist: hashDist, sameHash: sameHash, DUP_BITS: DUP_BITS
+    classDays: classDays, lessons: lessons, nextMonth: nextMonth, hwDue: hwDue, fmtDue: fmtDue, hashDist: hashDist, sameHash: sameHash, DUP_BITS: DUP_BITS
   };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Core;
@@ -233,10 +219,19 @@ var Logic = (function () {
     '숙제사진': ['숙제ID', '번호', '순서', '파일ID', '올린시각', '검사', '검사메모', '해시'],
     '평가': ['월', '번호', '코멘트', '수정일'],
     // 시험지: 수업 폴더 답지에서 뽑은 정답·문항 수 (강사 화면에서 시험·숙제 등록 때 골라 씀). 학생에게는 보내지 않음
-    '시험지': ['시험지ID', '반종류', '과목', '종류', '회차', '이름', '문항수', '정답', '출처']
+    '시험지': ['시험지ID', '반종류', '과목', '종류', '회차', '이름', '문항수', '정답', '출처'],
+    // 달력: 학원 연간 계획표 (숙제 마감 계산). 월 = 'YYYY-MM', 휴강 = 날짜를 쉼표로 (예: 2026-11-08, 2026-11-09)
+    '달력': ['월', '개강', '종강', '휴강', '메모']
   };
+  /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
+  var VERSION = '2d333a917a';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
-  var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일'];
+  var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
+  var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
+  var PHOTO_MAX_B64 = 4 * 1024 * 1024; // 사진 한 장 3MB (base64 로는 약 4MB)
+  var PHOTO_MAX_PER_HW = 24;         // 숙제 하나에 한 학생 사진 최대 (화면은 한 번에 12장)
+  var DUP_DAYS = 120;                // 같은 사진 찾기는 최근 넉 달 사진과만 비교
+  var PHOTO_KEEP_DAYS = 90;          // 3개월 지난 사진은 드라이브에서 지움 (Code.gs cleanupPhotos)
 
   var LOGIN_FAILS = 5, LOCK_SEC = 60, GLOBAL_FAILS = 40, ADMIN_TTL = 6 * 3600;
   // 관리자 비밀번호는 짧을 수 있어서(4자), 기기를 바꿔 가며 계속 맞혀 보는 것을 막는 전체 한도: 1시간에 20번 틀리면 1시간 막음
@@ -245,7 +240,12 @@ var Logic = (function () {
   function ok(data) { return { ok: true, data: data }; }
   function fail(msg) { return { ok: false, error: msg }; }
   function num(v) { var n = Number(v); return isFinite(n) ? n : 0; }
-  function stamp(env) { var d = env.now(); return C.dateOf(d) + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function stamp(env) { return stampOf(env.now()); }
+  function stampOf(d) { return C.dateOf(d) + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+
+  /* 한 요청 안에서 같은 표를 여러 번 계산하지 않게 (저장하면 비움) */
+  var M = {};
+  function memo(k, fn) { return Object.prototype.hasOwnProperty.call(M, k) ? M[k] : (M[k] = fn()); }
 
   function upsert(env, t, pred, obj) {
     if (env.store.update(t, pred, obj) === 0) env.store.append(t, obj);
@@ -253,12 +253,29 @@ var Logic = (function () {
 
   /* ---------- 읽기 ---------- */
   function classes(env) {
-    return env.store.all('반').map(function (r) {
-      return { code: S(r['반코드']), name: S(r['반이름']), kind: S(r['종류']), time: S(r['요일시간']), active: S(r['활성']) !== 'N' };
-    }).filter(function (c) { return c.code; });
+    return memo('classes', function () {
+      return env.store.all('반').map(function (r) {
+        return { code: S(r['반코드']), name: S(r['반이름']), kind: S(r['종류']), time: S(r['요일시간']), active: S(r['활성']) !== 'N' };
+      }).filter(function (c) { return c.code; });
+    });
   }
+  /** 「달력」 탭 → { 'YYYY-MM': {start, end, off:[...]} }. 탭이 없으면 {} (강사 화면 경고) */
+  function calendar(env) {
+    return memo('cal', function () {
+      var rows, out = {};
+      try { rows = env.store.all('달력'); } catch (e) { out._missing = true; return out; }
+      rows.forEach(function (r) {
+        var m = /^(\d{4})[-.\/](\d{1,2})/.exec(S(r['월']).trim()), a = normDate(r['개강']), b = normDate(r['종강']);
+        if (!m || !a || !b) return;
+        out[m[1] + '-' + ('0' + m[2]).slice(-2)] = { start: a, end: b, off: S(r['휴강']).split(/[,\s]+/).map(normDate).filter(Boolean) };
+      });
+      return out;
+    });
+  }
+  function normDate(v) { var m = /(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/.exec(S(v)); return m ? m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2) : ''; }
   /** 원생명단 + 수강 → [{code, name, classes, active, status, issued}]  (active = 상태가 「차단」이 아님) */
-  function students(env) {
+  function students(env) { return memo('students', function () { return students_(env); }); }
+  function students_(env) {
     var cls = {};
     env.store.all('수강').forEach(function (r) {
       var c = C.normCode(r['번호']);
@@ -273,20 +290,24 @@ var Logic = (function () {
       seen[s.code] = 1; return true;
     });
   }
-  function exams(env) {
+  function exams(env) { return memo('exams', function () { return exams_(env); }); }
+  function exams_(env) {
     return env.store.all('시험').map(function (r) {
       return { id: S(r['시험ID']), cls: S(r['반코드']), month: S(r['월']), kind: S(r['종류']), label: S(r['이름']),
         total: num(r['문항수']), key: C.cleanKey(r['정답']), date: S(r['시험일']), created: S(r['등록일']) };
     }).filter(function (e) { return e.id; });
   }
-  function results(env) {
+  function results(env) { return memo('results', function () { return results_(env); }); }
+  function results_(env) {
     return env.store.all('시험결과').map(function (r) {
       return { exam: S(r['시험ID']), code: S(r['번호']), answers: S(r['답안']), score: num(r['맞은개수']),
         wrong: S(r['틀린번호']).split(',').filter(Boolean).map(Number), conv: S(r['환산점수']) === '' ? null : num(r['환산점수']), at: S(r['입력일']) };
     }).filter(function (r) { return r.exam; });
   }
   /** 숙제 목록 + 마감(due). 마감 칸이 비면 숙제 k(이름의 「N주차」, 없으면 그 반·그 달 등록 순서) = 2k+1번째 수업 시작 */
-  function homework(env) {
+  function homework(env) { return memo('homework', function () { return homework_(env); }); }
+  function homework_(env) {
+    var cal = calendar(env);
     var list = env.store.all('숙제').map(function (r) {
       return { id: S(r['숙제ID']), cls: S(r['반코드']), month: S(r['월']), label: S(r['이름']), book: S(r['교재']),
         p0: num(r['시작쪽']), p1: num(r['끝쪽']), total: num(r['문항수']), created: S(r['등록일']), dueSet: normDue(r['마감']) };
@@ -302,7 +323,7 @@ var Logic = (function () {
         k = same.indexOf(h) + 1;
       }
       h.week = k;
-      h.due = h.dueSet || C.hwDue(h.month, time[h.cls], k);
+      h.due = h.dueSet || C.hwDue(h.month, time[h.cls], k, cal);
     });
     return list;
   }
@@ -314,7 +335,8 @@ var Logic = (function () {
   }
   /** 늦게 냈는지: 학생이 직접 낸 것만 (선생님 대신 입력은 늦음 아님), 처음 낸 시각 > 마감 */
   function isLate(h, s) { return !!(h && s && !s.proxy && h.due && s.first && s.first > h.due); }
-  function hwSubs(env) {
+  function hwSubs(env) { return memo('hwSubs', function () { return hwSubs_(env); }); }
+  function hwSubs_(env) {
     return env.store.all('숙제제출').map(function (r) {
       return { hw: S(r['숙제ID']), code: S(r['번호']), count: S(r['맞은개수']) === '' ? null : num(r['맞은개수']), photos: num(r['사진수']),
         checked: S(r['확인']) === 'Y', proxy: S(r['대리입력']) === 'Y', at: S(r['최종제출일']), first: S(r['처음제출일']) || S(r['최종제출일']) };
@@ -360,52 +382,59 @@ var Logic = (function () {
   function studentView(env, stu) {
     var showKey = S(env.props.get('SHOW_KEY')) === 'Y';
     var cls = classes(env), ex = exams(env), rs = results(env), hw = homework(env), subs = hwSubs(env);
-    // 지금 듣는 반 + 예전에 기록이 있는 반 (반이 매달 바뀌어도 지난 성적이 보이게)
     var curMonth = C.monthOf(env.now()), nowStamp = stamp(env);
-    var mine = stu.classes.slice();
-    function add(c) { if (c && mine.indexOf(c) < 0) mine.push(c); }
-    rs.forEach(function (r) { if (r.code === stu.code) ex.forEach(function (e) { if (e.id === r.exam) add(e.cls); }); });
-    subs.forEach(function (x) { if (x.code === stu.code) hw.forEach(function (h) { if (h.id === x.hw) add(h.cls); }); });
-    // 같은 시험의 누적 평균 (반 종류 + 시험 이름이 같으면 같은 시험 — 달·반이 달라도 모두 모아서). 그달 학생 수준에 덜 흔들리게
-    var kindOfCls = {}, exById = {}, cum = {};
+    // 한 번 훑어서 색인을 만들어 둠 (시험마다 결과 전체를 다시 훑지 않게)
+    var kindOfCls = {}, exById = {}, hwById = {}, byExam = {}, cum = {}, mySub = {};
     cls.forEach(function (c) { kindOfCls[c.code] = c.kind; });
     ex.forEach(function (e) { exById[e.id] = e; });
+    hw.forEach(function (h) { hwById[h.id] = h; });
+    // 지금 듣는 반 + 예전에 기록이 있는 반 (반이 매달 바뀌어도 지난 성적이 보이게)
+    var mine = stu.classes.slice();
+    function add(c) { if (c && mine.indexOf(c) < 0) mine.push(c); }
     rs.forEach(function (r) {
-      var e = exById[r.exam]; if (!e || !e.total || r.score > e.total) return;   // 문항 수보다 큰 점수(입력 오타)는 빼고
+      var e = exById[r.exam];
+      (byExam[r.exam] || (byExam[r.exam] = [])).push(r);
+      if (r.code === stu.code && e) add(e.cls);
+      // 같은 시험의 누적 평균 (반 종류 + 시험 이름이 같으면 같은 시험 — 달·반이 달라도 모두 모아서). 그달 학생 수준에 덜 흔들리게
+      if (!e || !e.total || r.score > e.total) return;   // 문항 수보다 큰 점수(입력 오타)는 빼고
       var k = (kindOfCls[e.cls] || '') + '|' + e.label, o = cum[k] || (cum[k] = { s: 0, n: 0 });
       o.s += r.score / e.total; o.n++;
     });
+    subs.forEach(function (x) { if (x.code === stu.code) { mySub[x.hw] = x; if (hwById[x.hw]) add(hwById[x.hw].cls); } });
+    var exByCls = {}, hwByCls = {};
+    ex.forEach(function (e) { (exByCls[e.cls] || (exByCls[e.cls] = [])).push(e); });
+    hw.forEach(function (h) { (hwByCls[h.cls] || (hwByCls[h.cls] = [])).push(h); });
     return {
       name: stu.name, code: stu.code,
       classes: cls.filter(function (c) { return mine.indexOf(c.code) >= 0; }).sort(function (a, b) {
         return (stu.classes.indexOf(a.code) < 0) - (stu.classes.indexOf(b.code) < 0); // 지금 듣는 반 먼저
       }).map(function (c) {
-        var tests = ex.filter(function (e) { return e.cls === c.code; }).sort(examSort).map(function (e) {
-          var mine = null, all = [], convs = [];
-          rs.forEach(function (r) {
-            if (r.exam !== e.id) return;
+        var current = stu.classes.indexOf(c.code) >= 0;
+        var tests = (exByCls[c.code] || []).slice().sort(examSort).map(function (e) {
+          var me = null, all = [], convs = [];
+          (byExam[e.id] || []).forEach(function (r) {
             if (!(e.total && r.score > e.total)) all.push(r.score);   // 입력 오타(문항 수보다 큰 점수)는 반 평균에서 뺌
             if (r.conv !== null) convs.push(r.conv);
-            if (r.code === stu.code) mine = r;
+            if (r.code === stu.code) me = r;
           });
           var t = { id: e.id, month: e.month, kind: e.kind, label: e.label, date: e.date, total: e.total,
-            score: mine ? mine.score : null, avg: C.mean(all), n: all.length,
-            conv: mine ? mine.conv : null, convAvg: C.mean(convs), wrong: mine ? mine.wrong : [] };
+            score: me ? me.score : null, avg: C.mean(all), n: all.length,
+            conv: me ? me.conv : null, convAvg: C.mean(convs), wrong: me ? me.wrong : [] };
           var ck = cum[c.kind + '|' + e.label];
           t.cum = ck ? { pct: Math.round(ck.s / ck.n * 1000) / 10, n: ck.n } : null;   // 같은 시험 누적 평균 정답률(%)·인원
-          if (showKey && mine && mine.answers) t.wrongDetail = C.grade(e.key, mine.answers).wrong;   // 답안 기록이 없는(옮겨 온) 성적은 제외
+          if (showKey && me && me.answers) t.wrongDetail = C.grade(e.key, me.answers).wrong;   // 답안 기록이 없는(옮겨 온) 성적은 제외
           return t;
         }).filter(function (t) {
           // 지난 달은 본 시험만, 이번 달은 지금 듣는 반의 시험 전부 (반이 달마다 바뀌어도 남의 달 시험이 「미응시」로 쌓이지 않게)
-          return t.score !== null || (t.month >= curMonth && stu.classes.indexOf(c.code) >= 0);
+          return t.score !== null || (t.month >= curMonth && current);
         });
-        var hws = hw.filter(function (h) { return h.cls === c.code; }).map(function (h) {
-          var s = subs.filter(function (x) { return x.hw === h.id && x.code === stu.code; })[0];
+        var hws = (hwByCls[c.code] || []).map(function (h) {
+          var x = mySub[h.id];
           return { id: h.id, month: h.month, label: h.label, book: h.book, p0: h.p0, p1: h.p1, total: h.total,
-            done: !!s, count: s ? s.count : null, photos: s ? s.photos : 0, checked: s ? s.checked : false,
-            due: h.due, late: isLate(h, s), overdue: !s && !!h.due && nowStamp > h.due };
-        }).filter(function (w) { return w.done || (w.month >= curMonth && stu.classes.indexOf(c.code) >= 0); });
-        return { code: c.code, name: c.name, kind: c.kind, time: c.time, current: stu.classes.indexOf(c.code) >= 0, tests: tests, hw: hws };
+            done: !!x, count: x ? x.count : null, photos: x ? x.photos : 0, checked: x ? x.checked : false,
+            due: h.due, late: isLate(h, x), overdue: !x && !!h.due && nowStamp > h.due };
+        }).filter(function (w) { return w.done || (w.month >= curMonth && current); });
+        return { code: c.code, name: c.name, kind: c.kind, time: c.time, current: current, tests: tests, hw: hws };
       })
     };
   }
@@ -423,12 +452,18 @@ var Logic = (function () {
       return fail(left ? '없는 번호예요. 선생님께 받은 번호를 다시 확인해 주세요. (남은 기회 ' + left + '번)' : '5번 틀렸어요. 1분 뒤에 다시 해 주세요.');
     }
     env.cache.remove('fail:s:' + dev);
-    return ok(studentView(env, stu));
+    // 학생 열쇠: 숙제 제출은 번호 대신 이 열쇠로만 받음 (번호를 넣어 보며 맞히는 길을 막음)
+    var tok = env.uuid();
+    env.cache.put('stu:' + tok, stu.code, STU_TTL);
+    var v = studentView(env, stu); v.tok = tok;
+    return ok(v);
   }
 
+  /** 숙제 제출하는 학생: 로그인 때 받은 열쇠(tok)로만 찾음. 열쇠가 없거나 지났으면 화면이 다시 로그인하고 한 번 더 보냄 */
   function studentFor(env, p) {
-    var code = C.normCode(p.code), stu = C.isValidCode(code) ? findStudent(env, code) : null;
-    if (!stu || !stu.active) throw new Error('번호를 다시 확인해 주세요.');
+    var code = S(p.tok) ? S(env.cache.get('stu:' + S(p.tok))) : '';
+    var stu = code ? findStudent(env, code) : null;
+    if (!stu || !stu.active) { var e = new Error('다시 로그인해 주세요.'); e.needLogin = true; throw e; }
     return stu;
   }
   function hwFor(env, stu, id) {
@@ -441,14 +476,19 @@ var Logic = (function () {
     var stu = studentFor(env, p), h = hwFor(env, stu, p.hw);
     var b64 = S(p.b64), hash = S(p.hash).toLowerCase();
     if (!b64) return fail('사진이 비어 있어요.');
+    if (b64.length > PHOTO_MAX_B64) return fail('사진이 너무 커요 (한 장 3MB까지). 다시 찍어 주세요.');
+    if (b64.slice(0, 4) !== '/9j/') return fail('사진 파일만 올릴 수 있어요.');   // JPEG (화면이 항상 JPEG로 줄여 보냄)
     if (!/^[0-9a-f]{64}$/.test(hash)) hash = '';
+    var since = stampOf(new Date(env.now().getTime() - DUP_DAYS * 86400000));
+    var mineN = 0;
     // 같은 사진 찾기: 같은 숙제에 이미 올린 사진이면 다시 저장하지 않음, 내 다른 숙제 사진이면 거절, 다른 학생 사진과 같으면 받되 선생님 화면에 ⚠
     var dupMsg = '';
     if (hash) {
       var rows = env.store.all('숙제사진'), hwAll = null, stAll = null;
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
-        if (!C.sameHash(hash, r['해시'])) continue;
+        if (S(r['숙제ID']) === h.id && S(r['번호']) === stu.code) mineN++;
+        if (S(r['올린시각']) < since || !C.sameHash(hash, r['해시'])) continue;
         var rc = S(r['번호']), rh = S(r['숙제ID']);
         if (rc === stu.code && rh === h.id) return ok({ fileId: S(r['파일ID']), check: null, dup: 'same' });
         hwAll = hwAll || homework(env);
@@ -462,7 +502,9 @@ var Logic = (function () {
       }
     }
     if (b64.length > 10 * 1024 * 1024) return fail('사진이 너무 커요. 다시 찍어 주세요.');
-    var mime = /^image\/(jpeg|png|webp|heic)$/.test(S(p.mime)) ? S(p.mime) : 'image/jpeg';
+    if (!hash) mineN = env.store.all('숙제사진').filter(function (r) { return S(r['숙제ID']) === h.id && S(r['번호']) === stu.code; }).length;
+    if (mineN >= PHOTO_MAX_PER_HW) return fail('숙제 하나에 사진은 ' + PHOTO_MAX_PER_HW + '장까지 올릴 수 있어요.');
+    var mime = 'image/jpeg';
     var order = num(p.order) || 1;
     var c = classes(env).filter(function (x) { return x.code === h.cls; })[0];
     var fileId = env.saveImage({
@@ -512,7 +554,7 @@ var Logic = (function () {
     }
     var token = env.uuid();
     env.cache.put('adm:' + token, '1', ADMIN_TTL);
-    return ok({ token: token });
+    return ok({ token: token, boot: bootstrap(env).data });   // 로그인과 첫 불러오기를 한 번에 (왕복 한 번 줄임)
   }
   function isAdmin(env, token) { return !!token && env.cache.get('adm:' + S(token)) === '1'; }
 
@@ -522,7 +564,45 @@ var Logic = (function () {
     var subs = hwSubs(env);
     subs.forEach(function (s) { s.late = isLate(byId[s.hw], s); });
     return ok({ classes: classes(env), students: students(env), exams: exams(env), results: results(env),
-      homework: hw, hwSubs: subs, photoWarns: photoWarns(env), evals: evals(env), papers: papers(env), today: C.dateOf(env.now()), now: stamp(env) });
+      homework: hw, hwSubs: subs, photoWarns: photoWarns(env), evals: evals(env), papers: papers(env), today: C.dateOf(env.now()), now: stamp(env),
+      warnings: warnings(env) });
+  }
+
+  /** 강사 화면 맨 위 경고: 달력에 없는 달, 수업 요일을 모르는 반, 시트에 없는 칸 */
+  function warnings(env) {
+    var out = [], cal = calendar(env), cur = C.monthOf(env.now());
+    if (cal._missing) out.push('기록장에 「달력」 탭이 없어요. 숙제 마감을 달력상 1일~말일로 계산하고 있어요. 「달력」 탭(월·개강·종강·휴강·메모)을 만들어 주세요.');
+    else {
+      var need = [cur, C.nextMonth(cur)];
+      homework(env).forEach(function (h) { if (h.month >= cur && need.indexOf(h.month) < 0) need.push(h.month); });
+      var miss = need.filter(function (m) { return !cal[m]; }).sort();
+      if (miss.length) out.push('「달력」 탭에 ' + miss.map(function (m) { return (+m.slice(0, 4)) + '년 ' + (+m.slice(5)) + '월'; }).join(', ') + '이 없어요. 학원 계획표의 개강·종강·휴강을 넣어 주세요. (없으면 숙제 마감을 1일~말일로 계산)');
+    }
+    classes(env).forEach(function (c) {
+      if (c.active && !C.classDays(c.time).days.length) out.push('「반」 탭의 ' + c.name + ' 요일시간(「' + c.time + '」)에서 수업 요일을 못 읽었어요. 「화목 20:20」처럼 적어 주세요. (숙제 마감 계산에 씀)');
+    });
+    if (env.store.head) Object.keys(TABLES).forEach(function (t) {
+      var head; try { head = env.store.head(t); } catch (e) { return; }
+      if (!head) return;
+      var lack = TABLES[t].filter(function (h) { return head.indexOf(h) < 0; });
+      if (lack.length) out.push('「' + t + '」 탭 첫 줄에 ' + lack.map(function (h) { return '「' + h + '」'; }).join('') + ' 칸이 없어요. 이 칸에 저장할 내용이 빠져요. 첫 줄 오른쪽 끝에 칸 이름을 적어 주세요.');
+    });
+    return out;
+  }
+
+  /** 3개월 지난 숙제 사진 지우기 (Code.gs 의 매일 트리거가 부름). trash(fileId) 는 드라이브 휴지통으로 옮김. 한 번에 max 장까지 */
+  function cleanupPhotos(env, trash, max) {
+    loadCore(); M = {};
+    var before = stampOf(new Date(env.now().getTime() - PHOTO_KEEP_DAYS * 86400000)), done = 0, failed = 0;
+    var old = env.store.all('숙제사진').filter(function (r) { return S(r['파일ID']) && S(r['올린시각']) && S(r['올린시각']) < before; }).slice(0, max || 200);
+    old.forEach(function (r) {
+      var id = S(r['파일ID']);
+      try { trash(id); } catch (e) { failed++; }
+      env.store.update('숙제사진', function (x) { return S(x['파일ID']) === id; },
+        { '파일ID': '', '검사메모': (S(r['검사메모']) ? S(r['검사메모']) + ' · ' : '') + '3개월 지나 지움 (' + C.dateOf(env.now()) + ')' });
+      done++;
+    });
+    return { removed: done, failed: failed, left: Math.max(0, env.store.all('숙제사진').filter(function (r) { return S(r['파일ID']) && S(r['올린시각']) < before; }).length) };
   }
 
   /** 숙제 마감 직접 정하기 (빈 값이면 자동 계산으로 되돌림) */
@@ -624,7 +704,7 @@ var Logic = (function () {
 
   function hwPhotos(env, p) {
     return ok(env.store.all('숙제사진').filter(function (r) { return S(r['숙제ID']) === S(p.hw) && S(r['번호']) === S(p.code); })
-      .map(function (r) { return { order: num(r['순서']), fileId: S(r['파일ID']), at: S(r['올린시각']), check: S(r['검사']), note: S(r['검사메모']) }; })
+      .map(function (r) { return { order: num(r['순서']), fileId: S(r['파일ID']), gone: !S(r['파일ID']), at: S(r['올린시각']), check: S(r['검사']), note: S(r['검사메모']) }; })
       .sort(function (a, b) { return a.order - b.order; }));
   }
 
@@ -688,25 +768,34 @@ var Logic = (function () {
   function handle(env, action, p) {
     p = p || {};
     loadCore();
+    M = {};
+    // 저장할 때마다 계산해 둔 표를 비움
+    var st = env.store, env2 = Object.assign({}, env, { store: Object.assign({}, st, {
+      append: function (t, o) { M = {}; return st.append(t, o); },
+      update: function (t, f, o) { M = {}; return st.update(t, f, o); },
+      remove: function (t, f) { M = {}; return st.remove(t, f); }
+    }) });
+    var res;
     try {
-      if (action === 'ping') return ok({ time: stamp(env) });
-      if (action === 'adminLogin') return adminLogin(env, p);
-      if (STUDENT[action]) return STUDENT[action](env, p);
-      if (ADMIN[action]) {
-        if (!isAdmin(env, p.token)) return { ok: false, error: '관리자 로그인이 필요해요.', needLogin: true };
-        return ADMIN[action](env, p);
-      }
-      return fail('알 수 없는 요청이에요: ' + action);
+      if (action === 'ping') res = ok({ time: stamp(env2) });
+      else if (action === 'adminLogin') res = adminLogin(env2, p);
+      else if (STUDENT[action]) res = STUDENT[action](env2, p);
+      else if (ADMIN[action]) res = isAdmin(env2, p.token) ? ADMIN[action](env2, p) : { ok: false, error: '관리자 로그인이 필요해요.', needLogin: true };
+      else res = fail('알 수 없는 요청이에요: ' + action);
     } catch (e) {
-      return fail(e && e.message ? e.message : String(e));
+      res = fail(e && e.message ? e.message : String(e));
+      if (e && e.needLogin) res.needLogin = true;
     }
+    M = {};
+    res.ver = VERSION;
+    return res;
   }
 
   /** 쓰기 요청인지 (서버에서 잠금 걸 때 사용) */
   var WRITES = ['hwPhoto', 'hwFinish', 'saveResult', 'deleteResult', 'addExam', 'updateExamKey', 'deleteExam', 'addHomework',
     'deleteHomework', 'setChecked', 'proxyHw', 'importRoster', 'setClasses', 'saveEval', 'setHwDue'];
 
-  return { TABLES: TABLES, TEXT_COLS: TEXT_COLS, WRITES: WRITES, handle: handle };
+  return { TABLES: TABLES, TEXT_COLS: TEXT_COLS, WRITES: WRITES, VERSION: VERSION, handle: handle, cleanupPhotos: cleanupPhotos };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Logic;
 
@@ -722,11 +811,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = Logic;
  * - Core.gs, Logic.gs 는 docs/assets 의 core.js, logic.js 를 복사한 것입니다. 여기서 직접 고치지 마세요.
  */
 
-var PHOTO_FOLDER_NAME = '성적노트_숙제사진';
 
 /* ---------- 웹앱 입구 ---------- */
 function doGet() {
-  return json_({ ok: true, data: { app: '성적노트', time: new Date().toISOString() } });
+  return json_({ ok: true, data: { app: '성적노트', time: new Date().toISOString() }, ver: Logic.VERSION });
 }
 
 function doPost(e) {
@@ -734,20 +822,20 @@ function doPost(e) {
   try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); }
   catch (err) { return json_({ ok: false, error: '요청을 읽지 못했어요.' }); }
   var action = String(body.action || ''), payload = body.payload || {};
-  var lock = null;
-  if (Logic.WRITES.indexOf(action) >= 0) {
+  if (action === 'ping') return json_({ ok: true, data: { time: new Date().toISOString() }, ver: Logic.VERSION });   // 시트를 열지 않음 (화면을 열 때 서버를 미리 깨우는 용도)
+  var lock = null, write = Logic.WRITES.indexOf(action) >= 0;
+  if (write) {
     lock = LockService.getScriptLock();
-    if (!lock.tryLock(20000)) return json_({ ok: false, error: '지금 저장하는 사람이 많아요. 잠시 뒤에 다시 눌러 주세요.' });
+    if (!lock.tryLock(25000)) return json_({ ok: false, error: '지금 저장하는 사람이 많아요. 잠시 뒤에 다시 눌러 주세요.' });
   }
-  var write = !!lock;
+  var env = makeEnv_(lock);
   try {
-    // 쓰기 요청은 시트를 직접 읽음(행 위치가 정확해야 하므로). 읽기 요청은 캐시를 씀
-    return json_(Logic.handle(makeEnv_(!write), action, payload));
+    return json_(Logic.handle(env, action, payload));
   } catch (err) {
     return json_({ ok: false, error: String(err && err.message || err) });
   } finally {
-    if (write) bumpDataVer_();
-    if (lock) lock.releaseLock();
+    try { env.store.flush(); } catch (err2) { bumpTables_(Object.keys(Logic.TABLES)); }   // 바뀐 표만 버전을 올리고 캐시에 바로 넣음
+    if (lock) { try { lock.releaseLock(); } catch (err3) { /* 이미 풀림 */ } }
   }
 }
 
@@ -756,18 +844,24 @@ function json_(o) {
 }
 
 /* ---------- 캐시: 시트를 매번 다 읽지 않도록 ----------
- * 읽은 표를 CacheService 에 최대 6시간 보관. 키에 「데이터 버전」이 들어가서
- * 화면에서 저장하거나(doPost 쓰기) 시트를 손으로 고치면(onEdit) 버전이 바뀌고, 다음 조회 때 새로 읽음.
- * 원생명단은 퇴실퀴즈도 고치는 시트라 10분만 보관. 메뉴 「캐시 비우기」로 바로 비울 수도 있음. */
-var CACHE_SEC = 21600, ROSTER_CACHE_SEC = 600, CACHE_CHUNK = 30000;  // 한 칸 100KB 제한 → 한글 3바이트 고려해 3만 자씩
-function dataVer_() {
-  var p = PropertiesService.getScriptProperties(), v = p.getProperty('DATA_VER');
-  if (!v) { v = String(Date.now()); p.setProperty('DATA_VER', v); }
+ * 읽은 표를 CacheService 에 최대 6시간 보관. 키에 「표 버전」(스크립트 속성 DV_<표이름>)이 들어감.
+ * 저장하면 그 표만 버전이 바뀌고, 바뀐 내용을 곧바로 캐시에 넣어 둠 → 다른 표·다음 요청은 계속 캐시로 빠르게.
+ * 시트를 손으로 고치면 onEdit 이 그 표 버전만 올림. 원생명단은 퇴실퀴즈도 고치는 시트라 20분 보관 + 10분마다 트리거가 새로 읽음(warmCache).
+ * 메뉴 「캐시 비우기」로 전부 비울 수도 있음. */
+var CACHE_SEC = 21600, ROSTER_CACHE_SEC = 1200, CACHE_CHUNK = 30000;  // 한 칸 100KB 제한 → 한글 3바이트 고려해 3만 자씩
+var PROPS_ = null;
+function props_() { if (!PROPS_) PROPS_ = PropertiesService.getScriptProperties().getProperties(); return PROPS_; }   // 한 요청에 한 번만 읽음
+function prop_(k) { return props_()[k] || ''; }
+function tableVer_(t) { return prop_('DV_' + t) || prop_('DATA_VER') || '0'; }
+function bumpTables_(names) {
+  if (!names.length) return '';
+  var v = String(Date.now()) + String(Math.floor(Math.random() * 1000)), o = {};
+  names.forEach(function (t) { o['DV_' + t] = v; });
+  try { PropertiesService.getScriptProperties().setProperties(o); } catch (e) { return ''; }
+  if (PROPS_) Object.keys(o).forEach(function (k) { PROPS_[k] = o[k]; });
   return v;
 }
-function bumpDataVer_() {
-  try { PropertiesService.getScriptProperties().setProperty('DATA_VER', String(Date.now()) + String(Math.floor(Math.random() * 1000))); } catch (e) { /* 다음 요청에서 다시 */ }
-}
+function bumpDataVer_() { bumpTables_(Object.keys(Logic.TABLES)); }
 function cachePutBig_(key, str, sec) {
   var n = Math.max(1, Math.ceil(str.length / CACHE_CHUNK)), o = {};
   for (var i = 0; i < n; i++) o[key + ':' + i] = str.substr(i * CACHE_CHUNK, CACHE_CHUNK);
@@ -782,26 +876,32 @@ function cacheGetBig_(key) {
   for (i = 0; i < n; i++) { if (m[ks[i]] === undefined || m[ks[i]] === null) return null; s += m[ks[i]]; }
   return s;
 }
-/** 시트를 손으로 고치면 캐시를 버림 (단순 트리거 — 따로 설정할 것 없음) */
-function onEdit() { bumpDataVer_(); }
+/** 시트를 손으로 고치면 그 표의 캐시만 버림 (단순 트리거 — 따로 설정할 것 없음) */
+function onEdit(e) {
+  var name = '';
+  try { name = e.range.getSheet().getName(); } catch (err) { name = ''; }
+  if (Logic.TABLES[name]) bumpTables_([name]); else bumpDataVer_();
+}
 function clearCache() { bumpDataVer_(); notify_('캐시 비우기', '다음 조회부터 시트를 새로 읽어요.'); }
 
 /* ---------- 저장소: 구글 시트 ---------- */
 function spreadsheet_() {
-  var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+  var id = prop_('SHEET_ID');
   return id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
 }
 
-/** getSheet(t) → 시트. 첫 줄이 비어 있으면 Logic.TABLES 의 머리글을 써 넣음 */
-function sheetStore_(getSheet, cacheOpt) {
-  var mem = {};
+/** getSheet(t) → 시트. opt = { prefix, sec, fixHead }.
+ *  첫 줄이 비어 있으면 머리글을 써 넣고, Logic.TABLES 에 새로 생긴 칸이 첫 줄에 없으면 오른쪽 끝에 칸 이름을 붙임(fixHead) */
+function sheetStore_(getSheet, opt) {
+  var mem = {}, dirty = {};
+  function key(t) { return opt.prefix + t + ':' + tableVer_(t); }
+  function pack(c) { return JSON.stringify({ h: c.head, d: c.rows.map(function (o) { return c.head.map(function (h) { return o[h]; }); }) }); }
   /** fresh=true 이면 캐시를 쓰지 않고 시트에서 읽음 (쓰기 직전) */
   function load(t, fresh) {
     if (mem[t] && !(fresh && mem[t].cached)) return mem[t];
-    var key = cacheOpt ? cacheOpt.prefix + t : '';
-    if (key && !fresh) {
+    if (!fresh) {
       var hit = null;
-      try { hit = JSON.parse(cacheGetBig_(key) || 'null'); } catch (e) { hit = null; }
+      try { hit = JSON.parse(cacheGetBig_(key(t)) || 'null'); } catch (e) { hit = null; }
       if (hit) {
         var rowsC = hit.d.map(function (r) { var o = {}; hit.h.forEach(function (h, i) { o[h] = r[i]; }); return o; });
         mem[t] = { sh: null, head: hit.h, rows: rowsC, cached: true };
@@ -816,23 +916,32 @@ function sheetStore_(getSheet, cacheOpt) {
       values = [Logic.TABLES[t].slice()];
     }
     var head = values[0].map(function (h) { return String(h).trim(); });
+    while (head.length && head[head.length - 1] === '') head.pop();
+    if (opt.fixHead && Logic.TABLES[t]) {
+      var lack = Logic.TABLES[t].filter(function (h) { return head.indexOf(h) < 0; });
+      if (lack.length) {
+        sh.getRange(1, head.length + 1, 1, lack.length).setNumberFormat('@').setValues([lack]);
+        head = head.concat(lack);
+      }
+    }
     var rows = values.slice(1).map(function (r) {
-      var o = {}; head.forEach(function (h, i) { o[h] = r[i] === null ? '' : String(r[i]); }); return o;
+      var o = {}; head.forEach(function (h, i) { o[h] = r[i] === null || r[i] === undefined ? '' : String(r[i]); }); return o;
     });
     mem[t] = { sh: sh, head: head, rows: rows };
-    if (key) cachePutBig_(key, JSON.stringify({ h: head, d: rows.map(function (o) { return head.map(function (h) { return o[h]; }); }) }), cacheOpt.sec);
+    cachePutBig_(key(t), pack(mem[t]), opt.sec);
     return mem[t];
   }
   function toRow(c, o) { return c.head.map(function (h) { return o[h] === undefined || o[h] === null ? '' : String(o[h]); }); }
   return {
     all: function (t) { return load(t).rows.map(function (r) { return Object.assign({}, r); }); },
+    head: function (t) { return load(t).head.slice(); },
     append: function (t, o) {
       var c = load(t, true), row = toRow(c, o), r = c.sh.getLastRow() + 1;
       var range = c.sh.getRange(r, 1, 1, c.head.length);
       range.setNumberFormat('@');           // 0으로 시작하는 답안·번호가 숫자로 바뀌지 않게
       range.setValues([row]);
       var copy = {}; c.head.forEach(function (h, i) { copy[h] = row[i]; });
-      c.rows.push(copy);
+      c.rows.push(copy); dirty[t] = 1;
     },
     update: function (t, pred, patch) {
       var c = load(t, true), n = 0;
@@ -844,34 +953,49 @@ function sheetStore_(getSheet, cacheOpt) {
         range.setValues([toRow(c, r)]);
         n++;
       });
+      if (n) dirty[t] = 1;
       return n;
     },
     remove: function (t, pred) {
       var c = load(t, true), idx = [];
       c.rows.forEach(function (r, i) { if (pred(r)) idx.push(i); });
       for (var k = idx.length - 1; k >= 0; k--) { c.sh.deleteRow(idx[k] + 2); c.rows.splice(idx[k], 1); }
+      if (idx.length) dirty[t] = 1;
       return idx.length;
-    }
+    },
+    /** 바뀐 표: 버전을 올리고 지금 내용을 새 버전 캐시에 바로 넣음 (다음 사람이 시트를 다시 읽지 않게) */
+    flush: function () {
+      var ts = Object.keys(dirty); dirty = {};
+      if (!ts.length) return;
+      bumpTables_(ts);
+      ts.forEach(function (t) { if (mem[t]) cachePutBig_(key(t), pack(mem[t]), opt.sec); });
+    },
+    /** 캐시에 없으면 읽어 둠 (fresh=true 면 시트에서 새로) */
+    warm: function (t, fresh) { load(t, !!fresh); }
   };
 }
 
 /** 원생명단(퇴실퀴즈와 같이 쓰는 시트)이 연결돼 있으면 「원생」은 그 시트의 첫 탭, 아니면 기록장 안의 「원생」 탭 */
-function rosterId_() { return PropertiesService.getScriptProperties().getProperty('ROSTER_ID') || ''; }
-function makeStore_(useCache) {
-  var ss = null, rid = rosterId_(), ver = useCache ? dataVer_() : '';
+function rosterId_() { return prop_('ROSTER_ID'); }
+function makeStore_() {
+  var ss = null, rid = rosterId_();
   function book() { return ss || (ss = spreadsheet_()); }   // 캐시로 다 되면 시트 파일을 열지도 않음
-  var main = sheetStore_(function (t) { return book().getSheetByName(t); }, useCache ? { prefix: 'tbl:' + ver + ':', sec: CACHE_SEC } : null);
-  var roster = rid ? sheetStore_(function () { return SpreadsheetApp.openById(rid).getSheets()[0]; }, useCache ? { prefix: 'ros:' + ver + ':', sec: ROSTER_CACHE_SEC } : null) : null;
+  var main = sheetStore_(function (t) { return book().getSheetByName(t); }, { prefix: 'tb:', sec: CACHE_SEC, fixHead: true });
+  var roster = rid ? sheetStore_(function () { return SpreadsheetApp.openById(rid).getSheets()[0]; }, { prefix: 'ro:', sec: ROSTER_CACHE_SEC, fixHead: false }) : null;
   function pick(t) { return t === '원생' && roster ? roster : main; }
   return {
     all: function (t) { return pick(t).all(t); },
+    head: function (t) { return pick(t).head(t); },
     append: function (t, o) { return pick(t).append(t, o); },
     update: function (t, f, o) { return pick(t).update(t, f, o); },
-    remove: function (t, f) { return pick(t).remove(t, f); }
+    remove: function (t, f) { return pick(t).remove(t, f); },
+    flush: function () { main.flush(); if (roster) roster.flush(); },
+    warm: function (t, fresh) { return pick(t).warm(t, fresh); }
   };
 }
 
 /* ---------- 사진: 구글 드라이브 ---------- */
+var PHOTO_FOLDER_NAME = '성적노트_숙제사진', BACKUP_FOLDER_NAME = '성적노트_백업', BACKUP_KEEP = 30;
 function photoRoot_() {
   var props = PropertiesService.getScriptProperties(), id = props.getProperty('PHOTO_FOLDER_ID');
   if (id) { try { return DriveApp.getFolderById(id); } catch (e) { /* 지워졌으면 새로 만듦 */ } }
@@ -892,21 +1016,64 @@ function saveImage_(o) {
 }
 
 /* ---------- env 조립 ---------- */
-function makeEnv_(useCache) {
-  var cache = CacheService.getScriptCache(), props = PropertiesService.getScriptProperties();
+/** lock: 쓰기 요청이면 잡은 잠금. 사진을 드라이브에 저장하는 동안은 잠금을 잠깐 풀어 다른 학생 저장이 줄 서지 않게 함 */
+function makeEnv_(lock) {
+  var cache = CacheService.getScriptCache();
   return {
-    store: makeStore_(!!useCache),
+    store: makeStore_(),
     cache: {
       get: function (k) { return cache.get(k); },
       put: function (k, v, sec) { cache.put(k, String(v), Math.min(21600, Math.max(1, sec))); },
       remove: function (k) { cache.remove(k); }
     },
-    props: { get: function (k) { return props.getProperty(k) || ''; } },
+    props: { get: function (k) { return prop_(k); } },
     now: function () { return new Date(); },
     uuid: function () { return Utilities.getUuid(); },
     rand32: function () { return parseInt(Utilities.getUuid().replace(/-/g, '').slice(0, 8), 16); },
-    saveImage: saveImage_
+    saveImage: function (o) {
+      if (!lock) return saveImage_(o);
+      lock.releaseLock();
+      try { return saveImage_(o); }
+      finally { if (!lock.tryLock(25000)) throw new Error('지금 저장하는 사람이 많아요. 잠시 뒤에 다시 올려 주세요.'); }
+    }
   };
+}
+
+/* ---------- 매일·10분마다 도는 일 (트리거: 편집기 「트리거」에서 시간 기반으로 추가) ---------- */
+/** 10분마다: 캐시를 미리 채워 둠 (원생명단은 새로 읽음) → 학생·선생님이 시트 읽기를 기다리지 않게 */
+function warmCache() {
+  var st = makeStore_();
+  Object.keys(Logic.TABLES).forEach(function (t) { try { st.warm(t, t === '원생'); } catch (e) { /* 없는 탭은 건너뜀 */ } });
+}
+
+/** 매일: 3개월 지난 숙제 사진을 드라이브 휴지통으로 (휴지통에서 30일 뒤 완전히 지워짐). 시트에는 「3개월 지나 지움」 표시 */
+function cleanupPhotos() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(60000)) return;
+  var env = makeEnv_(null), r;
+  try {
+    r = Logic.cleanupPhotos(env, function (id) { DriveApp.getFileById(id).setTrashed(true); }, 300);
+  } finally { env.store.flush(); lock.releaseLock(); }
+  Logger.log('사진 정리: ' + r.removed + '장 지움' + (r.failed ? ', ' + r.failed + '장은 이미 없음' : '') + (r.left ? ', 남은 ' + r.left + '장은 다음에' : ''));
+}
+
+/** 매일(또는 메뉴에서): 기록장 모든 탭 + 원생명단을 값 그대로 새 스프레드시트로 복사해 「성적노트_백업」 폴더에. 최근 30개만 남김 */
+function backupNow() {
+  var src = spreadsheet_(), stamp = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HHmm');
+  var dst = SpreadsheetApp.create('성적노트 백업 ' + stamp + ' (' + src.getName() + ')');
+  src.getSheets().forEach(function (sh) { sh.copyTo(dst).setName(sh.getName()); });
+  var rid = rosterId_();
+  if (rid) { try { SpreadsheetApp.openById(rid).getSheets()[0].copyTo(dst).setName('원생명단(퇴실퀴즈)'); } catch (e) { /* 못 열면 건너뜀 */ } }
+  var first = dst.getSheets()[0]; if (dst.getSheets().length > 1 && /^(시트|Sheet)\s*1$/.test(first.getName())) dst.deleteSheet(first);
+  var props = PropertiesService.getScriptProperties(), fid = props.getProperty('BACKUP_FOLDER_ID'), folder = null;
+  if (fid) { try { folder = DriveApp.getFolderById(fid); } catch (e) { folder = null; } }
+  if (!folder) { folder = DriveApp.createFolder(BACKUP_FOLDER_NAME); props.setProperty('BACKUP_FOLDER_ID', folder.getId()); }
+  DriveApp.getFileById(dst.getId()).moveTo(folder);
+  var files = [], it = folder.getFiles();
+  while (it.hasNext()) { var f = it.next(); if (/^성적노트 백업 /.test(f.getName())) files.push(f); }
+  files.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
+  files.slice(BACKUP_KEEP).forEach(function (f) { f.setTrashed(true); });
+  notify_('백업', '「' + BACKUP_FOLDER_NAME + '」 폴더에 저장했어요: ' + dst.getName() + ' (최근 ' + BACKUP_KEEP + '개 보관)');
 }
 
 /* ---------- 시트 메뉴 ---------- */
@@ -924,6 +1091,7 @@ function onOpen() {
     .addSeparator()
     .addItem('학생 화면에 정답 보이기 켜기/끄기', 'toggleShowKey')
     .addItem('캐시 비우기 (시트를 고쳤는데 화면에 안 보일 때)', 'clearCache')
+    .addItem('지금 백업하기', 'backupNow')
     .addItem('설정 상태 보기', 'showStatus')
     .addToUi();
 }

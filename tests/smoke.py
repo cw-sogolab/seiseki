@@ -66,7 +66,12 @@ with sync_playwright() as p:
         else: pg.click('[data-sub="GN-HM"]'); pg.click('[data-ep="GN-경제-T3"]'); pg.wait_for_selector('#stIn')
         pg.fill('#stIn', '최더미'); pg.fill('#ansIn', '111111111111111'); pg.press('#ansIn', 'Enter')
         pg.wait_for_function("document.querySelector('#emsg').innerText.includes('저장')")
-        check('최더미 저장' in pg.inner_text('#emsg'), '답안 입력 → 저장·채점')
+        if not isdev: check('최더미 저장' in pg.inner_text('#emsg'), '답안 입력 → 저장·채점')
+        else:
+            check(pg.input_value('#stIn') == '' and '최더미' in pg.inner_text('#emsg'), '답안 입력 → 바로 채점·다음 학생 (저장은 뒤에서)')
+            pg.wait_for_function("document.querySelector('#emsg').innerText.includes('저장했어요')")
+            check('입력됨' in pg.inner_text('#roster'), '뒤에서 저장 끝나면 「저장했어요」')
+            check(pg.query_selector('#warns .topwarn') is None, '경고 없음 (달력·칸·버전 모두 맞음)')
         pg.click('nav button[data-t="exams"]')
         if pg.query_selector('[data-prep]'):   # 새 시험 탭 (개발판 먼저 — 본판은 promote 뒤에 같아짐)
             pg.select_option('[data-subsel="GN-SS"]', '정치'); pg.click('[data-prep="GN-SS"]')

@@ -1,23 +1,47 @@
 /* 학생 화면: 번호로 들어와 성적 조회 + 숙제 사진 제출 */
 (function () {
   var $ = UI.$, esc = UI.esc;
-  var view = null, code = '', cur = 0, month = '', busy = false;
+  var view = null, code = '', tok = '', cur = 0, month = '', busy = false;
 
   if (Api.demo) $('#demo').hidden = false;
 
   function setBusy(btn, on, label) { busy = on; btn.disabled = on; if (label) btn.textContent = label; }
 
-  function login(c) {
+  /** quiet: 저장해 둔 화면을 먼저 보여 준 뒤 뒤에서 새로 불러올 때 (버튼·오류를 로그인 화면에 띄우지 않음) */
+  function login(c, quiet) {
     var btn = $('#go');
-    if (busy) return;
-    setBusy(btn, true, '확인하는 중…');
-    Api.call('login', { code: c }).then(function (r) {
-      setBusy(btn, false, '조회하기');
-      if (!r.ok) { $('#loginMsg').textContent = r.error; UI.store.del('seiseki.code'); return; }
+    if (busy && !quiet) return;
+    if (!quiet) setBusy(btn, true, '확인하는 중…');
+    else $('#refresh').textContent = '새로 불러오는 중…';
+    return Api.call('login', { code: c }).then(function (r) {
+      if (!quiet) setBusy(btn, false, '조회하기');
+      $('#refresh').textContent = '새로고침';
+      if (!r.ok) {
+        if (quiet && !/번호|없는/.test(r.error)) return r;   // 인터넷이 잠깐 끊긴 것: 저장해 둔 화면을 그대로 둠
+        $('#loginMsg').textContent = r.error; UI.store.del('seiseki.code'); UI.store.del('seiseki.view');
+        if (quiet) { view = null; $('#app').hidden = true; $('#acts').hidden = true; $('#login').hidden = false; }
+        return r;
+      }
       $('#loginMsg').textContent = '';
-      code = r.data.code;
-      if ($('#remember').checked) UI.store.set('seiseki.code', code);
-      show(r.data);
+      code = r.data.code; tok = r.data.tok || '';
+      if ($('#remember').checked) {
+        UI.store.set('seiseki.code', code);
+        var keep = Object.assign({}, r.data); delete keep.tok;
+        UI.store.set('seiseki.view', JSON.stringify({ at: Date.now(), v: keep }));   // 다음에 열 때 바로 보이게 (내 폰에서 「기억하기」 켰을 때만)
+      }
+      if (!(quiet && $('#panel .up'))) show(r.data);   // 사진 올리는 중이면 화면을 다시 그리지 않음 (제출하면 새로 그려짐)
+      return r;
+    });
+  }
+  /** 숙제 제출 요청: 로그인 열쇠가 없거나 지났으면 다시 로그인하고 한 번 더 보냄 */
+  function stuCall(action, payload) {
+    function go() { return Api.call(action, Object.assign({ tok: tok }, payload)); }
+    return (tok ? go() : Promise.resolve({ ok: false, needLogin: true })).then(function (r) {
+      if (!r.needLogin) return r;
+      return Api.call('login', { code: code }).then(function (l) {
+        if (!l.ok) return l;
+        tok = l.data.tok || ''; return go();
+      });
     });
   }
 
@@ -44,6 +68,12 @@
   /** 과목마다 그래프 색 (학생이 한눈에 과목을 구분하게) */
   var SUBJ_COLOR = { '경제': '#3182F6', '정치': '#8B5CF6', '지리': '#0EA5A4', '현대사회': '#F59E0B', '세계사': '#EC4899', '일본사': '#64748B', '실전 (EJU)': '#10B981', '기타': '#94A3B8' };
   function subjColor(sj) { return SUBJ_COLOR[sj] || '#94A3B8'; }
+  /** 과목별 보기에서 반 색: 그 과목 색으로, 개념반은 진하게·단풀반은 연하게 (다른 보기에서는 반 색) */
+  function toneOf(k) {
+    if (mode !== 'subj' || !subjSel) return KIND_COLOR[k] || 'var(--me)';
+    var base = subjColor(subjSel);
+    return k === '단풀' ? 'color-mix(in srgb, ' + base + ' 45%, var(--surface))' : base;
+  }
   function kindOf(c) { return c.kind || ({ GN: '개념', DP: '단풀', SJ: '실전' })[String(c.code).split('-')[0]] || ''; }
   function subjOfT(c, t) { return kindOf(c) === '실전' ? '실전 (EJU)' : (SUBJS[String(t.label).split(' ')[0]] || '기타'); }
   function monthsOf(c) {
@@ -82,8 +112,8 @@
     return Math.round(xs.reduce(function (s, x) { return s + (x.t.score / x.t.total * 100 - x.t.cum.pct); }, 0) / xs.length);
   }
   function cumAvg(list) { var xs = list.filter(function (x) { return x.t.cum; }); return xs.length ? Math.round(xs.reduce(function (s, x) { return s + x.t.cum.pct; }, 0) / xs.length) : null; }
-  function tile(label, val, unit, cls, note) {
-    return '<div class="tile' + (cls ? ' ' + cls : '') + '"><span>' + label + '</span><b>' + (val === null || val === undefined ? '-' : val + (unit ? '<small>' + unit + '</small>' : '')) + '</b>' + (note ? '<em>' + note + '</em>' : '') + '</div>';
+  function tile(label, val, unit, cls, note, color) {
+    return '<div class="tile' + (cls ? ' ' + cls : '') + '"><span>' + label + '</span><b' + (color ? ' style="color:' + color + '"' : '') + '>' + (val === null || val === undefined ? '-' : val + (unit ? '<small>' + unit + '</small>' : '')) + '</b>' + (note ? '<em>' + note + '</em>' : '') + '</div>';
   }
   function gapText(g) { return g === null ? '' : (g > 0 ? '누적 평균보다 ' + g + '%p 높아요' : g < 0 ? '누적 평균보다 ' + (-g) + '%p 낮아요' : '누적 평균과 같아요'); }
 
@@ -191,7 +221,7 @@
   function itemsOf(list, seriesFn, labFn) {
     return list.map(function (x) {
       var sj = x.subj || subjOfT(x.c, x.t), ser = seriesFn ? seriesFn(x) : sj;
-      return { p: pct(x.t.score, x.t.total), s: ser, col: seriesFn && KIND_COLOR[String(ser).replace('반', '')] ? KIND_COLOR[String(ser).replace('반', '')] : subjColor(sj),
+      return { p: pct(x.t.score, x.t.total), s: ser, col: seriesFn && KIND_COLOR[String(ser).replace('반', '')] ? toneOf(String(ser).replace('반', '')) : subjColor(sj),
         lab: labFn ? labFn(x) : shortLabel(x.t), m: x.t.month, title: (x.kind ? x.kind + '반 ' : '') + x.t.label, sc: x.t.score, tot: x.t.total, av: x.t.avg, cum: x.t.cum };
     });
   }
@@ -222,7 +252,7 @@
     }).join('');
     UI.all('#tabs .tab').forEach(function (b) { b.onclick = function () { cur = +b.getAttribute('data-i'); month = ''; renderTabs(); }; });
     $('#months').innerHTML = ms.length > 1 ? ms.map(function (m) {
-      return '<button class="tab" type="button" data-m="' + m + '" aria-selected="' + (m === month) + '">' + esc(UI.monthLabel(m)) + '</button>';
+      return '<button class="tab" type="button" data-m="' + esc(m) + '" aria-selected="' + (m === month) + '">' + esc(UI.monthLabel(m)) + '</button>';
     }).join('') : '';
     UI.all('#months .tab').forEach(function (b) { b.onclick = function () { month = b.getAttribute('data-m'); renderTabs(); }; });
     renderPanel();
@@ -240,6 +270,16 @@
       // 학원 파일에서 옮겨 온 지난 성적은 점수만 있고 틀린 번호 기록이 없음 → 아무것도 안 붙임
     }
     return h + '</div>';
+  }
+
+  /** 숙제 마감 안내: 「마감 10/24(토) 15:00 · 2일 남음」 / 「마감 지남」 */
+  function dueLine(w) {
+    if (!w.due) return '';
+    var t = '마감 ' + Core.fmtDue(w.due);
+    if (w.done) return t;
+    if (w.overdue) return t + ' · <b>마감 지났어요</b>';
+    var today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10), d = Math.round((Date.parse(w.due.slice(0, 10)) - Date.parse(today)) / 86400000);
+    return t + (d === 0 ? ' · <b>오늘 마감</b>' : d === 1 ? ' · 내일 마감' : d > 1 ? ' · ' + d + '일 남음' : '');
   }
 
   /* 월별: 한 반의 한 달 */
@@ -268,8 +308,10 @@
     hws.forEach(function (w) {
       var detail = [w.book ? esc(w.book) : '', w.p0 ? 'p.' + w.p0 + '~' + w.p1 : '', w.total ? w.total + '문' : ''].filter(Boolean).join(' · ');
       if (w.done) detail += (detail ? ' · ' : '') + (w.photos ? '사진 ' + w.photos + '장' : '선생님 입력') + (w.count !== null ? ' · 맞은 개수 ' + w.count : '');
-      h += '<div class="item"><div class="row"><div><b>' + esc(w.label) + '</b><p class="meta">' + detail + '</p></div>' +
-        (w.done ? '<span class="pill ' + (w.checked ? 'ok">선생님 확인' : 'ok">제출 완료') + '</span>' : '<button class="btn sm" type="button" data-hw="' + esc(w.id) + '">제출하기</button>') + '</div>' +
+      var due = dueLine(w);
+      h += '<div class="item"><div class="row"><div><b>' + esc(w.label) + '</b><p class="meta">' + detail + '</p>' + (due ? '<p class="meta due' + (w.overdue ? ' over' : '') + '">' + due + '</p>' : '') + '</div>' +
+        (w.done ? '<span class="pills">' + (w.late ? '<span class="pill late">늦음</span>' : '') + '<span class="pill ' + (w.checked ? 'ok">선생님 확인' : 'ok">제출 완료') + '</span></span>'
+          : (w.overdue ? '<span class="pills"><span class="pill no">미제출</span><button class="btn sm" type="button" data-hw="' + esc(w.id) + '">늦게 내기</button></span>' : '<button class="btn sm" type="button" data-hw="' + esc(w.id) + '">제출하기</button>')) + '</div>' +
         (w.done ? '<button class="linkbtn" type="button" data-hw="' + esc(w.id) + '">사진 더 올리기</button>' : '') +
         '<div class="upbox" data-box="' + esc(w.id) + '"></div></div>';
     });
@@ -295,15 +337,15 @@
       kinds.forEach(function (kd, j) {
         var v = r.vals[kd]; if (v === null || v === undefined) return;
         var x = x0 + j * (bw + 4), top = y(v);
-        s += '<rect x="' + x + '" y="' + top + '" width="' + bw + '" height="' + (y(0) - top) + '" rx="5" fill="' + (KIND_COLOR[kd] || 'var(--me)') + '"/>';
+        s += '<rect x="' + x + '" y="' + top + '" width="' + bw + '" height="' + (y(0) - top) + '" rx="5" fill="' + toneOf(kd) + '"/>';
         var lst = r.by[kd], ca = cumAvg(lst);
-        s += hit(x - 2, bw + 4, H, { title: kd + '반 ' + subjSel + (lst.length > 1 ? ' (' + lst.length + '개 평균)' : ' ' + shortLabel(lst[0].t)), m: r.m, p: v, col: KIND_COLOR[kd] || 'var(--me)',
+        s += hit(x - 2, bw + 4, H, { title: kd + '반 ' + subjSel + (lst.length > 1 ? ' (' + lst.length + '개 평균)' : ' ' + shortLabel(lst[0].t)), m: r.m, p: v, col: toneOf(kd),
           sc: lst.length === 1 ? lst[0].t.score : undefined, tot: lst.length === 1 ? lst[0].t.total : undefined, av: null, cum: ca === null ? null : { pct: ca } });
         s += '<text x="' + (x + bw / 2) + '" y="' + (top - 4) + '" text-anchor="middle" font-size="' + (fs - 1) + '" font-weight="700" fill="var(--ink2)">' + v + '</text>';
       });
       s += '<text x="' + cx + '" y="' + (H - fs * 0.8) + '" text-anchor="middle" font-size="' + fs + '" font-weight="700" fill="var(--ink2)">' + (+r.m.slice(5)) + '월</text>';
     });
-    s += '</svg></div><div class="legend">' + kinds.map(function (kd) { return '<span><i class="sq" style="background:' + (KIND_COLOR[kd] || 'var(--me)') + '"></i>' + kd + '반</span>'; }).join('') + '</div>';
+    s += '</svg></div><div class="legend">' + kinds.map(function (kd) { return '<span><i class="sq" style="background:' + toneOf(kd) + '"></i>' + kd + '반</span>'; }).join('') + '</div>';
     return s;
   }
 
@@ -332,7 +374,7 @@
     var h = '<div class="tiles four">';
     kinds.forEach(function (k) {
       var lk = list.filter(function (x) { return x.kind === k; }), g = gapPct(lk), nm = rows.filter(function (r) { return r.by[k].length; }).length;
-      h += tile(k + '반 평균 정답률', avgPct(lk), '%', 'hi k-' + k, (k === '개념' ? nm + '달 · 테스트 ' + lk.length + '개' : nm + '달 · 월말 ' + lk.length + '번') + (g === null ? '' : '<br>' + gapText(g)));
+      h += tile('<i class="kdot" style="background:' + toneOf(k) + '"></i>' + k + '반 평균 정답률', avgPct(lk), '%', 'hi', (k === '개념' ? nm + '달 · 테스트 ' + lk.length + '개' : nm + '달 · 월말 ' + lk.length + '번') + (g === null ? '' : '<br>' + gapText(g)), subjColor(subjSel));
     });
     if (kinds.length === 1) {
       var g1 = gapPct(list);
@@ -344,7 +386,7 @@
       var lm = list.filter(function (x) { return x.kind === k && x.t.kind === '월말테스트' && x.t.cum; });
       if (!lm.length) return;
       var me = avgPct(lm), ca = cumAvg(lm), d = me - ca;
-      h += '<p class="cmp"><span class="kdot" style="background:' + (KIND_COLOR[k] || 'var(--me)') + '"></span>' + esc(k) + '반 ' + esc(subjSel) + ' 월말 — 내 정답률 <b>' + me + '%</b>, 지금까지 이 월말을 본 학생들 누적 평균 ' + ca + '%보다 <b class="' + (d >= 0 ? 'pos' : 'neg') + '">' + Math.abs(d) + '%p ' + (d >= 0 ? '높아요' : '낮아요') + '</b></p>';
+      h += '<p class="cmp"><span class="kdot" style="background:' + toneOf(k) + '"></span>' + esc(k) + '반 ' + esc(subjSel) + ' 월말 — 내 정답률 <b>' + me + '%</b>, 지금까지 이 월말을 본 학생들 누적 평균 ' + ca + '%보다 <b class="' + (d >= 0 ? 'pos' : 'neg') + '">' + Math.abs(d) + '%p ' + (d >= 0 ? '높아요' : '낮아요') + '</b></p>';
     });
     // 그래프: 반이 둘 이상이면 달마다 막대 비교, 하나면 시험별 꺾은선
     if (kinds.length > 1) h += '<div class="card"><h2>' + esc(subjSel) + ' 달마다 비교 <span class="meta">정답률 % · 개념반은 그달 소테스트·월말 평균, 단풀반은 그달 월말</span></h2>' + barChart(rows, kinds) + '</div>';
@@ -357,7 +399,7 @@
       kinds.forEach(function (k) {
         var l = r.by[k];
         if (!l.length) return;
-        h += '<div class="mcol"><div class="mk"><span class="kdot" style="background:' + (KIND_COLOR[k] || 'var(--me)') + '"></span>' + k + '반' +
+        h += '<div class="mcol"><div class="mk"><span class="kdot" style="background:' + toneOf(k) + '"></span>' + k + '반' +
           (l.length > 1 ? ' <b>' + r.vals[k] + '%</b>' : '') + '</div><div class="mchips">' + l.map(function (x) {
             var p = pct(x.t.score, x.t.total), av = x.t.cum ? x.t.cum.pct : null;
             return '<span class="mchip' + (av !== null ? (p >= av ? ' gpos' : ' gneg') : '') + '" title="' + esc(x.t.label + (av === null ? '' : ' · 누적 평균 ' + av + '%')) + '"><em>' + esc(shortLabel(x.t)) + '</em><b>' + x.t.score + '<small>/' + x.t.total + '</small></b><i>' + p + '%</i></span>';
@@ -398,6 +440,7 @@
     UI.all('#panel [data-go]').forEach(function (r) { r.onclick = function () { mode = 'subj'; subjSel = r.getAttribute('data-go'); renderTabs(); }; });
   }
 
+  /** 사진 줄이기(긴 쪽 1600px JPEG) + 같은 사진 찾기용 지문(17×16 회색 → 옆 칸 밝기 비교 256비트, 16진수 64자) */
   function compress(file) {
     return new Promise(function (res, rej) {
       var img = new Image(), url = URL.createObjectURL(file);
@@ -407,53 +450,80 @@
         cv.width = Math.round(img.naturalWidth * s); cv.height = Math.round(img.naturalHeight * s);
         cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
         URL.revokeObjectURL(url);
-        res(cv.toDataURL('image/jpeg', 0.82).split(',')[1]);
+        var hash = '';
+        try { hash = dhash(cv); } catch (e) { hash = ''; }
+        res({ b64: cv.toDataURL('image/jpeg', 0.82).split(',')[1], hash: hash });
       };
       img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('사진을 읽지 못했어요: ' + file.name)); };
       img.src = url;
     });
   }
+  function dhash(src) {
+    function shrink(from, w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; var x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high'; x.drawImage(from, 0, 0, w, h); return c; }
+    var c = shrink(shrink(src, 136, 128), 17, 16), d = c.getContext('2d').getImageData(0, 0, 17, 16).data, g = [], out = '', nib = 0, nb = 0;
+    for (var i = 0; i < 17 * 16; i++) g.push(d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114);
+    for (var y = 0; y < 16; y++) for (var x = 0; x < 16; x++) {
+      nib = (nib << 1) | (g[y * 17 + x] < g[y * 17 + x + 1] ? 1 : 0);
+      if (++nb === 4) { out += nib.toString(16); nib = 0; nb = 0; }
+    }
+    return out;
+  }
 
+  // 카메라로 바로 찍은 사진만: 휴대폰은 「사진 찍기」가 카메라를 바로 열고, 앨범의 오래된 사진(찍은 지 30분 넘은 파일)은 받지 않음
+  var FRESH_MS = 30 * 60 * 1000, MAX_BATCH = 12;
   function openUpload(hwId) {
     var c = view.classes[cur], w = c.hw.filter(function (x) { return x.id === hwId; })[0];
     UI.all('#panel .upbox').forEach(function (b) { b.innerHTML = ''; });
     var box = $('#panel [data-box="' + hwId + '"]');
-    box.innerHTML = '<div class="up"><label for="ph">문제집 쪽 사진 (한 쪽에 한 장씩, 문항 번호가 보이게)</label>' +
-      '<input id="ph" type="file" accept="image/*" multiple><div id="th" class="thumbs"></div>' +
-      '<label for="cnt">채점해 본 맞은 개수' + (w.total ? ' (' + w.total + '문 중)' : '') + '</label><input id="cnt" type="number" inputmode="numeric" min="0"' + (w.total ? ' max="' + w.total + '"' : '') + '>' +
+    box.innerHTML = '<div class="up"><p class="uphint">문제집을 <b>한 쪽씩 바로 찍어</b> 올려요. 문항 번호가 보이게 찍어 주세요. 앨범에 있던 사진은 올릴 수 없어요.</p>' +
+      '<label class="btn sub block cam" for="ph">📷 사진 찍기</label><input id="ph" class="vh" type="file" accept="image/*" capture="environment">' +
+      '<div id="th" class="thumbs"></div><p id="phMsg" class="msg" role="status"></p>' +
+      '<label for="cnt">채점해 본 맞은 개수' + (w.total ? ' (' + w.total + '문 중)' : '') + (w.done ? ' <span class="opt">(비우면 그대로)</span>' : '') + '</label><input id="cnt" type="number" inputmode="numeric" min="0"' + (w.total ? ' max="' + w.total + '"' : '') + '>' +
       '<button id="send" class="btn block" type="button">제출하기</button><div class="bar" hidden><i></i></div><p id="upMsg" class="msg" role="status"></p></div>';
     var files = [];
+    function drawThumbs() {
+      $('#th').innerHTML = files.map(function (f, i) {
+        return '<span class="th"><img alt="' + (i + 1) + '번째 사진" src="' + f.url + '"><button type="button" class="x" data-rm="' + i + '" aria-label="' + (i + 1) + '번째 사진 빼기">×</button></span>';
+      }).join('');
+      UI.all('#th [data-rm]').forEach(function (b) { b.onclick = function () { var k = +b.getAttribute('data-rm'); URL.revokeObjectURL(files[k].url); files.splice(k, 1); drawThumbs(); }; });
+      $('#panel label.cam').textContent = files.length ? '📷 한 장 더 찍기 (' + files.length + '장)' : '📷 사진 찍기';
+    }
     $('#ph').onchange = function (e) {
-      files = Array.prototype.slice.call(e.target.files);
-      $('#th').innerHTML = '';
-      files.forEach(function (f) { var im = document.createElement('img'); im.alt = '고른 사진'; im.src = URL.createObjectURL(f); $('#th').appendChild(im); });
+      var pm = $('#phMsg'), list = Array.prototype.slice.call(e.target.files);
+      pm.className = 'msg'; pm.textContent = '';
+      list.forEach(function (f) {
+        if (files.length >= MAX_BATCH) { pm.className = 'msg err'; pm.textContent = '한 번에 ' + MAX_BATCH + '장까지 올릴 수 있어요. 먼저 제출하고 「사진 더 올리기」로 이어서 올려 주세요.'; return; }
+        if (f.lastModified && Date.now() - f.lastModified > FRESH_MS) { pm.className = 'msg err'; pm.textContent = '방금 찍은 사진만 올릴 수 있어요. 「사진 찍기」를 눌러 문제집을 바로 찍어 주세요.'; return; }
+        files.push({ file: f, url: URL.createObjectURL(f) });
+      });
+      e.target.value = '';   // 같은 버튼으로 계속 찍을 수 있게
+      drawThumbs();
     };
     $('#send').onclick = function () {
       var msg = $('#upMsg'), btn = $('#send'), bar = box.querySelector('.bar'), fill = bar.querySelector('i');
-      if (!files.length) { msg.className = 'msg err'; msg.textContent = '사진을 골라 주세요.'; return; }
+      if (!files.length) { msg.className = 'msg err'; msg.textContent = '사진을 찍어 주세요.'; return; }
       if ($('#cnt').value === '' && !w.done) { msg.className = 'msg err'; msg.textContent = '맞은 개수를 적어 주세요.'; return; }
       setBusy(btn, true, '올리는 중…'); bar.hidden = false; msg.className = 'msg'; msg.textContent = '';
-      var start = (w.photos || 0) + 1, i = 0, warns = [];
+      var start = (w.photos || 0) + 1, i = 0, sent = 0, hashes = [], skipped = 0;
       function next() {
         if (i >= files.length) {
-          return Api.call('hwFinish', { code: code, hw: hwId, count: $('#cnt').value }).then(function (r) {
+          if (!sent && !w.done) { setBusy(btn, false, '제출하기'); msg.className = 'msg err'; msg.textContent = '이미 올린 사진이에요. 다른 쪽을 찍어 주세요.'; return; }
+          return stuCall('hwFinish', { hw: hwId, count: $('#cnt').value }).then(function (r) {
             setBusy(btn, false, '제출하기');
             if (!r.ok) { msg.className = 'msg err'; msg.textContent = r.error; return; }
+            files.forEach(function (f) { URL.revokeObjectURL(f.url); });
             show(r.data);
-            if (warns.length) {   // AI 사진 확인에서 걸린 것: 제출은 됐고, 다시 찍어 올리라고 안내
-              var b2 = $('#panel [data-box="' + hwId + '"]');
-              if (b2) b2.innerHTML = '<div class="warnbox" role="alert"><b>사진을 다시 확인해 주세요</b><ul>' +
-                warns.map(function (x) { return '<li>' + x.n + '번째 사진: ' + UI.esc(x.msg) + '</li>'; }).join('') +
-                '</ul><p>제출은 됐어요. 고쳐서 다시 찍은 사진을 「사진 더 올리기」로 올려 주세요. 선생님도 확인할 거예요.</p></div>';
-            }
           });
         }
         msg.textContent = (i + 1) + ' / ' + files.length + '장 올리는 중';
-        return compress(files[i]).then(function (b64) {
-          return Api.call('hwPhoto', { code: code, hw: hwId, order: start + i, mime: 'image/jpeg', b64: b64 });
+        return compress(files[i].file).then(function (x) {
+          // 한 번에 고른 사진 중 같은 사진은 한 장만
+          if (x.hash && hashes.some(function (h) { return Core.sameHash(h, x.hash); })) return { ok: true, data: { dup: 'same' } };
+          if (x.hash) hashes.push(x.hash);
+          return stuCall('hwPhoto', { hw: hwId, order: start + sent, mime: 'image/jpeg', b64: x.b64, hash: x.hash });
         }).then(function (r) {
           if (!r.ok) throw new Error(r.error);
-          if (r.data && r.data.check && !r.data.check.ok) warns.push({ n: i + 1, msg: r.data.check.msg });
+          if (r.data && r.data.dup === 'same') skipped++; else sent++;
           i++; fill.style.width = Math.round(i / files.length * 100) + '%';
           return next();
         });
@@ -461,16 +531,26 @@
       next().catch(function (e) {
         setBusy(btn, false, '다시 제출하기');
         msg.className = 'msg err';
-        msg.textContent = (e.message || '올리지 못했어요.') + ' ' + i + '장까지는 저장됐어요. 나머지를 다시 골라 제출해 주세요.';
+        // 실패한 사진부터 다시: 저장된 사진은 목록에서 뺌
+        files.splice(0, i + (/새로 찍어/.test(e.message || '') ? 1 : 0)).forEach(function (f) { URL.revokeObjectURL(f.url); });
+        w.photos = (w.photos || 0) + sent;
+        drawThumbs();
+        msg.textContent = (e.message || '올리지 못했어요.') + (sent ? ' (앞의 ' + sent + '장은 저장됐어요.)' : '');
       });
     };
   }
 
   $('#go').onclick = function () { login($('#sid').value); };
   $('#sid').addEventListener('keydown', function (e) { if (e.key === 'Enter') login($('#sid').value); });
-  $('#out').onclick = function () { UI.store.del('seiseki.code'); view = null; code = ''; cur = 0; month = ''; $('#app').hidden = true; $('#acts').hidden = true; $('#login').hidden = false; $('#sid').value = ''; };
-  $('#refresh').onclick = function () { if (code) login(code); };
+  $('#out').onclick = function () { UI.store.del('seiseki.code'); UI.store.del('seiseki.view'); view = null; code = ''; tok = ''; cur = 0; month = ''; $('#app').hidden = true; $('#acts').hidden = true; $('#login').hidden = false; $('#sid').value = ''; };
+  $('#refresh').onclick = function () { if (code) login(code, true); };
 
-  var saved = UI.store.get('seiseki.code');
-  if (saved) { $('#remember').checked = true; $('#sid').value = Core.fmtCode(saved); login(saved); }
+  var saved = UI.store.get('seiseki.code'), keep = null;
+  try { keep = JSON.parse(UI.store.get('seiseki.view') || 'null'); } catch (e) { keep = null; }
+  if (saved) {
+    $('#remember').checked = true; $('#sid').value = Core.fmtCode(saved);
+    // 지난번 화면을 바로 보여 주고(기다리지 않게), 뒤에서 새로 불러와 바꿈
+    if (keep && keep.v && keep.v.code === saved) { code = saved; show(keep.v); login(saved, true); }
+    else login(saved);
+  } else Api.warm();   // 번호를 치는 동안 서버를 미리 깨워 둠
 })();

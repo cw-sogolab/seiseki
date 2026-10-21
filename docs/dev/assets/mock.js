@@ -19,7 +19,8 @@ var SeisekiMock = (function () {
         all: function (t) { return (tables[t] || []).map(function (r) { return Object.assign({}, r); }); },
         append: function (t, o) { tables[t].push(Object.assign({}, o)); },
         update: function (t, pred, patch) { var n = 0; tables[t].forEach(function (r) { if (pred(r)) { Object.assign(r, patch); n++; } }); return n; },
-        remove: function (t, pred) { var before = tables[t].length; tables[t] = tables[t].filter(function (r) { return !pred(r); }); return before - tables[t].length; }
+        remove: function (t, pred) { var before = tables[t].length; tables[t] = tables[t].filter(function (r) { return !pred(r); }); return before - tables[t].length; },
+        head: function (t) { return tables[t] ? L.TABLES[t].slice() : null; }
       },
       cache: {
         get: function (k) { var c = cache[k]; if (!c) return null; if (c.exp < Date.now()) { delete cache[k]; return null; } return c.v; },
@@ -110,6 +111,21 @@ var SeisekiMock = (function () {
       return { '시험지ID': p[0], '반종류': p[1], '과목': p[2], '종류': p[3], '회차': p[4], '이름': p[5], '문항수': p[6],
         '정답': p[3] === '일문일답' ? '' : key(p[6], 31 + i), '출처': '예시' };
     });
+    // 달력: 학원 2026 연간 계획표 (tools/class-plan/calendar_2026.json 과 같음 — 테스트가 확인)
+    T['달력'] = [
+      ['2026-01', '2026-01-02', '2026-01-29', '2026-01-01', '신정'],
+      ['2026-02', '2026-01-30', '2026-03-03', '2026-02-15, 2026-02-16, 2026-02-17, 2026-02-18', '설 연휴'],
+      ['2026-03', '2026-03-04', '2026-03-31', '', ''],
+      ['2026-04', '2026-04-01', '2026-04-28', '', ''],
+      ['2026-05', '2026-04-29', '2026-05-28', '', ''],
+      ['2026-06', '2026-05-29', '2026-06-28', '2026-06-21', '1회 EJU'],
+      ['2026-07', '2026-06-29', '2026-07-28', '', ''],
+      ['2026-08', '2026-07-29', '2026-08-29', '2026-08-02, 2026-08-03, 2026-08-04', '여름방학'],
+      ['2026-09', '2026-08-30', '2026-10-01', '2026-09-24, 2026-09-25, 2026-09-26, 2026-09-27', '추석'],
+      ['2026-10', '2026-10-02', '2026-10-31', '', ''],
+      ['2026-11', '2026-11-01', '2026-12-01', '2026-11-08, 2026-11-09, 2026-11-10', '2회 EJU · 단기방학(수업X)'],
+      ['2026-12', '2026-12-02', '2026-12-30', '2026-12-25', '성탄절']
+    ].map(function (r) { return { '월': r[0], '개강': r[1], '종강': r[2], '휴강': r[3], '메모': r[4] }; });
     T['평가'] = [{ '월': '2026-10', '번호': 'KM482919', '코멘트': '본인이 잘 하고자 하는 의욕이 넘침', '수정일': '2026-10-15' }];
     return env;
   }
