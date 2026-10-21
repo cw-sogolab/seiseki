@@ -8,7 +8,8 @@
  */
 var Plan = (function () {
   var C = (typeof Core !== 'undefined') ? Core : require('./core.js');
-  var SUBJ_NAME = { '현사': '현대사회', '역사': '세계사' };
+  var SUBJ_NAME = { '현사': '현대사회', '세계사': '역사' };   // 이 사이트에서는 「세계사」 → 「역사」 (2026-10-22)
+  function subjKey(x) { x = S(x); return x === '세계사' ? '역사' : x; }
   var MAX_ROWS = 13;   // 워드 표는 늘 01~13 줄
   var MOCK = '모의고사 1회 실시 및 해설', FINAL = '월말테스트', HW = '주간 숙제';
 
@@ -48,7 +49,7 @@ var Plan = (function () {
     var g = {};
     (bank.rows || []).forEach(function (r) {
       if (S(r['반종류']) !== kind) return;
-      if (kind === '실전' ? false : S(r['과목']) !== subj) return;
+      if (kind === '실전' ? false : subjKey(r['과목']) !== subjKey(subj)) return;
       var key = S(r['월']) + '|' + S(r['반']);
       (g[key] = g[key] || { m: S(r['월']), ban: S(r['반']), rows: [] }).rows.push(r);
     });
@@ -59,7 +60,7 @@ var Plan = (function () {
   }
   function headFor(bank, kind, subj, ban) {
     var hs = (bank.heads || []).filter(function (h) { return S(h['반종류']) === kind; });
-    var exact = hs.filter(function (h) { return kind === '실전' ? S(h['반']) === ban : S(h['과목']) === subj; });
+    var exact = hs.filter(function (h) { return kind === '실전' ? S(h['반']) === ban : subjKey(h['과목']) === subjKey(subj); });
     var pick = (exact.length ? exact : hs).slice().sort(function (a, b) { return S(b['월']).localeCompare(S(a['월'])); })[0];
     if (!pick) return null;
     var h = {}; Object.keys(pick).forEach(function (k) { h[k] = S(pick[k]); });

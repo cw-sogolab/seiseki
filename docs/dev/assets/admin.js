@@ -45,8 +45,10 @@
       opened(r.data);
     });
   }
+  /** 이 사이트에서는 「세계사」를 「역사」로 (2026-10-22): 시험지 과목·이름에 옛 표기가 남아 있어도 역사로 보이고 역사로 등록되게 */
+  function normSubj(d) { (d && d.papers || []).forEach(function (p) { if (p.subj === '세계사') p.subj = '역사'; p.label = String(p.label).replace(/^세계사/, '역사'); }); return d; }
   function opened(data) {
-    D = data; busy(false);
+    D = normSubj(data); busy(false);
     if (!month) month = D.today.slice(0, 7);
     document.body.classList.remove('locked');
     $('#login').hidden = true; $('#view').hidden = false; $('#period').hidden = false; $('#nav').hidden = false; $('#topRight').hidden = false;
@@ -78,7 +80,7 @@
     return D.students.filter(function (s) { return codes[s.code]; }).sort(function (a, b) { return a.name.localeCompare(b.name, 'ko'); });
   }
   var SUBJS = ['경제', '정치', '지리', '현사', '현대사회', '세계사', '역사', '일본사'];
-  function subjOf(label) { var w = String(label).split(' ')[0]; return SUBJS.indexOf(w) >= 0 ? (w === '현대사회' ? '현사' : w) : ''; }
+  function subjOf(label) { var w = String(label).split(' ')[0]; return SUBJS.indexOf(w) >= 0 ? (w === '현대사회' ? '현사' : w === '세계사' ? '역사' : w) : ''; }   // 이 사이트에서는 「세계사」를 「역사」로 (2026-10-22)
   /** 그 달 그 반의 과목 (시험·숙제 이름에서) */
   function subjIn(code, m) {
     var x = D.exams.concat(D.homework).filter(function (e) { return e.cls === code && e.month === m && subjOf(e.label); })[0];
@@ -587,7 +589,7 @@
       b.onclick = function () {
         var ids = b.getAttribute('data-savekey').split(','), v = $('#view [data-key="' + b.getAttribute('data-savekey') + '"]').value, last = null;
         chain(ids.map(function (id) { return function () { return req('updateExamKey', { exam: id, key: v }).then(function (r) { if (r.ok) last = r.data; return r; }); }; }), function (okN, err) {
-          if (last) D = last; vExams(); msg($('#xMsg'), !err, err || '정답을 고치고 다시 채점했어요.');
+          if (last) D = normSubj(last); vExams(); msg($('#xMsg'), !err, err || '정답을 고치고 다시 채점했어요.');
         });
       };
     });
@@ -599,9 +601,9 @@
     });
   }
   /** 그 반·이 달에 이 시험지(이름이 같은 시험 또는 숙제)가 이미 있는지 */
-  /** 같은 시험·숙제인지: 과목 별칭(현대사회=현사, 역사=세계사)·띄어쓰기 차이는 같은 것으로 (이름 표기가 달라 두 번 등록되지 않게) */
+  /** 같은 시험·숙제인지: 과목 별칭(현대사회=현사, 세계사=역사)·띄어쓰기 차이는 같은 것으로 (이름 표기가 달라 두 번 등록되지 않게) */
   function sameLabel(a, b) {
-    function n(x) { return String(x).replace(/현대사회/g, '현사').replace(/^역사/, '세계사').replace(/\s+/g, ''); }
+    function n(x) { return String(x).replace(/현대사회/g, '현사').replace(/^세계사/, '역사').replace(/\s+/g, ''); }
     return n(a) === n(b);
   }
   function hasPaper(code, p) {
@@ -987,7 +989,7 @@
   /* ---------- 월초 강의계획서 ----------
    * 반마다 시트 하나인 엑셀 파일 하나. 날짜 = 「달력」 탭 + 반 요일, 내용·교재 범위 = 「계획서」 탭의 지난 계획서 (Plan.build).
    * 과목은 다음 달 시험·숙제가 아직 없으니 강사가 고름 (고른 것은 이 기기에 기억) */
-  var planYm = '', PLAN_SUBJ = ['정치', '경제', '지리', '현사', '세계사'];
+  var planYm = '', PLAN_SUBJ = ['정치', '경제', '지리', '현사', '역사'];
   function planKey(ym, code) { return 'seiseki.plan.' + ym + '.' + code; }
   function planSubj(ym, code) { return UI.store.get(planKey(ym, code)) || subjIn(code, ym) || ''; }
   function planOn(ym, code) { return UI.store.get(planKey(ym, code) + '.off') !== '1'; }
