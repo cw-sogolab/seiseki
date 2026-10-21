@@ -488,3 +488,17 @@ table.wt.all td.g5{border-left:6px solid var(--surface)!important}
 .card.mpg{display:flex;align-items:center;gap:12px;padding-top:14px;padding-bottom:14px}
 .card.mpg .lbl{font-size:13px;font-weight:700;color:var(--muted);flex:0 0 auto}
 .card.mpg .chiprow{margin-top:0}
+
+/* 학생 화면 시험 한 개: 작은 칸들 + 틀린 번호 (2026-10-22 가독성) */
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;margin-top:10px;align-items:stretch}
+.stats .st{background:var(--fill);border-radius:12px;padding:8px 11px;min-width:0;margin:0;align-self:stretch}
+.stats .st span{display:block;font-size:11.5px;font-weight:600;color:var(--muted)}
+.stats .st b{display:block;font-family:var(--f-round);font-size:17px;font-weight:800;margin-top:1px;font-variant-numeric:tabular-nums}
+.stats .st em{display:block;font-style:normal;font-size:11.5px;color:var(--faint)}
+.stats .st.sgood b{color:var(--green)}
+.stats .st.sbad b{color:var(--red)}
+.wrongs{display:flex;gap:10px;align-items:baseline;margin-top:10px}
+.wrongs .lbl{flex:0 0 auto;font-size:12px;font-weight:600;color:var(--muted)}
+.wrongs .wn{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13.5px;font-weight:700;color:var(--red);font-variant-numeric:tabular-nums}
+.wrongs .wn i{font-style:normal;min-width:1.4em}
+@media (max-width:520px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}

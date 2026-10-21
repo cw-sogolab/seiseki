@@ -218,7 +218,7 @@
   /* ---------- 보기: 반 종류(개념·단풀·실전) → 과목. 달은 과목 화면 안에서 묶어 보여 줌 ---------- */
   var KINDS = ['개념', '단풀', '실전'];
   /** 묶는 기준: 개념·단풀은 과목(시험·숙제 이름 첫 낱말), 실전은 D·E */
-  function grpOf(c, x) { return kindOf(c) === '실전' ? String(c.code).split('-').pop() : (SUBJS[String(x.label).split(' ')[0]] || '기타'); }
+  function grpOf(c, x) { return kindOf(c) === '실전' ? '실전반' : (SUBJS[String(x.label).split(' ')[0]] || '기타'); }   // 실전반은 D·E 를 하나로 (2026-10-22 사용자)
   /** 들은 달: 「2·6·8월」 (해가 다르면 「25년 11월 · 2월」, 많으면 「2~9월 · 5달」) */
   function monthsText(ms) {
     ms = ms.slice().sort(); if (!ms.length) return '';
@@ -238,7 +238,8 @@
       items.forEach(function (x) {
         var s = grpOf(c, x), mo = x.month || '', e = m[s] || (m[s] = { s: s, last: '', now: false, time: '', ms: [] });
         if (mo && e.ms.indexOf(mo) < 0) e.ms.push(mo);
-        if (mo >= e.last) { e.last = mo; e.time = c.time || ''; }
+        if (mo >= e.last) e.last = mo;
+        if (c.current !== false && c.time) { e.time = c.time; e.cur = true; } else if (!e.cur && mo >= e.last) e.time = c.time || '';   // 지금 듣는 반의 요일시간
         if (c.current !== false && mo === tm) e.now = true;
       });
     });
@@ -287,7 +288,7 @@
     var subs = chips(kindSel);
     if (!subs.some(function (e) { return e.s === subjSel; })) subjSel = subs[0].s;
     $('#tabs').innerHTML = subs.map(function (e) {
-      var big = kindSel === '실전' ? '실전반 ' + e.s : e.s;
+      var big = e.s;
       var nowParts = e.parts.filter(function (p) { return p.now; });
       var small = nowParts.length ? nowParts.map(function (p) { return (kindSel === '실전' ? '' : p.k + ' ') + (p.time || ''); }).join(' · ') : monthsText(e.ms);
       return '<button class="tab" type="button" role="tab" data-s="' + esc(e.s) + '" aria-selected="' + (e.s === subjSel) + '">' + esc(big) + (small ? '<small>' + esc(small) + '</small>' : '') + '</button>';
@@ -299,11 +300,20 @@
   function testItem(t, extra, noDate, noWrong) {   // noWrong: 개념·단풀 월말테스트는 틀린 문항을 안 보여 줌 (2026-10-22 사용자)
     var h = '<div class="item"><div class="row"><b>' + esc(t.label) + (extra ? ' <span class="meta">' + esc(extra) + '</span>' : '') + '</b>' +
       (t.score === null ? '<span class="pill wait">아직 입력 전</span>' : '<span class="score">' + t.score + '<small> / ' + t.total + '</small></span>') + '</div>';
-    h += '<p class="meta">' + [noDate ? '' : UI.dateLabel(t.date), t.score !== null ? '정답률 ' + pct(t.score, t.total) + '%' : '', t.rank ? t.rank + '등 / ' + t.n + '명' : '', t.avg !== null && t.total ? '그때 반 평균 ' + pct1(t.avg, t.total) + '%' : '', t.cum ? '누적 평균 ' + t.cum.pct + '%' : '',
-      t.conv !== null ? '환산점수 ' + t.conv + (t.convAvg !== null ? ' (반 평균 ' + Math.round(t.convAvg) + ')' : '') : ''].filter(Boolean).map(esc).join(' · ') + '</p>';
+    // 한 줄로 길게 늘어놓지 않고 작은 칸으로 (2026-10-22 사용자: 가독성)
+    var my = t.score !== null && t.total ? pct1(t.score, t.total) : null, av = t.avg !== null && t.total ? pct1(t.avg, t.total) : null;
+    function st(lbl, val, sub, cls) { return '<div class="st' + (cls ? ' ' + cls : '') + '"><span>' + lbl + '</span><b>' + val + '</b>' + (sub ? '<em>' + sub + '</em>' : '') + '</div>'; }
+    var cells = [];
+    if (my !== null) cells.push(st('정답률', my + '%', '', av !== null ? (my >= av ? 'sgood' : 'sbad') : ''));
+    if (t.rank) cells.push(st('등수', t.rank + '등', t.n + '명 중'));
+    if (av !== null) cells.push(st('그때 반 평균', av + '%', my !== null ? (my - av >= 0 ? '+' : '') + Math.round((my - av) * 10) / 10 + '%p' : ''));
+    if (t.cum) cells.push(st('누적 평균', t.cum.pct + '%', t.cum.n + '명'));
+    if (t.conv !== null) cells.push(st('환산점수', t.conv, t.convAvg !== null ? '반 평균 ' + Math.round(t.convAvg) : ''));
+    if (!noDate && t.date) h += '<p class="meta">' + esc(UI.dateLabel(t.date)) + '</p>';
+    if (cells.length) h += '<div class="stats">' + cells.join('') + '</div>';
     if (t.score !== null && !noWrong) {
       if (t.wrongDetail) h += '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrongDetail.map(function (w) { return '<span class="chip">' + w.n + '번 정답 ' + w.key + ' · 내 답 ' + (w.ans === '0' ? '-' : w.ans) + '</span>'; }).join('') + '</div>';
-      else if (t.wrong.length) h += '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrong.map(function (n) { return '<span class="chip">' + n + '번</span>'; }).join('') + '</div>';
+      else if (t.wrong.length) h += '<div class="wrongs"><span class="lbl">틀린 문항 ' + t.wrong.length + '개</span><span class="wn">' + t.wrong.map(function (n) { return '<i>' + n + '</i>'; }).join('') + '</span></div>';
       else if (t.score === t.total) h += '<div class="chips"><span class="pill ok">전부 맞았어요</span></div>';
       // 학원 파일에서 옮겨 온 지난 성적은 점수만 있고 틀린 번호 기록이 없음 → 아무것도 안 붙임
     }
@@ -401,7 +411,7 @@
     h += '</div>';
     // 그래프 두 개: ① 개념반 소테스트·월말 꺾은선  ② 월말 비교 — 개념반 월말과 단풀반 월말을 달마다 나란히 (단풀반을 들었을 때)
     if (real) {
-      h += '<div class="card"><h2>점수 추이 <span class="meta">실전반 ' + esc(s) + ' · 모든 달 · 정답률 %</span></h2>' + chartX(itemsOf(taken)) + '</div>';
+      h += '<div class="card"><h2>점수 추이 <span class="meta">' + esc(s) + ' · 모든 달 · 정답률 %</span></h2>' + chartX(itemsOf(taken)) + '</div>';
       if (view.subj) h += '<div class="card" id="wk"></div>';
     }
     else {
