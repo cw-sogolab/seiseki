@@ -126,6 +126,11 @@ t('빠진 학생은 반만 비움(번호·명단은 그대로)', () => {
   assert.strictEqual(env._tables['원생'].length, 4);
   H('importRoster', { token, text: '가학생(동작)\t개념 화목20:20/단풀 토일13:00\n나학생\t단풀 토일13:00/개념 화목 20:20\n다학생\t개념 화목20:20' });
 });
+t('강사 「학생별」: studentAs 는 강사만, 학생 화면과 같은 내용', () => {
+  assert.ok(H('studentAs', { code: 'KM482919' }).needLogin, '강사 로그인 없이는 안 됨');
+  const r = H('studentAs', { token, code: 'km-482-919' }); assert.ok(r.ok); assert.strictEqual(r.data.code, 'KM482919'); assert.ok(!r.data.tok, '학생 열쇠는 안 줌');
+  assert.ok(!H('studentAs', { token, code: 'ZZ000000' }).ok);
+});
 let exam;
 t('시험 등록: 정답 개수 검사', () => {
   assert.ok(!H('addExam', { token, cls: 'GN-HM', label: '1주차', total: 5, key: '1234' }).ok);

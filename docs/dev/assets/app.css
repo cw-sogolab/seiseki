@@ -502,3 +502,15 @@ table.wt.all td.g5{border-left:6px solid var(--surface)!important}
 .wrongs .wn{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13.5px;font-weight:700;color:var(--red);font-variant-numeric:tabular-nums}
 .wrongs .wn i{font-style:normal;min-width:1.4em}
 @media (max-width:520px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* 강사 화면 「학생별」 안의 학생 화면 (?as=): 머리띠·바닥·숙제 제출 버튼 숨김 */
+body.preview .appbar,body.preview .foot,body.preview .demo,body.preview .devbar,body.preview #acts,body.preview [data-hw]{display:none!important}
+body.preview main.wrap{padding-top:12px;padding-bottom:24px}
+body.preview{background-attachment:scroll}
+.stufr{border-radius:22px;overflow:hidden;margin-top:-6px}
+.stuframe{width:100%;border:0;display:block;height:600px;background:transparent}
+.stupick{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.stupick input{flex:1 1 180px;min-width:0}
+.stunav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 8px}
+.stunav b{font-size:17px}
+.stunav .btn{max-width:32%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -4,6 +4,8 @@
   var view = null, code = '', tok = '', kindSel = '', subjSel = '', wkSel = '', tmSel = '', tmKey = '', busy = false;
 
   if (Api.demo) $('#demo').hidden = false;
+  /** 강사 화면 「학생별」 안에서 열린 학생 화면 (?as=번호, 같은 사이트의 틀 안에서만): 로그인 없이 그 학생 화면을 보기만 함 */
+  var AS = (function () { var m = /[?&]as=([A-Za-z0-9]+)/.exec(location.search); try { return m && window.parent !== window && window.parent.location.origin === location.origin ? m[1] : ''; } catch (e) { return ''; } })();
 
   function setBusy(btn, on, label) { busy = on; btn.disabled = on; if (label) btn.textContent = label; }
 
@@ -636,6 +638,16 @@
   $('#out').onclick = function () { UI.store.del('seiseki.code'); UI.store.del('seiseki.view'); view = null; code = ''; tok = ''; kindSel = ''; subjSel = ''; $('#app').hidden = true; $('#acts').hidden = true; $('#login').hidden = false; $('#sid').value = ''; };
   $('#refresh').onclick = function () { if (code) login(code, true); };
 
+  if (AS) {   // 강사 미리보기: 숙제 제출·나가기 없이 보기만
+    document.body.classList.add('preview');
+    $('#login').hidden = true;
+    var tk = UI.store.get('seiseki.token', sessionStorage) || '';
+    (Api.demo ? Api.call('login', { code: AS }) : Api.call('studentAs', { token: tk, code: AS })).then(function (r) {
+      if (r.ok) { code = r.data.code; show(r.data); return; }
+      $('#app').hidden = false; $('#panel').innerHTML = '<p class="msg err">' + esc(r.error || '불러오지 못했어요.') + '</p>';
+    });
+    return;
+  }
   var saved = UI.store.get('seiseki.code'), keep = null;
   try { keep = JSON.parse(UI.store.get('seiseki.view') || 'null'); } catch (e) { keep = null; }
   if (saved) {

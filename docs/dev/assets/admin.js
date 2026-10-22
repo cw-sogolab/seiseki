@@ -3,7 +3,7 @@
   var $ = UI.$, all = UI.all, esc = UI.esc;
   var token = UI.store.get('seiseki.token', sessionStorage) || '';
   var D = null, tab = 'entry', month = '', curExam = '', curHw = '', monthCls = '';
-  var TABS = [['entry', '답안 입력'], ['item', '문항 분석'], ['hw', '숙제'], ['exams', '시험'], ['stu', '학생·번호'], ['plan', '강의계획서'], ['month', '학생평가']];
+  var TABS = [['entry', '답안 입력'], ['item', '문항 분석'], ['hw', '숙제'], ['exams', '시험'], ['stu', '학생·번호'], ['one', '학생별'], ['plan', '강의계획서'], ['month', '학생평가']];
 
   if (Api.demo) $('#demo').hidden = false;
 
@@ -163,7 +163,7 @@
       (month === D.today.slice(0, 7) ? '<span class="pill blue">이번 달</span>' : '');
     all('#period [data-mv]').forEach(function (b) { b.onclick = function () { var j = i + (+b.getAttribute('data-mv')); if (ms[j]) { month = ms[j]; $('#month').value = month; render(); } }; });
   }
-  function render() { $('#period').hidden = tab === 'plan'; renderPeriod(); ({ entry: vEntry, exams: vExams, item: vItem, hw: vHw, stu: vStu, month: vMonth, plan: vPlan })[tab](); }
+  function render() { if (oneTimer) { clearInterval(oneTimer); oneTimer = 0; } $('#period').hidden = tab === 'plan' || tab === 'one'; renderPeriod(); ({ entry: vEntry, exams: vExams, item: vItem, hw: vHw, stu: vStu, one: vOne, month: vMonth, plan: vPlan })[tab](); }
 
   /** 채점표: 답지처럼 5문항씩 묶어서 모든 문항을 보여 줌 (한 줄에 10문항 = 5칸 묶음 둘). 맞은 문항은 ○, 틀린 문항은 학생 답을 빨갛게 — 시험지에 바로 체크하기 쉽게 */
   function gradeTable(key, ans) {
@@ -823,6 +823,51 @@
 
   /* ---------- 학생·번호 ---------- */
   var stuFilter = 'cur', editing = '';
+  /* ---------- 학생별: 학생 한 명이 보는 화면 그대로 (학생 화면을 ?as=번호 로 틀 안에 열고, 서버 studentAs 로 불러옴) ---------- */
+  var oneCls = '', oneQ = '', oneCode = '', onePast = false, oneTimer = 0;
+  function onePool() {
+    var pool = D.students.filter(function (s) { return onePast || s.classes.length; });
+    if (oneCls) pool = pool.filter(function (s) { return s.classes.indexOf(oneCls) >= 0; });
+    var q = oneQ.replace(/\s+/g, '').toUpperCase();
+    if (q) pool = pool.filter(function (s) { return s.name.replace(/\s+/g, '').toUpperCase().indexOf(q) >= 0 || s.code.indexOf(q.replace(/-/g, '')) >= 0; });
+    return pool.sort(function (a, b) { return a.name.localeCompare(b.name, 'ko'); });
+  }
+  function vOne() {
+    var act = D.classes.filter(function (c) { return c.active; });
+    $('#view').innerHTML = '<div class="card"><h2>학생별 성적 <span class="meta">학생이 보는 화면 그대로</span></h2>' +
+      '<div class="tabsrow" aria-label="반">' + [['', '이번 달 수강생 전체']].concat(act.map(function (c) { return [c.code, clsName(c.code)]; })).map(function (x) {
+        return '<button type="button" class="tab" data-oc="' + esc(x[0]) + '" aria-selected="' + (x[0] === oneCls) + '">' + esc(x[1]) + '</button>';
+      }).join('') + '</div>' +
+      '<div class="stupick"><input id="oQ" type="search" placeholder="이름이나 번호로 찾기" value="' + esc(oneQ) + '" aria-label="학생 찾기">' +
+      '<label class="check" style="margin:0"><input type="checkbox" id="oPast"' + (onePast ? ' checked' : '') + '> 지난 학생도</label></div>' +
+      '<div class="chiprow" id="oList" style="margin-top:10px"></div></div>' +
+      '<div class="card" id="oCard"><div id="oNav"></div></div><div id="oFr" class="stufr"></div>';
+    all('#view [data-oc]').forEach(function (b) { b.onclick = function () { oneCls = b.getAttribute('data-oc'); all('#view [data-oc]').forEach(function (x) { x.setAttribute('aria-selected', String(x === b)); }); oneDraw(); }; });
+    $('#oPast').onchange = function () { onePast = this.checked; oneDraw(); };
+    $('#oQ').oninput = function () { oneQ = this.value; oneDraw(); };
+    oneDraw();
+  }
+  /** 학생 목록·앞뒤 버튼은 다시 그리고, 학생 화면 틀은 학생이 바뀔 때만 새로 엶 (검색할 때마다 다시 불러오지 않게) */
+  function oneDraw() {
+    var pool = onePool(), me = D.students.filter(function (s) { return s.code === oneCode; })[0] || null;
+    $('#oList').innerHTML = pool.length ? pool.map(function (s) {
+      return '<button type="button" class="tab" data-oo="' + esc(s.code) + '" aria-selected="' + (s.code === oneCode) + '">' + esc(s.name) + '</button>';
+    }).join('') : '<span class="meta">해당하는 학생이 없어요.</span>';
+    if (!me) { $('#oNav').innerHTML = '<p class="empty">위에서 학생을 고르면 그 학생이 보는 성적 화면이 여기 나와요. (숙제 제출 버튼은 빼고 보여 줘요)</p>'; $('#oFr').innerHTML = ''; }
+    else {
+      var ix = pool.map(function (s) { return s.code; }).indexOf(me.code), prev = ix > 0 ? pool[ix - 1] : null, next = ix >= 0 && ix < pool.length - 1 ? pool[ix + 1] : null;
+      $('#oNav').innerHTML = '<div class="stunav"><button type="button" class="btn sub sm" data-oo="' + (prev ? esc(prev.code) : '') + '"' + (prev ? '' : ' disabled') + '>‹ ' + (prev ? esc(prev.name) : '') + '</button>' +
+        '<div style="text-align:center"><b>' + esc(me.name) + '</b><div class="meta">' + esc(Core.fmtCode(me.code)) + (me.classes.length ? ' · ' + me.classes.map(function (c) { return esc(clsName(c)); }).join(', ') : ' · 지금 수강 없음') + '</div></div>' +
+        '<button type="button" class="btn sub sm" data-oo="' + (next ? esc(next.code) : '') + '"' + (next ? '' : ' disabled') + '>' + (next ? esc(next.name) : '') + ' ›</button></div>';
+      var src = location.pathname + '?as=' + encodeURIComponent(me.code) + (/[?&]demo\b/.test(location.search) ? '&demo' : ''), f = $('#oF');
+      if (!f || f.getAttribute('data-src') !== src) $('#oFr').innerHTML = '<iframe class="stuframe" id="oF" data-src="' + esc(src) + '" title="' + esc(me.name) + ' 학생 화면" src="' + esc(src) + '"></iframe>';
+    }
+    all('#view [data-oo]').forEach(function (b) { b.onclick = function () { var c = b.getAttribute('data-oo'); if (!c) return; oneCode = c; oneDraw(); var hb = document.querySelector('header.appbar'); window.scrollTo(0, $('#oCard').getBoundingClientRect().top + window.scrollY - (hb ? hb.offsetHeight : 0) - 8); }; });
+    if (!oneTimer) oneTimer = setInterval(function () {   // 틀 높이를 학생 화면 길이에 맞춤 (같은 사이트라 안을 읽을 수 있음)
+      var fr = $('#oF'); if (!fr) { if (!$('#oFr')) { clearInterval(oneTimer); oneTimer = 0; } return; }
+      try { var d = fr.contentDocument; if (d && d.body) { var hh = Math.max(300, d.body.scrollHeight); if (Math.abs(fr.offsetHeight - hh) > 4) fr.style.height = hh + 'px'; } } catch (e) {}
+    }, 300);
+  }
   function vStu() {
     var cur = D.students.filter(function (s) { return s.classes.length; });
     var list = (stuFilter === 'cur' ? cur : D.students).slice().sort(function (a, b) { return a.name.localeCompare(b.name, 'ko'); });
@@ -840,7 +885,7 @@
       (list.length ? list.map(function (s) {
         var row = '<tr><td>' + esc(s.name) + '</td><td class="code">' + esc(Core.fmtCode(s.code)) + '</td><td>' + (s.classes.map(function (c) { return esc(clsName(c)); }).join(', ') || '<span class="meta">없음</span>') + '</td>' +
           '<td>' + (!s.active ? '<span class="pill no">차단</span>' : s.classes.length ? '<span class="pill ok">수강 중</span>' : '<span class="pill wait">수강 없음</span>') + '</td>' +
-          '<td><button type="button" class="btn sub sm" data-ed="' + esc(s.code) + '">반 수정</button></td></tr>';
+          '<td style="white-space:nowrap"><button type="button" class="btn sub sm" data-ed="' + esc(s.code) + '">반 수정</button> <button type="button" class="btn soft sm" data-see="' + esc(s.code) + '">성적 보기</button></td></tr>';
         if (editing === s.code) {
           row += '<tr><td colspan="5"><div class="fields" style="gap:14px">' + D.classes.filter(function (c) { return c.active; }).map(function (c) {
             return '<label class="check" style="margin:0"><input type="checkbox" data-cc="' + esc(c.code) + '"' + (s.classes.indexOf(c.code) >= 0 ? ' checked' : '') + '> ' + esc(clsName(c.code)) + '</label>';
@@ -852,6 +897,7 @@
       '<div class="card"><h2>반 목록</h2><p class="meta">반 이름·시간은 기록장 구글 시트의 「반」 탭에서 고칩니다. 반코드는 바꾸지 마세요.</p><div class="tw" style="margin-top:8px"><table><thead><tr><th>반코드</th><th>반 이름</th><th>종류</th><th>요일·시간</th><th class="num">학생</th></tr></thead><tbody>' +
       D.classes.map(function (c) { return '<tr><td class="code">' + esc(c.code) + '</td><td>' + esc(clsName(c.code)) + '</td><td>' + esc(c.kind) + '</td><td>' + esc(c.time) + '</td><td class="num">' + members(c.code).length + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
     all('#view [data-f]').forEach(function (b) { b.onclick = function () { stuFilter = b.getAttribute('data-f'); editing = ''; vStu(); }; });
+    all('#view [data-see]').forEach(function (b) { b.onclick = function () { oneCode = b.getAttribute('data-see'); tab = 'one'; renderNav(); render(); window.scrollTo(0, 0); }; });
     $('#issue').onclick = function () {
       var b = this; b.disabled = true;
       req('importRoster', { text: $('#paste').value, deactivateMissing: $('#deact').checked }).then(function (r) {

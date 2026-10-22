@@ -43,7 +43,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '01a18d9208';
+  var VERSION = 'dfb0b0d78e';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -759,10 +759,17 @@ var Logic = (function () {
     return ok({ month: S(p.month), code: S(p.code), text: S(p.text) });
   }
 
+  /** 강사 화면 「학생별」: 그 학생이 보는 화면 그대로 (학생 열쇠·로그인 잠금 없이, 퇴원생도) */
+  function studentAs(env, p) {
+    var stu = findStudent(env, C.normCode(p.code));
+    if (!stu) return fail('학생을 찾지 못했어요.');
+    return ok(studentView(env, stu));
+  }
+
   var STUDENT = { login: login, hwPhoto: hwPhoto, hwFinish: hwFinish };
   var ADMIN = { bootstrap: bootstrap, saveResult: saveResult, deleteResult: deleteResult, addExam: addExam, updateExamKey: updateExamKey,
     deleteExam: deleteExam, addHomework: addHomework, deleteHomework: deleteHomework, setChecked: setChecked, proxyHw: proxyHw,
-    hwPhotos: hwPhotos, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue };
+    hwPhotos: hwPhotos, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs };
 
   function handle(env, action, p) {
     p = p || {};
