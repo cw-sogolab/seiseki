@@ -829,6 +829,7 @@
   var acc = { sum: null, rows: {}, loading: false };
   function accShort(t) { return t ? (+t.slice(5, 7)) + '/' + (+t.slice(8, 10)) + ' ' + t.slice(11, 16) : ''; }
   function accLoad(code, done) {
+    if (Api.env === 'dev' && !Api.demo) { done('개발판은 접속기록을 남기지 않아요 (본판만)'); return; }
     if (!code && (acc.sum || acc.loading)) { if (acc.sum) done(); return; }
     if (!code) acc.loading = true;
     req('accessLog', code ? { code: code } : {}).then(function (r) {

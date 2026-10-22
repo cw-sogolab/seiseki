@@ -293,7 +293,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = 'be7e23f3a8';
+  var VERSION = '49ada12143';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -1313,7 +1313,7 @@ function makeEnv_(lock) {
     now: function () { return new Date(); },
     uuid: function () { return Utilities.getUuid(); },
     rand32: function () { return parseInt(Utilities.getUuid().replace(/-/g, '').slice(0, 8), 16); },
-    logAccess: function (row) { accessBuffer_(row); },
+    logAccess: function (row) { if (prop_('ACCESS_LOG') !== 'off') accessBuffer_(row); },   // 개발 서버는 스크립트 속성 ACCESS_LOG=off (접속기록은 본판만, 2026-10-22 사용자)
     readLog: function () { return readAccessLog_(); },
     saveImage: function (o) {
       if (!lock) return saveImage_(o);
@@ -1327,7 +1327,8 @@ function makeEnv_(lock) {
 /* ---------- 접속기록: 기록장이 아닌 따로 둔 스프레드시트 (2026-10-22) ----------
  * 해마다 파일 하나 「<기록장 이름> 접속기록 YYYY」를 기록장과 같은 폴더에 만들고 ID 는 스크립트 속성 ALOG_<YYYY> 에 둠.
  * 학생이 들어오면 캐시(alog:buf)에만 한 줄 적고, 10분마다 warmCache 가(또는 강사가 접속기록을 볼 때) 모아서 시트 끝에 붙임 → 로그인이 느려지지 않음.
- * 캐시가 드물게 비워지면 최근 10분 안의 몇 줄이 빠질 수 있음(성적처럼 꼭 남아야 하는 기록은 아니라서 이렇게 함). */
+ * 캐시가 드물게 비워지면 최근 10분 안의 몇 줄이 빠질 수 있음(성적처럼 꼭 남아야 하는 기록은 아니라서 이렇게 함).
+ * 본판만 남김: 개발 서버는 스크립트 속성 ACCESS_LOG = off. */
 var ALOG_KEY = 'alog:buf', ALOG_MAX = 150;
 function alogLock_() { var l = null; try { l = LockService.getDocumentLock(); } catch (e) { l = null; } return l || LockService.getScriptLock(); }
 function accessBuffer_(row) {
