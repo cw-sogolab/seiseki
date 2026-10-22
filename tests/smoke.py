@@ -74,10 +74,11 @@ with sync_playwright() as p:
         for lib in ['jszip', 'exceljs']:
             f = VENDOR / (lib + '.min.js')
             if f.exists(): pg.route('**/cdnjs.cloudflare.com/ajax/libs/' + lib + '/**', (lambda path: lambda r: r.fulfill(path=path, content_type='application/javascript'))(str(f)))
-        if isdev:   # 강사 화면도 같은 주소 + #teacher
+        if (base / 'admin.html').exists():   # 예전 방식 (admin.html 따로)
+            pg.goto((base / 'admin.html').as_uri() + '?demo')
+        else:   # 학생·강사 한 주소: 주소 + #teacher (admin.html 없음, 2026-10-22)
             pg.goto((base / 'index.html').as_uri() + '?demo#teacher'); pg.wait_for_selector('#pw')
-            check('admin' in pg.url, '주소 + #teacher → 강사 화면')
-        pg.goto((base / 'admin.html').as_uri() + '?demo')
+            check(pg.url.endswith('#teacher') and not pg.locator('#sid').count() and '관리' in pg.title(), '주소 + #teacher → 강사 화면 (같은 주소)')
         check(pg.is_visible('.devbar') == isdev, '개발판 띠 ' + ('있음' if isdev else '없음'))
         check(not pg.is_visible('#topRight'), '로그인 전 머리띠 메뉴 숨김')
         pg.fill('#pw', 'nope'); pg.click('#go'); pg.wait_for_timeout(300)

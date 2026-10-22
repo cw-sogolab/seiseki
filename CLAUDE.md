@@ -6,7 +6,7 @@
 ## 1. 이 프로젝트가 뭔지
 
 - **학생 화면** `docs/index.html`: 번호로 로그인 → 반별 테스트 점수·반 평균·틀린 문항·추이, 숙제 현황, **숙제 사진 제출**. 온라인에서 학생이 하는 일은 숙제 제출과 성적 조회 두 가지뿐 (2026-10-16 사용자 결정).
-- **강사 화면** `docs/admin.html` — 들어가는 주소는 학생과 같은 주소 + `#teacher` (2026-10-22 사용자, 퇴실퀴즈와 같은 방식: 본판 `…/seiseki/#teacher`, 개발판 `…/seiseki/dev/#teacher`). index.html 이 #teacher 를 보면 admin.html 로 넘기고, admin.html 은 주소창을 `…/#teacher` 로 바꿔 보여 줌(새로고침해도 강사 화면). 학생 화면에는 강사 버튼 없음. 예전 admin.html 주소도 그대로 열림: 답안 입력·즉시 채점 / 시험 등록·정답 수정(재채점) / 숙제 등록·제출 확인·사진 보기·대리 입력 / 월초 명단 붙여넣기·번호 발급·반 수정 (재발급 없음) / 월말 표(학생평가·표 복사·엑셀).
+- **강사 화면** = 학생과 **같은 파일** `docs/index.html` + 주소 `#teacher` (2026-10-22 사용자: /admin 주소는 없앰 — `admin.html` 지움, 열면 404). index.html 안에 학생 화면(`<template id="sTpl">`)·강사 화면(`tTpl`) 두 틀이 있고, 주소가 `#teacher`(옛 `#admin`도)면 강사 틀을 꺼내고 monthxlsx·plan·admin.js 를, 아니면 student.js 를 불러옴. 주소의 #teacher 를 바꾸면 새로고침. 본판 `…/seiseki/#teacher`, 개발판 `…/seiseki/dev/#teacher`. 학생 화면에는 강사 버튼 없음. 강사 화면: 답안 입력·즉시 채점 / 시험 등록·정답 수정(재채점) / 숙제 등록·제출 확인·사진 보기·대리 입력 / 월초 명단 붙여넣기·번호 발급·반 수정 (재발급 없음) / 월말 표(학생평가·표 복사·엑셀).
 - **서버** `apps-script/`: 기록장 구글 시트에 붙인 Apps Script 웹앱. 시트 10탭(2026-10-20 「시험지」 추가) + 드라이브 「성적노트_숙제사진」 폴더.
 - **수업계획서 도구** `tools/class-plan/class_plan.py`: 지난달 워드 계획서 폴더 + 연간 계획표 JSON → 다음 달 워드·요약 엑셀.
 - **배포**: GitHub Pages (`/docs` 폴더). 저장소 `cw-sogolab/seiseki` (2026-10-17 만듦, Public). push 는 kitaku 와 같은 GitHub 인증을 쓰기로 사용자가 허락함(2026-10-17). **토큰을 화면에 출력하거나 이 저장소의 파일·원격 주소에 넣지 말 것.**
@@ -24,8 +24,8 @@
 
 ```
 docs/                     GitHub Pages 로 공개되는 화면 (본판)
-  dev/                    개발판 — index.html, admin.html, assets/(config.js 빼고 같은 파일들). 고칠 때는 여기부터
-  index.html, admin.html
+  dev/                    개발판 — index.html, assets/(config.js 빼고 같은 파일들). 고칠 때는 여기부터
+  index.html              학생 화면 + 강사 화면(#teacher) 한 파일
   assets/
     config.js             API_URL.prod / API_URL.dev (Apps Script 웹앱 주소). 비면 미리보기 모드. 본판·개발판 공용 한 파일
     core.js               번호·채점·명단 파싱 (공통)
