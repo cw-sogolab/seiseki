@@ -54,6 +54,11 @@ with sync_playwright() as p:
         if True:   # 실전반: 테스트 결과 달마다 한 페이지
             pg.goto((base / 'index.html').as_uri() + '?demo'); pg.click('#out') if pg.is_visible('#out') else None
             pg.fill('#sid', 'BD774119'); pg.click('#go'); pg.wait_for_selector('#modes [data-mode="실전"]')
+            if pg.locator('a#home').count():   # 로고 누르면 처음 화면
+                first = pg.get_attribute('#modes [aria-selected="true"]', 'data-mode')
+                pg.click('#modes [data-mode="요약"]'); pg.wait_for_timeout(100); pg.evaluate('window.scrollTo(0, 400)')
+                pg.click('a#home'); pg.wait_for_timeout(150)
+                check(pg.get_attribute('#modes [aria-selected="true"]', 'data-mode') == first and pg.evaluate('window.scrollY') == 0, '학생: 로고 → 처음 화면 (' + str(first) + ')')
             pg.click('#modes [data-mode="실전"]'); pg.wait_for_timeout(200)
             if pg.locator('#panel [data-tm]').count():
                 t1 = pg.inner_text('#panel'); pg.click('#panel [data-tm="2026-09"]'); pg.wait_for_timeout(150); t2 = pg.inner_text('#panel')
@@ -123,6 +128,10 @@ with sync_playwright() as p:
             pg.click('.seg [data-k="개념"]'); pg.click('[data-sub="GN-HM"]'); pg.click('[data-ep="GN-경제-M"]')
             pg.wait_for_function("document.querySelector('.pickedname') && document.querySelector('.pickedname').innerText.includes('경제 월말')")
             check(pg.is_visible('#stIn'), '개념: 답지에 있는 시험은 답안 입력에서 고르면 바로 등록')
+        if pg.locator('a#home').count():   # 로고 누르면 처음 화면 (이번 달 답안 입력)
+            pg.click('nav button[data-t="month"]'); pg.wait_for_timeout(150)
+            pg.click('a#home'); pg.wait_for_timeout(150)
+            check(pg.get_attribute('nav button[aria-selected="true"]', 'data-t') == 'entry' and '이번 달' in pg.inner_text('#period'), '강사: 로고 → 처음 화면(이번 달 답안 입력)')
         pg.click('nav button[data-t="hw"]')
         pg.wait_for_selector('#hSel')
         check('미제출' in pg.inner_text('#view'), '숙제 현황 표')

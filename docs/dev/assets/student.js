@@ -278,6 +278,14 @@
     UI.all('#modes [data-mode]').forEach(function (b) { b.onclick = function () { kindSel = b.getAttribute('data-mode'); subjSel = ''; renderTabs(); }; });
   }
 
+  /** 로고(머리띠 「성적노트」) 누르면 처음 화면: 로그인했으면 들어왔을 때의 기본 화면(지금 듣는 반·가장 최근 달), 아니면 맨 위로 */
+  function goHome(e) {
+    if (e) e.preventDefault();
+    if (view && !$('#app').hidden) { kindSel = ''; subjSel = ''; wkSel = ''; tmSel = ''; tmKey = ''; renderTabs(); }
+    window.scrollTo(0, 0);
+  }
+  if ($('#home')) $('#home').onclick = goHome;
+
   function renderTabs() {
     var ms = modesHave();
     $('#months').innerHTML = '';
