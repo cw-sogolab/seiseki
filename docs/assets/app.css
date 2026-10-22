@@ -517,3 +517,7 @@ body.preview{background-attachment:scroll}
 .oacc{text-align:center;margin-top:6px}
 .oacc details.acc{text-align:left;margin-top:6px}
 .oacc details.acc summary{cursor:pointer;color:var(--blue);font-size:13.5px;font-weight:600;text-align:center}
+.mlbl{margin:2px 0 0;font-size:12.5px;font-weight:700;color:var(--blue-ink)}
+.stats.mstats{margin:6px 0 14px}
+.stats.mstats .st b{font-size:20px}
+.stats.mstats .st{background:var(--blue-soft)}
