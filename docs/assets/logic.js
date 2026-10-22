@@ -43,7 +43,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = 'dfb0b0d78e';
+  var VERSION = '49ada12143';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -449,11 +449,38 @@ var Logic = (function () {
       return fail(left ? '없는 번호예요. 선생님께 받은 번호를 다시 확인해 주세요. (남은 기회 ' + left + '번)' : '5번 틀렸어요. 1분 뒤에 다시 해 주세요.');
     }
     env.cache.remove('fail:s:' + dev);
+    logAccess(env, stu, p);
     // 학생 열쇠: 숙제 제출은 번호 대신 이 열쇠로만 받음 (번호를 넣어 보며 맞히는 길을 막음)
     var tok = env.uuid();
     env.cache.put('stu:' + tok, stu.code, STU_TTL);
     var v = studentView(env, stu); v.tok = tok;
     return ok(v);
+  }
+
+  /* ---------- 접속기록 (2026-10-22 사용자) ----------
+   * 기록장이 아니라 따로 둔 접속기록 스프레드시트(해마다 파일 하나)에 쌓음. 서버는 로그인 때 캐시에만 적고 10분마다 모아서 붙임(로그인이 느려지지 않게).
+   * 구분: 로그인(번호를 넣고 들어옴) / 자동(「기억하기」로 열어 뒤에서 새로 불러옴, 숙제 내다 열쇠가 지나 다시 들어옴). 강사 「학생별」로 본 것은 남기지 않음 */
+  var ACCESS_HEAD = ['시각', '번호', '이름', '구분', '기기'];
+  function logAccess(env, stu, p) {
+    if (!env.logAccess) return;
+    var row = { '시각': stamp(env), '번호': stu.code, '이름': stu.name, '구분': S(p.auto) === '1' ? '자동' : '로그인', '기기': S(p.dev).replace(/[^A-Za-z0-9]/g, '').slice(0, 8) };
+    try { env.logAccess(row); } catch (e) { /* 기록을 못 해도 로그인은 그대로 */ }
+  }
+  /** 강사: 학생마다 마지막 접속·최근 30일 중 들어온 날 수·전체 횟수, code 를 주면 그 학생의 최근 기록 100개 */
+  function accessLog(env, p) {
+    var rows;
+    try { rows = env.readLog ? env.readLog() : []; } catch (e) { return fail('접속기록을 읽지 못했어요: ' + (e && e.message || e)); }
+    var since = C.dateOf(new Date(env.now().getTime() - 29 * 86400000)), sum = {}, code = C.normCode(p.code || ''), mine = [];
+    rows.forEach(function (r) {
+      var c = C.normCode(r['번호']), t = S(r['시각']); if (!c || !t) return;
+      var o = sum[c] || (sum[c] = { last: '', total: 0, days: {} });
+      o.total++; if (t > o.last) o.last = t;
+      if (t.slice(0, 10) >= since) o.days[t.slice(0, 10)] = 1;
+      if (code && c === code) mine.push({ at: t, kind: S(r['구분']), dev: S(r['기기']) });
+    });
+    Object.keys(sum).forEach(function (c) { sum[c].days30 = Object.keys(sum[c].days).length; delete sum[c].days; });
+    mine.sort(function (a, b) { return b.at.localeCompare(a.at); });
+    return ok({ sum: sum, rows: mine.slice(0, 100) });
   }
 
   /** 숙제 제출하는 학생: 로그인 때 받은 열쇠(tok)로만 찾음. 열쇠가 없거나 지났으면 화면이 다시 로그인하고 한 번 더 보냄 */
@@ -769,7 +796,7 @@ var Logic = (function () {
   var STUDENT = { login: login, hwPhoto: hwPhoto, hwFinish: hwFinish };
   var ADMIN = { bootstrap: bootstrap, saveResult: saveResult, deleteResult: deleteResult, addExam: addExam, updateExamKey: updateExamKey,
     deleteExam: deleteExam, addHomework: addHomework, deleteHomework: deleteHomework, setChecked: setChecked, proxyHw: proxyHw,
-    hwPhotos: hwPhotos, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs };
+    hwPhotos: hwPhotos, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs, accessLog: accessLog };
 
   function handle(env, action, p) {
     p = p || {};
@@ -801,6 +828,6 @@ var Logic = (function () {
   var WRITES = ['hwPhoto', 'hwFinish', 'saveResult', 'deleteResult', 'addExam', 'updateExamKey', 'deleteExam', 'addHomework',
     'deleteHomework', 'setChecked', 'proxyHw', 'importRoster', 'setClasses', 'saveEval', 'setHwDue'];
 
-  return { TABLES: TABLES, TEXT_COLS: TEXT_COLS, WRITES: WRITES, VERSION: VERSION, handle: handle, cleanupPhotos: cleanupPhotos, itemStats: itemStats };
+  return { TABLES: TABLES, ACCESS_HEAD: ACCESS_HEAD, TEXT_COLS: TEXT_COLS, WRITES: WRITES, VERSION: VERSION, handle: handle, cleanupPhotos: cleanupPhotos, itemStats: itemStats };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Logic;

@@ -15,7 +15,7 @@
     if (busy && !quiet) return;
     if (!quiet) setBusy(btn, true, '확인하는 중…');
     else $('#refresh').textContent = '새로 불러오는 중…';
-    return Api.call('login', { code: c }).then(function (r) {
+    return Api.call('login', { code: c, auto: quiet ? 1 : 0 }).then(function (r) {   // auto: 뒤에서 새로 불러온 것 (접속기록 구분)
       if (!quiet) setBusy(btn, false, '조회하기');
       $('#refresh').textContent = '새로고침';
       if (!r.ok) {
@@ -40,7 +40,7 @@
     function go() { return Api.call(action, Object.assign({ tok: tok }, payload)); }
     return (tok ? go() : Promise.resolve({ ok: false, needLogin: true })).then(function (r) {
       if (!r.needLogin) return r;
-      return Api.call('login', { code: code }).then(function (l) {
+      return Api.call('login', { code: code, auto: 1 }).then(function (l) {
         if (!l.ok) return l;
         tok = l.data.tok || ''; return go();
       });

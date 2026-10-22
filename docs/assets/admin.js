@@ -825,6 +825,30 @@
   var stuFilter = 'cur', editing = '';
   /* ---------- 학생별: 학생 한 명이 보는 화면 그대로 (학생 화면을 ?as=번호 로 틀 안에 열고, 서버 studentAs 로 불러옴) ---------- */
   var oneCls = '', oneQ = '', oneCode = '', onePast = false, oneTimer = 0;
+  /* 접속기록 (따로 둔 시트, 서버 accessLog): 요약은 한 번 불러 두고, 학생별 최근 기록은 학생마다 */
+  var acc = { sum: null, rows: {}, loading: false };
+  function accShort(t) { return t ? (+t.slice(5, 7)) + '/' + (+t.slice(8, 10)) + ' ' + t.slice(11, 16) : ''; }
+  function accLoad(code, done) {
+    if (Api.env === 'dev' && !Api.demo) { done('개발판은 접속기록을 남기지 않아요 (본판만)'); return; }
+    if (!code && (acc.sum || acc.loading)) { if (acc.sum) done(); return; }
+    if (!code) acc.loading = true;
+    req('accessLog', code ? { code: code } : {}).then(function (r) {
+      if (!code) acc.loading = false;
+      if (!r.ok) { done(r.error || '불러오지 못했어요'); return; }
+      acc.sum = r.data.sum; if (code) acc.rows[code] = r.data.rows; done();
+    });
+  }
+  function accLine(code) {
+    var o = acc.sum && acc.sum[code];
+    return !acc.sum ? '' : o ? '마지막 접속 ' + accShort(o.last) + ' · 최근 30일 중 ' + o.days30 + '일 · 전체 ' + o.total + '번' : '아직 접속 기록이 없어요';
+  }
+  function accDraw(code) {
+    var box = $('#oAcc'); if (!box || box.getAttribute('data-code') !== code) return;
+    var rows = acc.rows[code];
+    box.innerHTML = '<span class="meta">' + esc(accLine(code)) + '</span>' + (rows && rows.length ? '<details class="acc"><summary>접속 기록 보기</summary><div class="tw"><table class="stab"><thead><tr><th>시각</th><th>구분</th><th>기기</th></tr></thead><tbody>' +
+      rows.slice(0, 50).map(function (x) { return '<tr><td>' + esc(accShort(x.at)) + '</td><td>' + esc(x.kind) + '</td><td class="code">' + esc(x.dev) + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+      (rows.length > 50 ? '<p class="meta">최근 50개만 보여요. 전체는 「접속기록」 시트에 있어요.</p>' : '') + '</details>' : '');
+  }
   function onePool() {
     var pool = D.students.filter(function (s) { return onePast || s.classes.length; });
     if (oneCls) pool = pool.filter(function (s) { return s.classes.indexOf(oneCls) >= 0; });
@@ -858,8 +882,11 @@
       var ix = pool.map(function (s) { return s.code; }).indexOf(me.code), prev = ix > 0 ? pool[ix - 1] : null, next = ix >= 0 && ix < pool.length - 1 ? pool[ix + 1] : null;
       $('#oNav').innerHTML = '<div class="stunav"><button type="button" class="btn sub sm" data-oo="' + (prev ? esc(prev.code) : '') + '"' + (prev ? '' : ' disabled') + '>‹ ' + (prev ? esc(prev.name) : '') + '</button>' +
         '<div style="text-align:center"><b>' + esc(me.name) + '</b><div class="meta">' + esc(Core.fmtCode(me.code)) + (me.classes.length ? ' · ' + me.classes.map(function (c) { return esc(clsName(c)); }).join(', ') : ' · 지금 수강 없음') + '</div></div>' +
-        '<button type="button" class="btn sub sm" data-oo="' + (next ? esc(next.code) : '') + '"' + (next ? '' : ' disabled') + '>' + (next ? esc(next.name) : '') + ' ›</button></div>';
+        '<button type="button" class="btn sub sm" data-oo="' + (next ? esc(next.code) : '') + '"' + (next ? '' : ' disabled') + '>' + (next ? esc(next.name) : '') + ' ›</button></div>' +
+        '<div id="oAcc" class="oacc" data-code="' + esc(me.code) + '"><span class="meta">접속 기록 불러오는 중…</span></div>';
       var src = location.pathname + '?as=' + encodeURIComponent(me.code) + (/[?&]demo\b/.test(location.search) ? '&demo' : ''), f = $('#oF');
+      if (acc.rows[me.code]) accDraw(me.code);
+      else (function (c) { accLoad(c, function (err) { if (err) { var b = $('#oAcc'); if (b && b.getAttribute('data-code') === c) b.innerHTML = '<span class="meta">접속 기록: ' + esc(err) + '</span>'; return; } accDraw(c); }); })(me.code);
       if (!f || f.getAttribute('data-src') !== src) $('#oFr').innerHTML = '<iframe class="stuframe" id="oF" data-src="' + esc(src) + '" title="' + esc(me.name) + ' 학생 화면" src="' + esc(src) + '"></iframe>';
     }
     all('#view [data-oo]').forEach(function (b) { b.onclick = function () { var c = b.getAttribute('data-oo'); if (!c) return; oneCode = c; oneDraw(); var hb = document.querySelector('header.appbar'); window.scrollTo(0, $('#oCard').getBoundingClientRect().top + window.scrollY - (hb ? hb.offsetHeight : 0) - 8); }; });
@@ -881,22 +908,26 @@
       '<button type="button" class="tab" data-f="cur" aria-selected="' + (stuFilter === 'cur') + '">이번 달 수강생 ' + cur.length + '명</button>' +
       '<button type="button" class="tab" data-f="all" aria-selected="' + (stuFilter === 'all') + '">원생명단 전체 ' + D.students.length + '명</button></div>' +
       '<button type="button" class="btn sub sm" id="cp">번호표 복사 (이름·번호·반)</button></div><div id="cpOut"></div>' +
-      '<div class="tw" style="margin-top:10px"><table><thead><tr><th>이름</th><th>번호</th><th>반</th><th>상태</th><th></th></tr></thead><tbody>' +
+      '<div class="tw" style="margin-top:10px"><table><thead><tr><th>이름</th><th>번호</th><th>반</th><th>상태</th><th>마지막 접속</th><th></th></tr></thead><tbody>' +
       (list.length ? list.map(function (s) {
         var row = '<tr><td>' + esc(s.name) + '</td><td class="code">' + esc(Core.fmtCode(s.code)) + '</td><td>' + (s.classes.map(function (c) { return esc(clsName(c)); }).join(', ') || '<span class="meta">없음</span>') + '</td>' +
           '<td>' + (!s.active ? '<span class="pill no">차단</span>' : s.classes.length ? '<span class="pill ok">수강 중</span>' : '<span class="pill wait">수강 없음</span>') + '</td>' +
+          '<td class="meta" data-la="' + esc(s.code) + '">' + (acc.sum ? (acc.sum[s.code] ? esc(accShort(acc.sum[s.code].last)) : '없음') : '…') + '</td>' +
           '<td style="white-space:nowrap"><button type="button" class="btn sub sm" data-ed="' + esc(s.code) + '">반 수정</button> <button type="button" class="btn soft sm" data-see="' + esc(s.code) + '">성적 보기</button></td></tr>';
         if (editing === s.code) {
-          row += '<tr><td colspan="5"><div class="fields" style="gap:14px">' + D.classes.filter(function (c) { return c.active; }).map(function (c) {
+          row += '<tr><td colspan="6"><div class="fields" style="gap:14px">' + D.classes.filter(function (c) { return c.active; }).map(function (c) {
             return '<label class="check" style="margin:0"><input type="checkbox" data-cc="' + esc(c.code) + '"' + (s.classes.indexOf(c.code) >= 0 ? ' checked' : '') + '> ' + esc(clsName(c.code)) + '</label>';
           }).join('') + '<button type="button" class="btn sm" id="ccSave">저장</button> <button type="button" class="btn sub sm" id="ccCancel">취소</button></div></td></tr>';
         }
         return row;
-      }).join('') : '<tr><td colspan="5" class="empty">' + (stuFilter === 'cur' ? '이번 달 수강생이 없어요. 위에 명단을 붙여넣어 주세요.' : '원생명단이 비어 있어요.') + '</td></tr>') +
+      }).join('') : '<tr><td colspan="6" class="empty">' + (stuFilter === 'cur' ? '이번 달 수강생이 없어요. 위에 명단을 붙여넣어 주세요.' : '원생명단이 비어 있어요.') + '</td></tr>') +
       '</tbody></table></div><p class="meta" style="margin-top:8px">번호는 퇴실퀴즈와 같은 원생명단에서 관리합니다. 학생 이용을 막으려면 원생명단 시트의 「상태」 칸에 「차단」이라고 적으세요. 번호를 잊은 학생에게는 이 표의 번호를 다시 알려 주면 됩니다.</p><p id="sMsg" class="msg" role="status"></p></div>' +
       '<div class="card"><h2>반 목록</h2><p class="meta">반 이름·시간은 기록장 구글 시트의 「반」 탭에서 고칩니다. 반코드는 바꾸지 마세요.</p><div class="tw" style="margin-top:8px"><table><thead><tr><th>반코드</th><th>반 이름</th><th>종류</th><th>요일·시간</th><th class="num">학생</th></tr></thead><tbody>' +
       D.classes.map(function (c) { return '<tr><td class="code">' + esc(c.code) + '</td><td>' + esc(clsName(c.code)) + '</td><td>' + esc(c.kind) + '</td><td>' + esc(c.time) + '</td><td class="num">' + members(c.code).length + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
     all('#view [data-f]').forEach(function (b) { b.onclick = function () { stuFilter = b.getAttribute('data-f'); editing = ''; vStu(); }; });
+    if (!acc.sum) accLoad('', function (err) {
+      all('#view [data-la]').forEach(function (td) { var c = td.getAttribute('data-la'); td.textContent = err ? '-' : acc.sum[c] ? accShort(acc.sum[c].last) : '없음'; });
+    });
     all('#view [data-see]').forEach(function (b) { b.onclick = function () { oneCode = b.getAttribute('data-see'); tab = 'one'; renderNav(); render(); window.scrollTo(0, 0); }; });
     $('#issue').onclick = function () {
       var b = this; b.disabled = true;
