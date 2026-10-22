@@ -448,6 +448,11 @@
       if (!all.length) return '';
       var list = all.filter(function (x) { return x.t.month === tmSel; });
       var c = '<div class="card"><h2>' + (real ? '' : '<i class="kdot" style="background:' + toneOf(k, s) + '"></i>') + esc(ttl) + ' <span class="meta">' + esc(tmSel ? UI.monthLabel(tmSel) : '') + '</span></h2>';
+      var rm = real && view.realMonth && view.realMonth[tmSel];   // 실전반: 이 달 환산점수 평균·등수 (D·E 합쳐서)
+      if (rm) c += '<p class="mlbl">이 달 종합 · 환산점수 (D·E 합쳐서)</p><div class="stats mstats">' +
+        '<div class="st' + (rm.avg >= rm.classAvg ? ' sgood' : ' sbad') + '"><span>내 평균</span><b>' + rm.avg + '</b><em>시험 ' + rm.tests + '개</em></div>' +
+        '<div class="st"><span>등수</span><b>' + rm.rank + '등</b><em>' + rm.n + '명 중</em></div>' +
+        '<div class="st"><span>우리반 평균</span><b>' + rm.classAvg + '</b><em>' + (rm.avg - rm.classAvg >= 0 ? '+' : '') + Math.round((rm.avg - rm.classAvg) * 10) / 10 + '</em></div></div>';
       c += list.length ? list.map(function (x) { return testItem(x.t, null, real, !real && (x.t.kind === '월말테스트' || /월말/.test(x.t.label))); }).join('') : '<p class="empty">이 달에는 ' + esc(ttl) + ' 기록이 없어요.</p>';
       return c + '</div>';
     }

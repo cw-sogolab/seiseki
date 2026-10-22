@@ -293,7 +293,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = 'e122c35a92';
+  var VERSION = '28a7b07007';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -649,8 +649,25 @@ var Logic = (function () {
     hw.forEach(function (h) { (hwByCls[h.cls] || (hwByCls[h.cls] = [])).push(h); });
     var subjInfo = null;
     try { subjInfo = subjStats(env, stu, exById, byExam, kindOfCls, groupOf); } catch (err) { subjInfo = null; }   // 시험지 탭이 없거나 이상해도 로그인은 되게
+    // 실전반 달마다 환산점수 평균·등수 (2026-10-22 사용자): 그 달 실전 시험(D·E 합쳐서)을 하나라도 본 학생마다 환산점수 평균 → 내 평균의 등수(같은 평균은 같은 등수)
+    var realMonth = {};
+    try {
+      var perM = {};
+      rs.forEach(function (r) {
+        var e = exById[r.exam]; if (!e || kindOfCls[e.cls] !== '실전' || !e.month || (e.total && r.score > e.total)) return;
+        var cv = convOf(env, r); if (cv === null || cv === undefined || isNaN(cv)) return;
+        var m = perM[e.month] || (perM[e.month] = {}); (m[r.code] || (m[r.code] = [])).push(+cv);
+      });
+      Object.keys(perM).forEach(function (mo) {
+        var codes = Object.keys(perM[mo]), avgs = codes.map(function (c) { return C.mean(perM[mo][c]); });
+        var mineL = perM[mo][stu.code]; if (!mineL) return;
+        var mine = C.mean(mineL);
+        realMonth[mo] = { avg: Math.round(mine * 10) / 10, rank: 1 + avgs.filter(function (v) { return v > mine + 1e-9; }).length, n: codes.length,
+          classAvg: Math.round(C.mean(avgs) * 10) / 10, tests: mineL.length };
+      });
+    } catch (err2) { realMonth = {}; }
     return {
-      name: stu.name, code: stu.code, subj: subjInfo,
+      name: stu.name, code: stu.code, subj: subjInfo, realMonth: realMonth,
       classes: cls.filter(function (c) { return mine.indexOf(c.code) >= 0; }).sort(function (a, b) {
         return (stu.classes.indexOf(a.code) < 0) - (stu.classes.indexOf(b.code) < 0); // 지금 듣는 반 먼저
       }).map(function (c) {

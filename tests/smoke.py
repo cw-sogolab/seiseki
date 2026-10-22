@@ -63,6 +63,7 @@ with sync_playwright() as p:
             if pg.locator('#panel [data-tm]').count():
                 t1 = pg.inner_text('#panel'); pg.click('#panel [data-tm="2026-09"]'); pg.wait_for_timeout(150); t2 = pg.inner_text('#panel')
                 check('EJU 2025-2' in t1 and 'EJU 2025-2' not in t2 and 'EJU 2023-2' in t2, '테스트 결과 달마다 한 페이지')
+                if isdev: check('이 달 종합' in t2 and '내 평균' in t2 and '등수' in t2, '실전반: 달마다 환산점수 평균·등수')
         check(not errs, '스크립트 오류 없음 ' + ' / '.join(errs))
         pg.close()
 

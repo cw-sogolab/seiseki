@@ -458,6 +458,13 @@ t('실전반 D·E 는 하나로: 같은 달 같은 이름 시험이면 반 평�
   const B = Logic.handle(e, 'adminLogin', { password: 'demo', dev: 'g' }).data.boot;
   assert.strictEqual(Logic.itemStats(B, 'E5').here.n, 4, '문항 분석도 D·E 합쳐서');
 });
+t('실전반 달마다 환산점수 평균·등수 (D·E 합쳐서, 그 달 시험을 본 학생 중)', () => {
+  const e = Mock.seed(Mock.createEnv()), v = Logic.handle(e, 'login', { code: 'BD774119' }).data;
+  const ms = Object.keys(v.realMonth); assert.ok(ms.length >= 1);
+  ms.forEach(m => { const o = v.realMonth[m]; assert.ok(o.rank >= 1 && o.rank <= o.n && o.tests >= 1 && o.avg > 0 && o.classAvg > 0, m); });
+  const k = Logic.handle(e, 'login', { code: 'TR520615' }).data;   // 실전반이 아닌 학생은 없음
+  assert.deepStrictEqual(k.realMonth, {});
+});
 console.log('문항 분석 (강사 화면)');
 t('이 반 정답률·누적 정답률(같은 이름·같은 정답의 다른 달·반 포함)·고른 답 분포·많이 고른 오답', () => {
   const e = Mock.seed(Mock.createEnv());
