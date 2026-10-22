@@ -228,6 +228,8 @@ function makeEnv_(lock) {
     now: function () { return new Date(); },
     uuid: function () { return Utilities.getUuid(); },
     rand32: function () { return parseInt(Utilities.getUuid().replace(/-/g, '').slice(0, 8), 16); },
+    logAccess: function (row) { accessBuffer_(row); },
+    readLog: function () { return readAccessLog_(); },
     saveImage: function (o) {
       if (!lock) return saveImage_(o);
       lock.releaseLock();
@@ -237,9 +239,74 @@ function makeEnv_(lock) {
   };
 }
 
+/* ---------- 접속기록: 기록장이 아닌 따로 둔 스프레드시트 (2026-10-22) ----------
+ * 해마다 파일 하나 「<기록장 이름> 접속기록 YYYY」를 기록장과 같은 폴더에 만들고 ID 는 스크립트 속성 ALOG_<YYYY> 에 둠.
+ * 학생이 들어오면 캐시(alog:buf)에만 한 줄 적고, 10분마다 warmCache 가(또는 강사가 접속기록을 볼 때) 모아서 시트 끝에 붙임 → 로그인이 느려지지 않음.
+ * 캐시가 드물게 비워지면 최근 10분 안의 몇 줄이 빠질 수 있음(성적처럼 꼭 남아야 하는 기록은 아니라서 이렇게 함). */
+var ALOG_KEY = 'alog:buf', ALOG_MAX = 150;
+function alogLock_() { var l = null; try { l = LockService.getDocumentLock(); } catch (e) { l = null; } return l || LockService.getScriptLock(); }
+function accessBuffer_(row) {
+  var lock = alogLock_(), spill = null;
+  if (!lock.tryLock(2000)) { appendAccess_([row]); return; }   // 잠깐 붐비면 그냥 시트에 바로 붙임
+  try {
+    var c = CacheService.getScriptCache(), buf;
+    try { buf = JSON.parse(c.get(ALOG_KEY) || '[]'); } catch (e) { buf = []; }
+    buf.push(row);
+    if (buf.length >= ALOG_MAX) { spill = buf; c.remove(ALOG_KEY); } else c.put(ALOG_KEY, JSON.stringify(buf), 21600);
+  } finally { lock.releaseLock(); }
+  if (spill) appendAccess_(spill);
+}
+/** 캐시에 모인 접속기록을 시트로 옮김 */
+function flushAccessLog_() {
+  var lock = alogLock_(), buf = [];
+  if (!lock.tryLock(5000)) return 0;
+  try {
+    var c = CacheService.getScriptCache();
+    try { buf = JSON.parse(c.get(ALOG_KEY) || '[]'); } catch (e) { buf = []; }
+    if (buf.length) c.remove(ALOG_KEY);
+  } finally { lock.releaseLock(); }
+  if (buf.length) appendAccess_(buf);
+  return buf.length;
+}
+/** 한 줄씩 appendRow (여러 요청이 같이 붙여도 줄이 섞이거나 덮이지 않음) */
+function appendAccess_(rows) {
+  var H = Logic.ACCESS_HEAD, by = {};
+  rows.forEach(function (r) { var y = String(r['시각'] || '').slice(0, 4) || Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy'); (by[y] = by[y] || []).push(r); });
+  Object.keys(by).forEach(function (y) {
+    var sh = accessSheet_(y, true);
+    by[y].forEach(function (r) { sh.appendRow(H.map(function (h) { return r[h] === undefined || r[h] === null ? '' : String(r[h]); })); });
+  });
+}
+/** 그 해 접속기록 시트 (create 이면 없을 때 만듦) */
+function accessSheet_(y, create) {
+  var props = PropertiesService.getScriptProperties(), id = props.getProperty('ALOG_' + y), H = Logic.ACCESS_HEAD;
+  if (id) { try { return SpreadsheetApp.openById(id).getSheets()[0]; } catch (e) { if (!create) return null; } }
+  if (!create) return null;
+  var src = spreadsheet_(), ss = SpreadsheetApp.create(src.getName() + ' 접속기록 ' + y), sh = ss.getSheets()[0];
+  sh.setName('접속기록');
+  sh.getRange('A:E').setNumberFormat('@');   // 시각이 날짜로 바뀌지 않게 (그래도 바뀐 것은 읽을 때 되돌림)
+  sh.getRange(1, 1, 1, H.length).setValues([H]).setFontWeight('bold').setBackground('#12233F').setFontColor('#FFFFFF');
+  sh.setFrozenRows(1);
+  try { var par = DriveApp.getFileById(src.getId()).getParents(); if (par.hasNext()) DriveApp.getFileById(ss.getId()).moveTo(par.next()); } catch (e) { /* 폴더를 못 옮겨도 기록은 됨 */ }
+  props.setProperty('ALOG_' + y, ss.getId());
+  return sh;
+}
+/** 강사 화면용: 올해·작년 접속기록 (먼저 캐시에 모인 것을 옮김) */
+function readAccessLog_() {
+  flushAccessLog_();
+  var y = Number(Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy')), out = [];
+  [y - 1, y].forEach(function (yy) {
+    var sh = accessSheet_(String(yy), false); if (!sh) return;
+    var v = sh.getDataRange().getValues(), head = v[0].map(String);
+    v.slice(1).forEach(function (r) { var o = {}; head.forEach(function (h, i) { o[h] = r[i] instanceof Date ? Utilities.formatDate(r[i], 'Asia/Seoul', 'yyyy-MM-dd HH:mm') : String(r[i]); }); out.push(o); });
+  });
+  return out;
+}
+
 /* ---------- 매일·10분마다 도는 일 (트리거: 편집기 「트리거」에서 시간 기반으로 추가) ---------- */
 /** 10분마다: 캐시를 미리 채워 둠 (원생명단은 새로 읽음) → 학생·선생님이 시트 읽기를 기다리지 않게 */
 function warmCache() {
+  try { flushAccessLog_(); } catch (e) { Logger.log('접속기록 옮기기 실패: ' + e); }
   var st = makeStore_();
   Object.keys(Logic.TABLES).forEach(function (t) { try { st.warm(t, t === '원생'); } catch (e) { /* 없는 탭은 건너뜀 */ } });
 }

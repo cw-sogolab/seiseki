@@ -8,7 +8,7 @@ var SeisekiMock = (function () {
 
   function createEnv(opts) {
     opts = opts || {};
-    var tables = {}, cache = {}, images = {}, imgSeq = 0, clock = opts.now || function () { return new Date(); };
+    var tables = {}, cache = {}, images = {}, imgSeq = 0, accessLog = [], clock = opts.now || function () { return new Date(); };
     Object.keys(L.TABLES).forEach(function (t) { tables[t] = []; });
     function rand32() {
       if (typeof crypto !== 'undefined' && crypto.getRandomValues) { var a = new Uint32Array(1); crypto.getRandomValues(a); return a[0]; }
@@ -32,7 +32,9 @@ var SeisekiMock = (function () {
       uuid: function () { return 'tok-' + rand32().toString(36) + rand32().toString(36); },
       rand32: rand32,
       saveImage: function (o) { var id = 'mock-' + (++imgSeq); images[id] = 'data:' + o.mime + ';base64,' + o.b64; return id; },
-      _tables: tables, _images: images
+      logAccess: function (row) { accessLog.push(Object.assign({}, row)); },   // 서버는 따로 둔 접속기록 시트, 미리보기는 메모리
+      readLog: function () { return accessLog.map(function (r) { return Object.assign({}, r); }); },
+      _tables: tables, _images: images, _log: accessLog
     };
     return env;
   }

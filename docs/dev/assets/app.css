@@ -514,3 +514,6 @@ body.preview{background-attachment:scroll}
 .stunav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 8px}
 .stunav b{font-size:17px}
 .stunav .btn{max-width:32%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oacc{text-align:center;margin-top:6px}
+.oacc details.acc{text-align:left;margin-top:6px}
+.oacc details.acc summary{cursor:pointer;color:var(--blue);font-size:13.5px;font-weight:600;text-align:center}
