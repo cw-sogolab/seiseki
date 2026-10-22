@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script>/* 옛 강사 화면 주소(admin, admin.html)는 없앰 (2026-10-22) — 예전 화면을 기억한 브라우저가 여기로 오면 새 강사 화면(같은 주소 + #teacher)으로.
+   ?r= 를 붙여 브라우저가 기억한 옛 index.html 대신 새로 받게 함 (새 index.html 이 r 을 지움) */
+(function(){var m=location.pathname.match(/^(.*\/)admin(\.html)?\/?$/);if(!m)return;var q=location.search.replace(/^\?/,'').split('&').filter(function(x){return x&&!/^r=/.test(x);});q.push('r='+Date.now());location.replace(m[1]+'?'+q.join('&')+'#teacher');})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>페이지를 찾을 수 없어요 · cw-sogolab</title>
+<style>
+:root{--bg:#F5F3FF;--card:#fff;--ink:#1B1838;--sub:#6B6690;--blue:#5B4BF0}
+@media (prefers-color-scheme: dark){:root{--bg:#14122B;--card:#1F1C3D;--ink:#EEEBFF;--sub:#A8A2D0;--blue:#8F84FF}}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;padding:16px;box-sizing:border-box}
+.c{background:var(--card);border-radius:22px;padding:32px 28px;max-width:360px;text-align:center}
+h1{font-size:20px;margin:0 0 8px}p{color:var(--sub);margin:0 0 20px;line-height:1.5}
+a{display:inline-block;background:var(--blue);color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:14px}
+</style>
+</head>
+<body><div class="c"><h1>페이지를 찾을 수 없어요</h1><p>주소를 다시 확인해 주세요.</p><a href="/seiseki/">성적노트로 가기</a></div></body>
+</html>

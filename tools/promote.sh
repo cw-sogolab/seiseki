@@ -15,6 +15,7 @@ for f in docs/dev/*.html; do
 done
 for f in docs/*.html; do
   h=$(basename "$f")
+  [ "$h" = "404.html" ] && continue   # 404.html 은 본판에만 (옛 admin 주소 → #teacher)
   [ -f "docs/dev/$h" ] || rm -f "$f"
 done
 echo "본판(docs/)에 반영했어요. 커밋·푸시하면 1~2분 뒤 열립니다."

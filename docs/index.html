@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<script>/* 학생·강사 화면이 한 주소 (2026-10-22): 강사 화면은 주소 + #teacher. admin.html 은 없앰 */window.SEISEKI_TEACHER=/^#(teacher|admin)$/.test(location.hash);if(window.SEISEKI_TEACHER){document.title='성적노트 관리 · cw-sogolab';try{if(location.hash==='#admin')history.replaceState(null,'',location.pathname+location.search+'#teacher');}catch(e){}}</script>
+<script>/* 학생·강사 화면이 한 주소 (2026-10-22): 강사 화면은 주소 + #teacher. admin.html 은 없앰 */window.SEISEKI_TEACHER=/^#(teacher|admin)$/.test(location.hash);if(window.SEISEKI_TEACHER){document.title='성적노트 관리 · cw-sogolab';}try{var q=location.search.replace(/^\?/,'').split('&').filter(function(x){return x&&!/^r=/.test(x);});var u=location.pathname+(q.length?'?'+q.join('&'):'')+(window.SEISEKI_TEACHER?'#teacher':location.hash);if(u!==location.pathname+location.search+location.hash)history.replaceState(null,'',u);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>내 성적 · cw-sogolab</title>
 <meta name="description" content="테스트 점수·틀린 문항·숙제 제출을 한곳에서 — cw-sogolab">
