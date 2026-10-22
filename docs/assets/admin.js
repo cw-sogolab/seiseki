@@ -1203,6 +1203,12 @@
     this.textContent = show ? '숨기기' : '보기'; this.setAttribute('aria-pressed', String(show)); $('#pw').focus();
   };
   $('#logout').onclick = function () { logout(''); };
+  /** 로고(머리띠 「성적노트」) 누르면 처음 화면: 이번 달 「답안 입력」 (로그인 전이면 맨 위로만) */
+  $('#home').onclick = function (e) {
+    e.preventDefault();
+    if (D) { tab = TABS[0][0]; month = D.today.slice(0, 7); if ($('#month')) $('#month').value = month; renderNav(); render(); }
+    window.scrollTo(0, 0);
+  };
   $('#month').onchange = function () { month = this.value; render(); };
   if (token) load(); else { $('#pw').focus(); Api.warm(); }   // 비밀번호를 치는 동안 서버를 미리 깨워 둠
 })();
