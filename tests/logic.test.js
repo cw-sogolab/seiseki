@@ -201,6 +201,14 @@ t('숙제 등록·사진 제출·마무리·확인', () => {
   const mine = fin.data.classes.filter(x => x.code === 'GN-HM')[0].hw[0]; assert.ok(mine.done); assert.strictEqual(mine.photos, 2);
   assert.ok(H('setChecked', { token, hw: hw.id, code: c, checked: true }).ok);
   assert.strictEqual(H('hwPhotos', { token, hw: hw.id, code: c }).data.length, 2);
+  // 다시 내며 화면이 순서를 1부터 다시 보내도 서버가 3번째로 저장 (예전엔 1·1·2·2…로 겹침)
+  assert.ok(H('hwPhoto', { code: c, hw: hw.id, order: 1, mime: 'image/jpeg', b64: '/9j/AAAB' }).ok);
+  const ph = H('hwPhotos', { token, hw: hw.id, code: c }).data;
+  assert.deepStrictEqual(ph.map(x => x.order), [1, 2, 3]);
+  // 사진을 서버가 대신 읽어 보내기: 강사만, 「숙제사진」에 있는 파일만
+  assert.ok(H('photo', { token, id: ph[0].fileId }).ok);
+  assert.ok(!H('photo', { id: ph[0].fileId }).ok, '학생은 못 부름');
+  assert.ok(!H('photo', { token, id: 'other-drive-file' }).ok, '숙제 사진이 아닌 파일은 못 읽음');
   assert.strictEqual(H('bootstrap', { token }).data.photoWarns.filter(x => x.hw === hw.id).length, 0);
   assert.ok(!H('hwPhoto', { code: codes['다학생'], hw: 'NOPE', b64: '/9j/A' }).ok);
 });

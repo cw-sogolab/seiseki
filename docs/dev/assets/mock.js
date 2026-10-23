@@ -32,6 +32,7 @@ var SeisekiMock = (function () {
       uuid: function () { return 'tok-' + rand32().toString(36) + rand32().toString(36); },
       rand32: rand32,
       saveImage: function (o) { var id = 'mock-' + (++imgSeq); images[id] = 'data:' + o.mime + ';base64,' + o.b64; return id; },
+      readImage: function (id) { var m = /^data:([^;,]+)(;base64)?(?:;utf8)?,(.*)$/.exec(images[id] || ''); return m ? { mime: m[1], b64: m[2] ? m[3] : btoa(unescape(encodeURIComponent(decodeURIComponent(m[3])))) } : { mime: 'image/jpeg', b64: '' }; },
       logAccess: function (row) { accessLog.push(Object.assign({}, row)); },   // 서버는 따로 둔 접속기록 시트, 미리보기는 메모리
       readLog: function () { return accessLog.map(function (r) { return Object.assign({}, r); }); },
       _tables: tables, _images: images, _log: accessLog

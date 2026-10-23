@@ -521,3 +521,8 @@ body.preview{background-attachment:scroll}
 .stats.mstats{margin:6px 0 14px}
 .stats.mstats .st b{font-size:20px}
 .stats.mstats .st{background:var(--blue-soft)}
+/* 숙제 사진: 드라이브 썸네일이 안 열려 서버에서 받는 중 / 못 받음 (2026-10-23) */
+.phload,.phfail{position:relative}
+.phload img,.phfail img{opacity:.15}
+.phload::after,.phfail::after{position:absolute;left:0;right:0;top:45%;text-align:center;font-size:13px;color:var(--muted);content:'사진 불러오는 중…'}
+.phfail::after{content:'사진을 불러오지 못했어요'}

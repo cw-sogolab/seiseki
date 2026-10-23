@@ -230,6 +230,7 @@ function makeEnv_(lock) {
     rand32: function () { return parseInt(Utilities.getUuid().replace(/-/g, '').slice(0, 8), 16); },
     logAccess: function (row) { if (accessLogOn_()) accessBuffer_(row); },
     readLog: function () { return readAccessLog_(); },
+    readImage: function (id) { var b = DriveApp.getFileById(id).getBlob(); return { mime: b.getContentType() || 'image/jpeg', b64: Utilities.base64Encode(b.getBytes()) }; },
     saveImage: function (o) {
       if (!lock) return saveImage_(o);
       lock.releaseLock();

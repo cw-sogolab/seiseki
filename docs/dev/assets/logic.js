@@ -43,7 +43,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '28a7b07007';
+  var VERSION = 'a9e0723832';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -546,7 +546,8 @@ var Logic = (function () {
     if (!hash) mineN = env.store.all('숙제사진').filter(function (r) { return S(r['숙제ID']) === h.id && S(r['번호']) === stu.code; }).length;
     if (mineN >= PHOTO_MAX_PER_HW) return fail('숙제 하나에 사진은 ' + PHOTO_MAX_PER_HW + '장까지 올릴 수 있어요.');
     var mime = 'image/jpeg';
-    var order = num(p.order) || 1;
+    // 순서는 서버가 정함 (2026-10-23): 화면이 보낸 순서는 다시 낼 때 1부터 다시 세는 일이 있어 「1·1·2·2…」로 겹쳤음 → 이 숙제에 올린 사진 중 가장 큰 순서 + 1
+    var order = env.store.all('숙제사진').reduce(function (m, r) { return S(r['숙제ID']) === h.id && S(r['번호']) === stu.code ? Math.max(m, num(r['순서']) || 0) : m; }, 0) + 1;
     var c = classes(env).filter(function (x) { return x.code === h.cls; })[0];
     var fileId = env.saveImage({
       folders: [(c ? c.name : h.cls), h.month, h.label],
@@ -747,8 +748,10 @@ var Logic = (function () {
 
   function hwPhotos(env, p) {
     return ok(env.store.all('숙제사진').filter(function (r) { return S(r['숙제ID']) === S(p.hw) && S(r['번호']) === S(p.code); })
-      .map(function (r) { return { order: num(r['순서']), fileId: S(r['파일ID']), gone: !S(r['파일ID']), at: S(r['올린시각']), check: S(r['검사']), note: S(r['검사메모']) }; })
-      .sort(function (a, b) { return a.order - b.order; }));
+      .map(function (r, i) { return { order: num(r['순서']), fileId: S(r['파일ID']), gone: !S(r['파일ID']), at: S(r['올린시각']), check: S(r['검사']), note: S(r['검사메모']), i: i }; })
+      // 올린 순서대로 1, 2, 3… (예전에 다시 내며 순서가 겹친 기록도 겹치지 않게)
+      .sort(function (a, b) { return a.at.localeCompare(b.at) || a.order - b.order || a.i - b.i; })
+      .map(function (x, k) { delete x.i; x.order = k + 1; return x; }));
   }
 
   /** 월초 명단 붙여넣기: 원생명단에서 이름을 찾아 번호를 쓰고, 없는 이름만 새 번호로 원생명단에 추가. 반은 수강 탭에 */
@@ -810,10 +813,18 @@ var Logic = (function () {
     return ok(studentView(env, stu));
   }
 
+  /** 숙제 사진 한 장을 서버가 읽어 보냄 (2026-10-23) — 브라우저가 구글 드라이브 썸네일을 못 받을 때(구글 로그인 안 됨·다른 구글 계정·쿠키 차단) 강사 화면이 대신 부름.
+   *  「숙제사진」 탭에 있는 파일만 (드라이브의 다른 파일은 못 읽게) */
+  function photo(env, p) {
+    var id = S(p.id);
+    if (!id || !env.readImage || !env.store.all('숙제사진').some(function (r) { return S(r['파일ID']) === id; })) return fail('사진을 찾지 못했어요.');
+    return ok(env.readImage(id));
+  }
+
   var STUDENT = { login: login, hwPhoto: hwPhoto, hwFinish: hwFinish };
   var ADMIN = { bootstrap: bootstrap, saveResult: saveResult, deleteResult: deleteResult, addExam: addExam, updateExamKey: updateExamKey,
     deleteExam: deleteExam, addHomework: addHomework, deleteHomework: deleteHomework, setChecked: setChecked, proxyHw: proxyHw,
-    hwPhotos: hwPhotos, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs, accessLog: accessLog };
+    hwPhotos: hwPhotos, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs, accessLog: accessLog, photo: photo };
 
   function handle(env, action, p) {
     p = p || {};

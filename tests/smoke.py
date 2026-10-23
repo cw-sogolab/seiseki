@@ -153,7 +153,12 @@ with sync_playwright() as p:
             pg.select_option('#hSel', 'H2'); pg.wait_for_selector('#quick')
             v = pg.inner_text('#view')
             check('마감 10/20(화) 20:20' in v and '늦음' in v, '숙제 마감·늦음 표시')
+            # 드라이브 썸네일이 안 열릴 때(구글 로그인 안 됨 등) 서버가 보낸 사진으로 바뀌는지: 썸네일 주소를 일부러 깨뜨림
+            pg.evaluate("window._pu = Api.photoUrl; Api.photoUrl = function () { return 'data:image/png;base64,AAAA'; }")
             pg.click('#quick'); pg.wait_for_selector('.rv h2')
+            pg.wait_for_function("[...document.querySelectorAll('#rvPh img')].length > 0 && [...document.querySelectorAll('#rvPh img')].every(i => i.src.startsWith('blob:') && i.naturalWidth > 0)", timeout=5000)
+            check(True, '숙제 사진: 썸네일이 안 열리면 서버에서 받아 보여 줌')
+            pg.evaluate("Api.photoUrl = window._pu")
             check('박테스트' in pg.inner_text('.rv h2') and '사진 확인' in pg.inner_text('.rv'), '빠른 검사: ⚠ 있는 학생 먼저')
             pg.wait_for_selector('#rvPh img')
             pg.click('#rvOk'); pg.wait_for_function("!document.querySelector('.rv h2') || !document.querySelector('.rv h2').innerText.includes('박테스트')")
