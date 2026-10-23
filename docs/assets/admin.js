@@ -14,6 +14,33 @@
       return r;
     });
   }
+  /* 숙제 사진 (2026-10-23): 드라이브 썸네일이 안 열리면(이 브라우저에 구글 로그인 안 됨·다른 구글 계정이 먼저·쿠키 차단) 서버가 읽어 보낸 사진으로 바꿈 */
+  var phCache = {};
+  function srvPhoto(id) {
+    if (!phCache[id]) phCache[id] = req('photo', { id: id }).then(function (r) {
+      if (!r.ok || !r.data || !r.data.b64) { delete phCache[id]; return ''; }
+      var bin = atob(r.data.b64), u8 = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      return URL.createObjectURL(new Blob([u8], { type: r.data.mime || 'image/jpeg' }));
+    });
+    return phCache[id];
+  }
+  function photoFix(root) {
+    root.querySelectorAll('img[data-fid]').forEach(function (im) {
+      var id = im.getAttribute('data-fid'), a = im.closest('a');
+      function fb() {
+        if (im.dataset.fb) return; im.dataset.fb = '1';
+        if (a) a.classList.add('phload');
+        srvPhoto(id).then(function (u) {
+          if (a) a.classList.remove('phload');
+          if (!u) { if (a) a.classList.add('phfail'); return; }
+          im.src = u; if (a) a.href = u;
+        });
+      }
+      if (phCache[id]) return fb();   // 이미 서버에서 받은 사진
+      im.addEventListener('error', fb);
+    });
+  }
   function busy(on, text) {
     var btn = $('#go'); btn.disabled = on; btn.textContent = on ? text : '들어가기';
     var ll = $('#loadline'); if (ll) ll.remove();
@@ -746,8 +773,9 @@
       if (!r.ok) { $('#phs', ov).innerHTML = '<p class="msg err">' + esc(r.error) + '</p>'; return; }
       $('#phs', ov).innerHTML = r.data.length ? r.data.map(function (p) {
         if (p.gone) return '<div class="gonep"><span>' + p.order + '번째 · ' + esc(p.at) + '<br>3개월 지나 지운 사진</span></div>';
-        return '<a href="' + esc(Api.photoLink(p.fileId)) + '" target="_blank" rel="noopener"><img src="' + esc(Api.photoUrl(p.fileId, 600)) + '" alt="' + p.order + '번째 사진" loading="lazy"><span>' + p.order + '번째 · ' + esc(p.at) + (p.check === '확인필요' ? ' · <b class="bad">⚠ ' + esc(p.note) + '</b>' : p.check === 'OK' ? ' · AI 확인 OK' : '') + '</span></a>';
+        return '<a href="' + esc(Api.photoLink(p.fileId)) + '" target="_blank" rel="noopener"><img data-fid="' + esc(p.fileId) + '" src="' + esc(Api.photoUrl(p.fileId, 600)) + '" alt="' + p.order + '번째 사진" loading="lazy"><span>' + p.order + '번째 · ' + esc(p.at) + (p.check === '확인필요' ? ' · <b class="bad">⚠ ' + esc(p.note) + '</b>' : p.check === 'OK' ? ' · AI 확인 OK' : '') + '</span></a>';
       }).join('') : '<p class="empty">사진이 없어요.</p>';
+      photoFix($('#phs', ov));
     });
   }
 
@@ -802,7 +830,7 @@
         '<div class="rvphotos" id="rvPh"><p class="empty">사진 불러오는 중…</p></div><p id="rvMsg" class="msg" role="status"></p>' +
         '<div class="rvbtns"><button type="button" class="btn sub" id="rvPrev"' + (i ? '' : ' disabled') + '>← 이전</button>' +
         '<button type="button" class="btn sub" id="rvSkip">건너뛰기</button><button type="button" class="btn" id="rvOk">✓ 확인하고 다음</button></div>' +
-        '<p class="meta rvkeys">키보드: → 또는 Enter 확인하고 다음 · ← 이전 · ↓ 건너뛰기 · Esc 닫기' + (Api.demo ? '' : ' · 사진이 안 보이면 이 브라우저에서 선생님 구글 계정으로 로그인해 주세요') + '</p>';
+        '<p class="meta rvkeys">키보드: → 또는 Enter 확인하고 다음 · ← 이전 · ↓ 건너뛰기 · Esc 닫기' + '' + '</p>';
       $('#rvX', ov).onclick = close; $('#rvPrev', ov).onclick = function () { go(i - 1); }; $('#rvSkip', ov).onclick = function () { go(i + 1); };
       $('#rvOk', ov).onclick = confirm; $('#rvOk', ov).focus();
       var at = i;
@@ -811,11 +839,12 @@
         if (!r.ok) { $('#rvPh', ov).innerHTML = '<p class="msg err">' + esc(r.error) + '</p>'; return; }
         $('#rvPh', ov).innerHTML = r.data.length ? r.data.map(function (p) {
           if (p.gone) return '<div class="gonep"><span>' + p.order + '번째 · 3개월 지나 지운 사진</span></div>';
-          return '<a href="' + esc(Api.photoLink(p.fileId)) + '" target="_blank" rel="noopener"' + (p.check === '확인필요' ? ' class="bad"' : '') + '><img src="' + esc(Api.photoUrl(p.fileId, 1200)) + '" alt="' + p.order + '번째 사진"><span>' + p.order + '번째 · ' + esc(p.at) + (p.check === '확인필요' ? ' · <b>⚠ ' + esc(p.note) + '</b>' : '') + '</span></a>';
+          return '<a href="' + esc(Api.photoLink(p.fileId)) + '" target="_blank" rel="noopener"' + (p.check === '확인필요' ? ' class="bad"' : '') + '><img data-fid="' + esc(p.fileId) + '" src="' + esc(Api.photoUrl(p.fileId, 1200)) + '" alt="' + p.order + '번째 사진"><span>' + p.order + '번째 · ' + esc(p.at) + (p.check === '확인필요' ? ' · <b>⚠ ' + esc(p.note) + '</b>' : '') + '</span></a>';
         }).join('') : '<p class="empty">사진이 없어요.</p>';
+        photoFix($('#rvPh', ov));
       });
       if (list[i + 1]) photosOf(list[i + 1].s.code).then(function (r) {   // 다음 학생 사진 미리 받아 두기
-        if (r.ok) r.data.forEach(function (p) { if (!p.gone) { var im = new Image(); im.src = Api.photoUrl(p.fileId, 1200); } });
+        if (r.ok) r.data.forEach(function (p) { if (!p.gone) { var im = new Image(); im.onerror = function () { srvPhoto(p.fileId); }; im.src = Api.photoUrl(p.fileId, 1200); } });
       });
     }
     draw();
