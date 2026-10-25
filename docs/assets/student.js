@@ -412,7 +412,7 @@
     h += tile('누적 평균과 비교', gap === null ? null : (gap > 0 ? '+' : '') + gap, '%p', gap === null ? '' : gap >= 0 ? 'gpos' : 'gneg', gap === null ? '' : gapText(gap));
     if (!both) h += conv.length ? tile('환산점수 평균', Math.round(conv.reduce(function (a, x) { return a + +x.t.conv; }, 0) / conv.length), '', '', '모의고사 ' + conv.length + '개')
       : tile('최근 테스트', last ? pct(last.t.score, last.t.total) : null, '%', '', last ? esc(monthShort(last.t.month) + ' ' + shortLabel(last.t)) : '');
-    if (!real) h += tile('숙제 제출', hws.length ? done + ' / ' + hws.length : null, '', '', hws.length ? '개념반 일문일답' : '');
+    if (!real) h += tile('숙제 제출', hws.length ? done + ' / ' + hws.length : null, '', '', hws.length ? '일문일답·EJU 기출' : '');
     else {   // 실전반 네 번째 칸: 최근 시험 환산점수 + 등수 (2026-10-22 사용자)
       var lc = last && last.t.conv !== null && last.t.conv !== undefined;
       h += tile('최근 시험', last ? (lc ? last.t.conv : pct(last.t.score, last.t.total)) : null, last ? (lc ? '' : '%') + (last.t.rank ? ' · ' + last.t.rank + '등' : '') : '', '',
@@ -463,7 +463,7 @@
     left = left ? pager + left : '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';
     if (mode === '과목' && view.danpul && /경제|정치|지리|현대사회|역사/.test(s)) left += practiceCard(s);
     if (hws.length) {
-      var wCard = '<div class="card"><h2><i class="kdot" style="background:' + toneOf('개념', s) + '"></i>개념반 숙제</h2>';
+      var wCard = '<div class="card"><h2><i class="kdot" style="background:' + toneOf('개념', s) + '"></i>숙제</h2>';
       byMonth(hws, function (w) { return w.month; }).forEach(function (g) { wCard += '<h3 class="mhd">' + esc(g.m ? UI.monthLabel(g.m) : '') + '</h3>' + g.l.map(hwItem).join(''); });
       h += '<div class="sgrid hwfirst"><div class="col1">' + left + '</div><div class="col2">' + wCard + '</div></div></div>';
     } else h += left;
