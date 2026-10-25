@@ -293,7 +293,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '7cf6d8cffa';
+  var VERSION = '811170ced2';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -608,11 +608,27 @@ var Logic = (function () {
     var kind = {}; classes(env).forEach(function (c) { kind[c.code] = c.kind; });
     return stu.classes.filter(function (c) { return kind[c] === '단풀'; });
   }
+  function subjWord(label) { var w = S(label).split(' ')[0]; return w === '현대사회' ? '현사' : w === '세계사' ? '역사' : w; }
+  /** 학생이 이번 달 입력할 수 있는 과목: 내 단풀반의 이번 달 과목만 (그 반에 과목이 아직 없으면 제한 없음 '*') — 2026-10-25 사용자: 자기 반만 */
+  function practiceSubjects(env, stu) {
+    var month = C.monthOf(env.now()), out = {}, open = false;
+    danpulClasses(env, stu).forEach(function (cc) {
+      var found = false;
+      exams(env).concat(homework(env)).forEach(function (x) { if (x.cls === cc && x.month === month && /^(경제|정치|지리|현사|현대사회|역사|세계사)\s/.test(S(x.label))) { out[subjWord(x.label)] = 1; found = true; } });
+      if (!found) open = true;
+    });
+    return open ? ['*'] : Object.keys(out);
+  }
+  function practiceAllowed(env, stu) {
+    var a = practiceSubjects(env, stu);
+    return function (pp) { return a.indexOf('*') >= 0 || a.indexOf(subjWord(pp.label)) >= 0; };
+  }
   /** 학생: 입력할 수 있는 기출 목록(과목·문항 수만, 정답은 안 보냄) */
   function practiceList(env, p) {
     var stu = studentFor(env, p);
     if (!danpulClasses(env, stu).length) return fail('단풀반 학생만 쓸 수 있어요.');
-    return ok(practicePapers(env).map(function (x) { return { id: x.id, label: x.label, subj: x.subj, n: x.total }; }));
+    var okp = practiceAllowed(env, stu);
+    return ok(practicePapers(env).filter(okp).map(function (x) { return { id: x.id, label: x.label, subj: x.subj, n: x.total }; }));
   }
   /** 학생: 답안 제출 → 서버가 채점해 시험결과에 저장 (정답은 안 알려 주고 틀린 번호만). 다시 넣으면 덮어씀 */
   function practiceSubmit(env, p) {
@@ -620,6 +636,7 @@ var Logic = (function () {
     if (!mine.length) return fail('단풀반 학생만 쓸 수 있어요.');
     var pp = practicePapers(env).filter(function (x) { return x.id === S(p.paper); })[0];
     if (!pp) return fail('시험지를 찾지 못했어요.');
+    if (!practiceAllowed(env, stu)(pp)) return fail('내 단풀반 과목의 기출만 입력할 수 있어요.');
     var month = C.monthOf(env.now()), ex = exams(env);
     // 이번 달 이 과목 시험이 이미 있는 내 단풀반을 먼저, 없으면 첫 단풀반
     var e = null;
@@ -725,7 +742,7 @@ var Logic = (function () {
     } catch (err2) { realMonth = {}; }
     return {
       name: stu.name, code: stu.code, subj: subjInfo, realMonth: realMonth,
-      danpul: danpulClasses(env, stu).length > 0,
+      danpul: danpulClasses(env, stu).length > 0 ? practiceSubjects(env, stu) : [],
       classes: cls.filter(function (c) { return mine.indexOf(c.code) >= 0; }).sort(function (a, b) {
         return (stu.classes.indexOf(a.code) < 0) - (stu.classes.indexOf(b.code) < 0); // 지금 듣는 반 먼저
       }).map(function (c) {

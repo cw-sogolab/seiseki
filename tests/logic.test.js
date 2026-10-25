@@ -497,7 +497,7 @@ t('단풀반 학생만, 정답은 안 보냄, 선생님 입력과 같은 시험�
   const tokOf = c => R('login', { code: c, dev: 'd' + c }).data.tok;
   const dp = tokOf('NP882013'), gn = tokOf('TR520615');
   assert.ok(R('login', { code: 'NP882013', dev: 'q' }).data.danpul, '단풀반 표시');
-  assert.ok(!R('login', { code: 'TR520615', dev: 'q2' }).data.danpul, '개념반만 듣는 학생은 안 보임');
+  assert.ok(!R('login', { code: 'TR520615', dev: 'q2' }).data.danpul.length, '개념반만 듣는 학생은 안 보임');
   assert.ok(!R('practiceList', { tok: gn }).ok, '개념반만 듣는 학생은 못 씀');
   assert.ok(!R('practiceSubmit', { tok: gn, paper: 'DP-경제-G', answers: key }).ok);
   const list = R('practiceList', { tok: dp }); assert.ok(list.ok);
@@ -517,6 +517,10 @@ t('단풀반 학생만, 정답은 안 보냄, 선생님 입력과 같은 시험�
   assert.strictEqual(T['시험'].length, nEx + 1, '다시 넣어도 시험은 하나'); assert.strictEqual(T['시험결과'].filter(r => r['시험ID'] === ex['시험ID'] && r['번호'] === 'NP882013').length, 1);
   assert.strictEqual(r2.data.last.score, 12);
   assert.ok(!R('practiceSubmit', { paper: 'DP-경제-G', answers: key }).ok, '열쇠 없이는 못 냄');
+  const pe = Object.assign({}, T['시험지'].find(r => r['시험지ID'] === 'DP-경제-G'), { '시험지ID': 'DP-정치-G', '과목': '정치', '이름': '정치 EJU 기출' }); T['시험지'].push(pe);
+  const rx = R('practiceSubmit', { tok: dp, paper: 'DP-정치-G', answers: key }); assert.ok(!rx.ok && /내 단풀반/.test(rx.error), '자기 반 과목만: ' + JSON.stringify(rx));
+  assert.deepStrictEqual(R('practiceList', { tok: dp }).data.map(x => x.subj), ['경제'], '목록도 자기 반 과목만');
+  assert.deepStrictEqual(R('login', { code: 'NP882013', dev: 'q9' }).data.danpul, ['경제']);
   const hwr = T['숙제'].filter(r => r['반코드'] === 'DP-SS' && r['이름'] === '경제 EJU 기출'); assert.strictEqual(hwr.length, 1, '단풀 EJU 기출은 숙제로도 등록');
   const sub = T['숙제제출'].filter(r => r['숙제ID'] === hwr[0]['숙제ID'] && r['번호'] === 'NP882013'); assert.strictEqual(sub.length, 1); assert.strictEqual(String(sub[0]['맞은개수']), '12');
   const adm = R('adminLogin', { password: 'demo', dev: 'itx' });
