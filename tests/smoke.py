@@ -72,7 +72,7 @@ with sync_playwright() as p:
             pg.click('#panel [data-prac]'); pg.wait_for_selector('#pracBox .pc')
             pg.click('#pracBox .pc[data-v="1"] >> nth=0'); pg.click('#pracBox .pc[data-v="2"] >> nth=1')
             pg.click('#pSend'); pg.wait_for_function("document.querySelector('#panel .pracres')", timeout=8000)
-            check('/' in pg.inner_text('#panel .pracres') and pg.locator('#panel .item', has_text='EJU').count() >= 1, '단풀반: 기출 입력 → 채점 결과·기록')
+            check('/' in pg.inner_text('#panel .pracres') and pg.locator('#panel .item', has_text='EJU 기출').count() >= 1, '단풀반: 기출 입력 → 채점 결과·테스트 목록에 같이 나옴')
             check(pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth + 1'), '기출 입력 화면 가로 스크롤 없음')
         check(not errs, '스크립트 오류 없음 ' + ' / '.join(errs))
         pg.close()

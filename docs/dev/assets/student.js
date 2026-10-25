@@ -478,16 +478,14 @@
   var pracList = null, pracLast = null;
   function pracKey(sj) { return SUBJS[sj] || sj; }
   function practiceCard(s) {
-    var recs = (view.practice || []).filter(function (r) { return pracKey(r.subj) === s; });
-    var h = '<div class="card"><h2><i class="kdot" style="background:' + toneOf('단풀', s) + '"></i>단풀반 EJU 기출 <span class="meta">' + esc(s) + '</span></h2>' +
-      '<p class="meta">단풀반에서 푼 EJU 기출 문제의 답을 넣으면 바로 채점돼요. 월말 테스트 점수에는 들어가지 않아요.</p>';
+    var mine = null, tm = thisMonth();   // 이번 달 내 「EJU 기출」 기록 (선생님이 넣은 것도 같이 보임)
+    view.classes.forEach(function (c) { if (kindOf(c) === '단풀') c.tests.forEach(function (t) { if (t.month === tm && /EJU 기출/.test(t.label) && pracKey(String(t.label).split(' ')[0]) === s && t.score !== null) mine = t; }); });
+    var h = '<div class="card"><h2><i class="kdot" style="background:' + toneOf('단풀', s) + '"></i>EJU 기출 직접 입력 <span class="meta">' + esc(s) + '</span></h2>' +
+      '<p class="meta">단풀반에서 푸는 EJU 기출의 답을 직접 넣으면 바로 채점돼요. 위 「단풀반 월말」 목록에 같이 쌓여요.</p>';
     if (pracLast && pracKey(pracLast.subj) === s) h += '<div class="pracres"><b>' + esc(pracLast.label) + '</b> ' + pracLast.score + ' / ' + pracLast.total + '점' +
       (pracLast.wrong.length ? '<span class="meta"> · 틀린 문항 ' + pracLast.wrong.join(', ') + '번</span>' : '<span class="meta"> · 다 맞았어요!</span>') + '</div>';
-    h += recs.length ? recs.map(function (r) {
-      return '<div class="item"><div class="row"><div><b>' + esc(r.label) + '</b><p class="meta">' + esc(r.at.slice(0, 10)) + (r.tries > 1 ? ' · ' + r.tries + '번째 풀이' : '') +
-        (r.wrong.length ? ' · 틀린 문항 ' + r.wrong.join(', ') + '번' : '') + '</p></div><span class="pills"><span class="pill ' + (r.score === r.total ? 'ok' : 'wait') + '">' + r.score + ' / ' + r.total + '</span></span></div></div>';
-    }).join('') : '<p class="empty">아직 입력한 기록이 없어요.</p>';
-    return h + '<button class="btn block" type="button" data-prac="' + esc(s) + '">' + (recs.length ? '다시 풀고 입력하기' : '기출 점수 입력하기') + '</button><div class="upbox" id="pracBox"></div></div>';
+    else if (mine) h += '<div class="pracres"><b>이번 달 ' + esc(mine.label) + '</b> ' + mine.score + ' / ' + mine.total + '점' + (mine.wrong && mine.wrong.length ? '<span class="meta"> · 틀린 문항 ' + mine.wrong.join(', ') + '번</span>' : '') + '</div>';
+    return h + '<button class="btn block" type="button" data-prac="' + esc(s) + '">' + (mine || (pracLast && pracKey(pracLast.subj) === s) ? '다시 입력하기' : '기출 점수 입력하기') + '</button><div class="upbox" id="pracBox"></div></div>';
   }
   function openPractice(s) {
     var box = $('#pracBox'); if (!box) return;

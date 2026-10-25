@@ -491,27 +491,31 @@ t('이 반 정답률·누적 정답률(같은 이름·같은 정답의 다른 �
   assert.strictEqual(Logic.itemStats(B, 'nope'), null);
 });
 console.log('단풀반 EJU 기출 입력');
-t('단풀반 학생만, 정답은 안 보냄, 서버 채점, 다시 풀면 덮어씀, 월말 평균에는 안 들어감', () => {
+t('단풀반 학생만, 정답은 안 보냄, 선생님 입력과 같은 시험결과에 저장, 시험 자동 등록, 다시 넣으면 덮어씀', () => {
   const e = Mock.seed(Mock.createEnv()), T = e._tables, R = (a, p) => Logic.handle(e, a, p);
-  const row = T['시험지'].find(r => r['시험지ID'] === 'DP-경제-G'), key = row['정답']; assert.strictEqual(key.length, 12);
+  const key = T['시험지'].find(r => r['시험지ID'] === 'DP-경제-G')['정답']; assert.strictEqual(key.length, 12);
   const tokOf = c => R('login', { code: c, dev: 'd' + c }).data.tok;
   const dp = tokOf('NP882013'), gn = tokOf('TR520615');
   assert.ok(R('login', { code: 'NP882013', dev: 'q' }).data.danpul, '단풀반 표시');
+  assert.ok(!R('login', { code: 'TR520615', dev: 'q2' }).data.danpul, '개념반만 듣는 학생은 안 보임');
   assert.ok(!R('practiceList', { tok: gn }).ok, '개념반만 듣는 학생은 못 씀');
   assert.ok(!R('practiceSubmit', { tok: gn, paper: 'DP-경제-G', answers: key }).ok);
   const list = R('practiceList', { tok: dp }); assert.ok(list.ok);
   assert.deepStrictEqual(list.data.map(x => [x.id, x.subj, x.n]), [['DP-경제-G', '경제', 12]]);
   assert.ok(!JSON.stringify(list.data).includes(key), '정답은 안 보냄');
+  const nEx = T['시험'].length;
   let bad = key.split(''); bad[2] = String(bad[2] % 4 + 1); bad[5] = '0';
   const r1 = R('practiceSubmit', { tok: dp, paper: 'DP-경제-G', answers: bad.join('') });
-  assert.ok(r1.ok, r1.error); assert.deepStrictEqual(r1.data.last, { paper: 'DP-경제-G', label: '경제 EJU 기출', subj: '경제', score: 10, total: 12, wrong: [3, 6] });
-  assert.strictEqual(r1.data.practice[0].score, 10);
+  assert.ok(r1.ok, r1.error); assert.deepStrictEqual(r1.data.last, { label: '경제 EJU 기출', subj: '경제', score: 10, total: 12, wrong: [3, 6] });
+  assert.strictEqual(T['시험'].length, nEx + 1, '이번 달 시험이 없으면 시험지로 자동 등록');
+  const ex = T['시험'][T['시험'].length - 1]; assert.strictEqual(ex['반코드'], 'DP-SS'); assert.strictEqual(ex['이름'], '경제 EJU 기출');
+  const mine = r1.data.classes.find(c => c.code === 'DP-SS').tests.find(t => t.label === '경제 EJU 기출'); assert.strictEqual(mine.score, 10, '단풀반 테스트 목록에 같이 나옴');
   assert.ok(!R('practiceSubmit', { tok: dp, paper: 'DP-경제-G', answers: '000000000000' }).ok, '빈 답안');
   assert.ok(!R('practiceSubmit', { tok: dp, paper: 'DP-경제-G', answers: key + '1' }).ok, '문항 수보다 많음');
   assert.ok(!R('practiceSubmit', { tok: dp, paper: 'DP-경제-M', answers: key }).ok, '월말은 못 냄');
   const r2 = R('practiceSubmit', { tok: dp, paper: 'DP-경제-G', answers: key });
-  assert.strictEqual(r2.data.practice.length, 1, '같은 기출은 한 줄'); assert.strictEqual(r2.data.practice[0].score, 12); assert.strictEqual(r2.data.practice[0].tries, 2);
+  assert.strictEqual(T['시험'].length, nEx + 1, '다시 넣어도 시험은 하나'); assert.strictEqual(T['시험결과'].filter(r => r['시험ID'] === ex['시험ID'] && r['번호'] === 'NP882013').length, 1);
+  assert.strictEqual(r2.data.last.score, 12);
   assert.ok(!R('practiceSubmit', { paper: 'DP-경제-G', answers: key }).ok, '열쇠 없이는 못 냄');
-  assert.strictEqual(T['시험결과'].length, Mock.seed(Mock.createEnv())._tables['시험결과'].length, '시험결과(월말 평균)에는 안 들어감');
 });
 console.log(`\n${passed} passed` + (process.exitCode ? ', 실패 있음' : ''));
