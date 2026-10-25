@@ -43,7 +43,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '7cf6d8cffa';
+  var VERSION = '0e572cd178';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -358,11 +358,27 @@ var Logic = (function () {
     var kind = {}; classes(env).forEach(function (c) { kind[c.code] = c.kind; });
     return stu.classes.filter(function (c) { return kind[c] === '단풀'; });
   }
+  function subjWord(label) { var w = S(label).split(' ')[0]; return w === '현대사회' ? '현사' : w === '세계사' ? '역사' : w; }
+  /** 학생이 이번 달 입력할 수 있는 과목: 내 단풀반의 이번 달 과목만 (그 반에 과목이 아직 없으면 제한 없음 '*') — 2026-10-25 사용자: 자기 반만 */
+  function practiceSubjects(env, stu) {
+    var month = C.monthOf(env.now()), out = {}, open = false;
+    danpulClasses(env, stu).forEach(function (cc) {
+      var found = false;
+      exams(env).concat(homework(env)).forEach(function (x) { if (x.cls === cc && x.month === month && /^(경제|정치|지리|현사|현대사회|역사|세계사)\s/.test(S(x.label))) { out[subjWord(x.label)] = 1; found = true; } });
+      if (!found) open = true;
+    });
+    return open ? ['*'] : Object.keys(out);
+  }
+  function practiceAllowed(env, stu) {
+    var a = practiceSubjects(env, stu);
+    return function (pp) { return a.indexOf('*') >= 0 || a.indexOf(subjWord(pp.label)) >= 0; };
+  }
   /** 학생: 입력할 수 있는 기출 목록(과목·문항 수만, 정답은 안 보냄) */
   function practiceList(env, p) {
     var stu = studentFor(env, p);
     if (!danpulClasses(env, stu).length) return fail('단풀반 학생만 쓸 수 있어요.');
-    return ok(practicePapers(env).map(function (x) { return { id: x.id, label: x.label, subj: x.subj, n: x.total }; }));
+    var okp = practiceAllowed(env, stu);
+    return ok(practicePapers(env).filter(okp).map(function (x) { return { id: x.id, label: x.label, subj: x.subj, n: x.total }; }));
   }
   /** 학생: 답안 제출 → 서버가 채점해 시험결과에 저장 (정답은 안 알려 주고 틀린 번호만). 다시 넣으면 덮어씀 */
   function practiceSubmit(env, p) {
@@ -370,6 +386,7 @@ var Logic = (function () {
     if (!mine.length) return fail('단풀반 학생만 쓸 수 있어요.');
     var pp = practicePapers(env).filter(function (x) { return x.id === S(p.paper); })[0];
     if (!pp) return fail('시험지를 찾지 못했어요.');
+    if (!practiceAllowed(env, stu)(pp)) return fail('내 단풀반 과목의 기출만 입력할 수 있어요.');
     var month = C.monthOf(env.now()), ex = exams(env);
     // 이번 달 이 과목 시험이 이미 있는 내 단풀반을 먼저, 없으면 첫 단풀반
     var e = null;
@@ -387,19 +404,9 @@ var Logic = (function () {
     var g = C.grade(e.key, ans), wrong = g.wrong.map(function (w) { return w.n; });
     upsert(env, '시험결과', function (r) { return S(r['시험ID']) === e.id && S(r['번호']) === stu.code; },
       { '시험ID': e.id, '번호': stu.code, '답안': ans, '맞은개수': g.score, '틀린번호': wrong.join(','), '입력일': stamp(env) });
-    // 단풀반 「EJU 기출」은 숙제이기도 함 (2026-10-25): 숙제가 없으면 등록하고, 낸 것으로 기록 (맞은 개수 = 점수)
-    var ecls = exams(env).filter(function (x) { return x.id === e.id; })[0], hcls = ecls ? ecls.cls : mine[0];
-    var hw = homework(env).filter(function (h) { return h.cls === hcls && h.month === month && h.label === pp.label; })[0], hid;
-    if (hw) hid = hw.id;
-    else {
-      hid = newId(env, 'H');
-      env.store.append('숙제', { '숙제ID': hid, '반코드': hcls, '월': month, '이름': pp.label, '교재': '', '시작쪽': '', '끝쪽': '', '문항수': e.total, '등록일': stamp(env) });
-      M = {};
-    }
-    var prevSub = hwSubs(env).filter(function (x) { return x.hw === hid && x.code === stu.code; })[0], nowS = stamp(env);
-    upsert(env, '숙제제출', function (r) { return S(r['숙제ID']) === hid && S(r['번호']) === stu.code; },
-      { '숙제ID': hid, '번호': stu.code, '맞은개수': g.score, '사진수': prevSub ? prevSub.photos : 0, '확인': prevSub && prevSub.checked ? 'Y' : 'N', '대리입력': 'N', '최종제출일': nowS,
-        '처음제출일': prevSub && !prevSub.proxy && prevSub.first ? prevSub.first : nowS });
+    // 단풀반 「EJU 기출」은 숙제이기도 함 (2026-10-25)
+    var ecls = exams(env).filter(function (x) { return x.id === e.id; })[0];
+    if (ecls) practiceHw(env, ecls, stu.code, g.score, false);
     var v = studentView(env, stu);
     v.last = { label: pp.label, subj: pp.subj, score: g.score, total: e.total, wrong: wrong };
     return ok(v);
@@ -475,7 +482,7 @@ var Logic = (function () {
     } catch (err2) { realMonth = {}; }
     return {
       name: stu.name, code: stu.code, subj: subjInfo, realMonth: realMonth,
-      danpul: danpulClasses(env, stu).length > 0,
+      danpul: danpulClasses(env, stu).length > 0 ? practiceSubjects(env, stu) : [],
       classes: cls.filter(function (c) { return mine.indexOf(c.code) >= 0; }).sort(function (a, b) {
         return (stu.classes.indexOf(a.code) < 0) - (stu.classes.indexOf(b.code) < 0); // 지금 듣는 반 먼저
       }).map(function (c) {
@@ -716,6 +723,25 @@ var Logic = (function () {
     return ok(homework(env).filter(function (x) { return x.id === id; })[0]);
   }
 
+  /** 단풀반 「EJU 기출」은 숙제이기도 함 (2026-10-25): 그 반·그 달 숙제가 없으면 등록하고, 결과가 들어오면 낸 것으로 기록 (맞은 개수 = 점수).
+   *  학생이 직접 넣든(byTeacher=false) 선생님이 「답안 입력」으로 넣든(true) 같다. 학생이 낸 기록이 있으면 처음 낸 시각은 그대로. */
+  function practiceHw(env, ex, code, score, byTeacher) {
+    var cc = classes(env).filter(function (c) { return c.code === ex.cls; })[0];
+    if (!cc || cc.kind !== '단풀' || !/EJU 기출/.test(S(ex.label))) return;
+    var hw = homework(env).filter(function (h) { return h.cls === ex.cls && h.month === ex.month && h.label === ex.label; })[0], hid;
+    if (hw) hid = hw.id;
+    else {
+      hid = newId(env, 'H');
+      env.store.append('숙제', { '숙제ID': hid, '반코드': ex.cls, '월': ex.month, '이름': ex.label, '교재': '', '시작쪽': '', '끝쪽': '', '문항수': ex.total, '등록일': stamp(env) });
+      M = {};
+    }
+    var prev = hwSubs(env).filter(function (x) { return x.hw === hid && x.code === code; })[0], now = stamp(env);
+    var mineSub = prev && !prev.proxy;   // 학생이 직접 낸 기록
+    upsert(env, '숙제제출', function (r) { return S(r['숙제ID']) === hid && S(r['번호']) === code; },
+      { '숙제ID': hid, '번호': code, '맞은개수': score, '사진수': prev ? prev.photos : 0, '확인': byTeacher ? 'Y' : (prev && prev.checked ? 'Y' : 'N'),
+        '대리입력': byTeacher && !mineSub ? 'Y' : 'N', '최종제출일': now, '처음제출일': mineSub && prev.first ? prev.first : (byTeacher ? '' : now) });
+  }
+
   function saveResult(env, p) {
     var e = exams(env).filter(function (x) { return x.id === S(p.exam); })[0];
     if (!e) return fail('시험을 찾지 못했어요.');
@@ -727,6 +753,7 @@ var Logic = (function () {
     var row = { '시험ID': e.id, '번호': stu.code, '답안': ans, '맞은개수': g.score,
       '틀린번호': g.wrong.map(function (w) { return w.n; }).join(','), '입력일': stamp(env) };
     upsert(env, '시험결과', function (r) { return S(r['시험ID']) === e.id && S(r['번호']) === stu.code; }, row);
+    practiceHw(env, e, stu.code, g.score, true);
     return ok({ exam: e.id, code: stu.code, answers: ans, score: g.score, wrong: g.wrong.map(function (w) { return w.n; }), conv: null, at: row['입력일'] });
   }
 

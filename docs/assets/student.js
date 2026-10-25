@@ -461,7 +461,7 @@
     }).join('') + '</div></div>' : '';
     var left = real ? testsCard('실전', '테스트 결과') : testsCard('개념', '개념반 소테스트·월말') + testsCard('단풀', '단풀반 월말');
     left = left ? pager + left : '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';
-    if (mode === '과목' && view.danpul && /경제|정치|지리|현대사회|역사/.test(s)) left += practiceCard(s);
+    if (mode === '과목' && view.danpul && view.danpul.length && /경제|정치|지리|현대사회|역사/.test(s) && (view.danpul.indexOf('*') >= 0 || view.danpul.some(function (w) { return pracKey(w) === s; }))) left += practiceCard(s);
     if (hws.length) {
       var wCard = '<div class="card"><h2><i class="kdot" style="background:' + toneOf('개념', s) + '"></i>숙제</h2>';
       byMonth(hws, function (w) { return w.month; }).forEach(function (g) { wCard += '<h3 class="mhd">' + esc(g.m ? UI.monthLabel(g.m) : '') + '</h3>' + g.l.map(hwItem).join(''); });
