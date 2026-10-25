@@ -293,7 +293,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '06caabf220';
+  var VERSION = '7cf6d8cffa';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -637,6 +637,19 @@ var Logic = (function () {
     var g = C.grade(e.key, ans), wrong = g.wrong.map(function (w) { return w.n; });
     upsert(env, '시험결과', function (r) { return S(r['시험ID']) === e.id && S(r['번호']) === stu.code; },
       { '시험ID': e.id, '번호': stu.code, '답안': ans, '맞은개수': g.score, '틀린번호': wrong.join(','), '입력일': stamp(env) });
+    // 단풀반 「EJU 기출」은 숙제이기도 함 (2026-10-25): 숙제가 없으면 등록하고, 낸 것으로 기록 (맞은 개수 = 점수)
+    var ecls = exams(env).filter(function (x) { return x.id === e.id; })[0], hcls = ecls ? ecls.cls : mine[0];
+    var hw = homework(env).filter(function (h) { return h.cls === hcls && h.month === month && h.label === pp.label; })[0], hid;
+    if (hw) hid = hw.id;
+    else {
+      hid = newId(env, 'H');
+      env.store.append('숙제', { '숙제ID': hid, '반코드': hcls, '월': month, '이름': pp.label, '교재': '', '시작쪽': '', '끝쪽': '', '문항수': e.total, '등록일': stamp(env) });
+      M = {};
+    }
+    var prevSub = hwSubs(env).filter(function (x) { return x.hw === hid && x.code === stu.code; })[0], nowS = stamp(env);
+    upsert(env, '숙제제출', function (r) { return S(r['숙제ID']) === hid && S(r['번호']) === stu.code; },
+      { '숙제ID': hid, '번호': stu.code, '맞은개수': g.score, '사진수': prevSub ? prevSub.photos : 0, '확인': prevSub && prevSub.checked ? 'Y' : 'N', '대리입력': 'N', '최종제출일': nowS,
+        '처음제출일': prevSub && !prevSub.proxy && prevSub.first ? prevSub.first : nowS });
     var v = studentView(env, stu);
     v.last = { label: pp.label, subj: pp.subj, score: g.score, total: e.total, wrong: wrong };
     return ok(v);

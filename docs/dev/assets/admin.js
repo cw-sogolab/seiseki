@@ -141,8 +141,8 @@
   function classOptions(sel) { return clsOptions(D.classes.filter(function (c) { return c.active; }), sel); }
   /** 시험지(수업 폴더 답지에서 뽑은 것) 고르기 칸. kinds: 보여 줄 종류, 반 종류(개념·단풀·실전)가 같은 것을 위에 */
   var KIND_ORDER = { '소테스트': 1, '일문일답': 1, '월말테스트': 2, '모의고사': 3 };
-  function paperPick(id, clsCode, kinds, used) {
-    var ps = (D.papers || []).filter(function (p) { return kinds.indexOf(p.kind) >= 0; });
+  function paperPick(id, clsCode, kinds, used, only) {
+    var ps = (D.papers || []).filter(function (p) { return kinds.indexOf(p.kind) >= 0 && (!only || only(p)); });
     if (!ps.length) return '';
     var kind = cls(clsCode).kind;
     ps.sort(function (a, b) { return ((a.ban === kind ? '0' : '1') + a.ban + a.subj).localeCompare((b.ban === kind ? '0' : '1') + b.ban + b.subj, 'ko') || (KIND_ORDER[a.kind] || 9) - (KIND_ORDER[b.kind] || 9) || a.round - b.round; });
@@ -714,7 +714,7 @@
     function bindAdd() {
       function pick() {
         var c = $('#hC').value;
-        $('#hPick').innerHTML = paperPick('hP', c, ['일문일답'], function (p) { return hws.some(function (h) { return h.cls === c && sameLabel(h.label, p.label); }); });
+        $('#hPick').innerHTML = paperPick('hP', c, ['일문일답', '소테스트'], function (p) { return hws.some(function (h) { return h.cls === c && sameLabel(h.label, p.label); }); }, function (p) { return p.kind === '일문일답' || (p.ban === '단풀' && /EJU 기출/.test(p.label)); });   // 단풀반 「EJU 기출」도 숙제 (2026-10-25)
         if (!$('#hP')) return;
         $('#hP').onchange = function () { var p = paper(this.value); if (!p) return; $('#hL').value = p.label; $('#hT').value = p.total; };
       }

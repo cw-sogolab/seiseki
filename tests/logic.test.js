@@ -517,5 +517,10 @@ t('단풀반 학생만, 정답은 안 보냄, 선생님 입력과 같은 시험�
   assert.strictEqual(T['시험'].length, nEx + 1, '다시 넣어도 시험은 하나'); assert.strictEqual(T['시험결과'].filter(r => r['시험ID'] === ex['시험ID'] && r['번호'] === 'NP882013').length, 1);
   assert.strictEqual(r2.data.last.score, 12);
   assert.ok(!R('practiceSubmit', { paper: 'DP-경제-G', answers: key }).ok, '열쇠 없이는 못 냄');
+  const hwr = T['숙제'].filter(r => r['반코드'] === 'DP-SS' && r['이름'] === '경제 EJU 기출'); assert.strictEqual(hwr.length, 1, '단풀 EJU 기출은 숙제로도 등록');
+  const sub = T['숙제제출'].filter(r => r['숙제ID'] === hwr[0]['숙제ID'] && r['번호'] === 'NP882013'); assert.strictEqual(sub.length, 1); assert.strictEqual(String(sub[0]['맞은개수']), '12');
+  const adm = R('adminLogin', { password: 'demo', dev: 'itx' });
+  const bs = adm.data.boot;
+  if (bs && bs.exams) { const A = Logic.itemStats(bs, ex['시험ID']); assert.ok(A && A.items.length === 12, '문항 분석에 단풀 EJU 기출'); assert.ok(A.items.some(i => i.here.t > 0)); }
 });
 console.log(`\n${passed} passed` + (process.exitCode ? ', 실패 있음' : ''));
