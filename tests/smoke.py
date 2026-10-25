@@ -64,6 +64,16 @@ with sync_playwright() as p:
                 t1 = pg.inner_text('#panel'); pg.click('#panel [data-tm="2026-09"]'); pg.wait_for_timeout(150); t2 = pg.inner_text('#panel')
                 check('EJU 2025-2' in t1 and 'EJU 2025-2' not in t2 and 'EJU 2023-2' in t2, '테스트 결과 달마다 한 페이지')
                 if isdev: check('이 달 종합' in t2 and '내 평균' in t2 and '등수' in t2, '실전반: 달마다 환산점수 평균·등수')
+        if isdev:   # 단풀반 학생: 기출 점수 입력 → 채점
+            pg.goto((base / 'index.html').as_uri() + '?demo'); pg.click('#out') if pg.is_visible('#out') else None
+            pg.fill('#sid', 'KM482919'); pg.click('#go'); pg.wait_for_selector('#modes [data-mode="과목"]')
+            pg.click('#modes [data-mode="과목"]'); pg.wait_for_timeout(150)
+            pg.click('#tabs [data-s="경제"]'); pg.wait_for_selector('#panel [data-prac]')
+            pg.click('#panel [data-prac]'); pg.wait_for_selector('#pGrid .pc')
+            pg.click('#pGrid .pc[data-v="1"] >> nth=0'); pg.click('#pGrid .pc[data-v="2"] >> nth=1')
+            pg.click('#pSend'); pg.wait_for_function("document.querySelector('#panel .pracres')", timeout=8000)
+            check('/' in pg.inner_text('#panel .pracres') and pg.locator('#panel .item', has_text='EJU').count() >= 1, '단풀반: 기출 입력 → 채점 결과·기록')
+            check(pg.evaluate('document.documentElement.scrollWidth <= window.innerWidth + 1'), '기출 입력 화면 가로 스크롤 없음')
         check(not errs, '스크립트 오류 없음 ' + ' / '.join(errs))
         pg.close()
 

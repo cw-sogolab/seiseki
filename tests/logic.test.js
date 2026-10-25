@@ -490,4 +490,28 @@ t('이 반 정답률·누적 정답률(같은 이름·같은 정답의 다른 �
   assert.strictEqual(Logic.itemStats(B, 'E6').cum.n, 2, '다른 시험은 따로');
   assert.strictEqual(Logic.itemStats(B, 'nope'), null);
 });
+console.log('단풀반 EJU 기출 연습');
+t('단풀반 학생만, 과목 문항만 채점·정답은 안 보냄·다시 풀면 덮어씀·월말 평균에는 안 들어감', () => {
+  const e = Mock.seed(Mock.createEnv()), T = e._tables, key = '1234123412341234', R = (a, p) => Logic.handle(e, a, p);
+  T['시험지'].push({ '시험지ID': 'PX', '반종류': '실전', '과목': '종합과목', '종류': '모의고사', '회차': '2', '이름': 'EJU 2018-2', '문항수': '16', '정답': key, '출처': '', '문항과목': '경경경경정정정정지지지지역역역역' });
+  const tokOf = c => R('login', { code: c, dev: 'd' + c }).data.tok;
+  const dp = tokOf('NP882013'), gn = tokOf('TR520615');
+  assert.ok(R('login', { code: 'NP882013', dev: 'q' }).data.danpul, '단풀반 표시');
+  assert.ok(!R('practiceList', { tok: gn }).ok, '개념반만 듣는 학생은 못 씀');
+  assert.ok(!R('practiceSubmit', { tok: gn, paper: 'PX', subj: '경', answers: '1234' }).ok);
+  const list = R('practiceList', { tok: dp }); assert.ok(list.ok);
+  const px = list.data.find(x => x.id === 'PX'); assert.deepStrictEqual(px.subs['정'], [5, 6, 7, 8]);
+  assert.ok(!JSON.stringify(list.data).includes(key) && !('key' in px), '정답은 안 보냄');
+  assert.ok(!list.data.some(x => /월말|주차/.test(x.label)), 'EJU 기출만');
+  const r1 = R('practiceSubmit', { tok: dp, paper: 'PX', subj: '정', answers: '1204' });   // 정답 1234 → 1·2·4 맞고 3번째(7번) 틀림
+  assert.ok(r1.ok, r1.error); assert.deepStrictEqual(r1.data.last, { paper: 'PX', label: 'EJU 2018-2', subj: '정', score: 3, total: 4, wrong: [7] });
+  assert.strictEqual(r1.data.practice[0].score, 3);
+  assert.ok(!R('practiceSubmit', { tok: dp, paper: 'PX', subj: '정', answers: '0000' }).ok, '빈 답안');
+  assert.ok(!R('practiceSubmit', { tok: dp, paper: 'PX', subj: '정', answers: '12345' }).ok, '문항 수보다 많음');
+  assert.ok(!R('practiceSubmit', { tok: dp, paper: 'NOPE', subj: '정', answers: '1234' }).ok);
+  const r2 = R('practiceSubmit', { tok: dp, paper: 'PX', subj: '정', answers: '1234' });
+  assert.strictEqual(r2.data.practice.length, 1, '같은 기출·과목은 한 줄'); assert.strictEqual(r2.data.practice[0].score, 4); assert.strictEqual(r2.data.practice[0].tries, 2);
+  assert.ok(!R('practiceSubmit', { paper: 'PX', subj: '정', answers: '1234' }).ok, '열쇠 없이는 못 냄');
+  assert.strictEqual(T['시험결과'].length, Mock.seed(Mock.createEnv())._tables['시험결과'].length, '시험결과(월말 평균)에는 안 들어감');
+});
 console.log(`\n${passed} passed` + (process.exitCode ? ', 실패 있음' : ''));

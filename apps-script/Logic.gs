@@ -32,6 +32,8 @@ var Logic = (function () {
     '숙제제출': ['숙제ID', '번호', '맞은개수', '사진수', '확인', '대리입력', '최종제출일', '처음제출일'],
     // 해시: 같은 사진 찾기용 지문(16진수 64자). 검사 「확인필요」 + 검사메모 = 강사 화면 ⚠
     '숙제사진': ['숙제ID', '번호', '순서', '파일ID', '올린시각', '검사', '검사메모', '해시'],
+    // 기출연습 (2026-10-25): 단풀반 학생이 직접 입력하는 EJU 기출 과목별 답안. 시험지ID + 과목(경·정·현·지·역 한 글자)마다 한 줄(다시 풀면 덮어씀). 월말 평균에는 안 넣음
+    '기출연습': ['번호', '시험지ID', '과목', '답안', '맞은개수', '문항수', '틀린번호', '처음입력', '최종입력', '횟수'],
     '평가': ['월', '번호', '코멘트', '수정일'],
     // 시험지: 수업 폴더 답지에서 뽑은 정답·문항 수 (강사 화면에서 시험·숙제 등록 때 골라 씀). 학생에게는 보내지 않음
     '시험지': ['시험지ID', '반종류', '과목', '종류', '회차', '이름', '문항수', '정답', '출처', '문항과목'],   // 문항과목: 실전 시험 문항마다 정·경·현·지·역 한 글자 (취약 과목용)
@@ -43,7 +45,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = 'a9e0723832';
+  var VERSION = '1cc8f4e9d1';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -348,6 +350,62 @@ var Logic = (function () {
         label: S(r['이름']), total: num(r['문항수']), key: C.cleanKey(r['정답']), src: S(r['출처']), subjs: S(r['문항과목']).replace(/\s+/g, '') };
     }).filter(function (p) { return p.id && p.label && p.total > 0; });
   }
+  /* ---------- 단풀반 EJU 기출 연습 (2026-10-25) ---------- */
+  var PRACTICE_SUBJ = [['경', '경제'], ['정', '정치'], ['현', '현대사회'], ['지', '지리'], ['역', '역사']];
+  /** 학생이 고를 수 있는 기출: 시험지 중 반종류 「실전」이고 문항과목이 다 채워진 것 (정답은 안 보냄) */
+  function practicePapers(env) {
+    return papers(env).filter(function (x) { return x.ban === '실전' && x.subjs.length === x.total && x.key.length === x.total && /^EJU/.test(x.label); });
+  }
+  function practiceRows(env, code) {
+    var rows; try { rows = env.store.all('기출연습'); } catch (e) { return []; }
+    return rows.filter(function (r) { return S(r['번호']) === code; });
+  }
+  function practiceView(env, stu) {
+    var byId = {}; papers(env).forEach(function (x) { byId[x.id] = x; });
+    return practiceRows(env, stu.code).map(function (r) {
+      var pp = byId[S(r['시험지ID'])];
+      return { paper: S(r['시험지ID']), label: pp ? pp.label : S(r['시험지ID']), subj: S(r['과목']), score: num(r['맞은개수']), total: num(r['문항수']),
+        wrong: S(r['틀린번호']) ? S(r['틀린번호']).split(',').map(Number) : [], at: S(r['최종입력']), tries: num(r['횟수']) || 1 };
+    }).sort(function (a, b) { return b.at.localeCompare(a.at); });
+  }
+  function isDanpul(env, stu) {
+    var kind = {}; classes(env).forEach(function (c) { kind[c.code] = c.kind; });
+    return stu.classes.some(function (c) { return kind[c] === '단풀'; });
+  }
+  /** 학생: 고를 수 있는 기출 목록. 과목마다 문항 번호(시험지 안에서의 번호)를 알려 줌 — 정답은 안 보냄 */
+  function practiceList(env, p) {
+    var stu = studentFor(env, p);
+    if (!isDanpul(env, stu)) return fail('단풀반 학생만 쓸 수 있어요.');
+    return ok(practicePapers(env).map(function (x) {
+      var subs = {};
+      PRACTICE_SUBJ.forEach(function (sj) { var ns = []; for (var i = 0; i < x.total; i++) if (x.subjs.charAt(i) === sj[0]) ns.push(i + 1); if (ns.length) subs[sj[0]] = ns; });
+      return { id: x.id, label: x.label, subs: subs };
+    }).sort(function (a, b) { return b.label.localeCompare(a.label); }));
+  }
+  /** 학생: 한 기출의 한 과목 답안 제출 → 서버가 채점해 저장 (정답은 알려 주지 않고 틀린 번호만) */
+  function practiceSubmit(env, p) {
+    var stu = studentFor(env, p);
+    if (!isDanpul(env, stu)) return fail('단풀반 학생만 쓸 수 있어요.');
+    var pp = practicePapers(env).filter(function (x) { return x.id === S(p.paper); })[0], ch = S(p.subj);
+    if (!pp) return fail('시험지를 찾지 못했어요.');
+    if (!PRACTICE_SUBJ.some(function (x) { return x[0] === ch; })) return fail('과목을 골라 주세요.');
+    var idx = []; for (var i = 0; i < pp.total; i++) if (pp.subjs.charAt(i) === ch) idx.push(i);
+    if (!idx.length) return fail('이 시험에는 이 과목 문제가 없어요.');
+    var ans = S(p.answers).replace(/[^0-9]/g, '');
+    if (ans.length > idx.length) return fail('답이 문항 수(' + idx.length + '개)보다 많아요.');
+    while (ans.length < idx.length) ans += '0';
+    if (!/[1-9]/.test(ans)) return fail('답을 입력해 주세요.');
+    var wrong = [], score = 0;
+    idx.forEach(function (q, k) { if (ans.charAt(k) === pp.key.charAt(q)) score++; else wrong.push(q + 1); });
+    var now = stamp(env), prev = practiceRows(env, stu.code).filter(function (r) { return S(r['시험지ID']) === pp.id && S(r['과목']) === ch; })[0];
+    upsert(env, '기출연습', function (r) { return S(r['번호']) === stu.code && S(r['시험지ID']) === pp.id && S(r['과목']) === ch; },
+      { '번호': stu.code, '시험지ID': pp.id, '과목': ch, '답안': ans, '맞은개수': score, '문항수': idx.length, '틀린번호': wrong.join(','),
+        '처음입력': prev ? (S(prev['처음입력']) || now) : now, '최종입력': now, '횟수': (prev ? num(prev['횟수']) || 1 : 0) + 1 });
+    var v = studentView(env, stu);
+    v.last = { paper: pp.id, label: pp.label, subj: ch, score: score, total: idx.length, wrong: wrong };
+    return ok(v);
+  }
+
   function findStudent(env, code) {
     return students(env).filter(function (s) { return s.code === code; })[0] || null;
   }
@@ -418,6 +476,7 @@ var Logic = (function () {
     } catch (err2) { realMonth = {}; }
     return {
       name: stu.name, code: stu.code, subj: subjInfo, realMonth: realMonth,
+      danpul: isDanpul(env, stu), practice: practiceView(env, stu),
       classes: cls.filter(function (c) { return mine.indexOf(c.code) >= 0; }).sort(function (a, b) {
         return (stu.classes.indexOf(a.code) < 0) - (stu.classes.indexOf(b.code) < 0); // 지금 듣는 반 먼저
       }).map(function (c) {
@@ -821,7 +880,7 @@ var Logic = (function () {
     return ok(env.readImage(id));
   }
 
-  var STUDENT = { login: login, hwPhoto: hwPhoto, hwFinish: hwFinish };
+  var STUDENT = { login: login, hwPhoto: hwPhoto, hwFinish: hwFinish, practiceList: practiceList, practiceSubmit: practiceSubmit };
   var ADMIN = { bootstrap: bootstrap, saveResult: saveResult, deleteResult: deleteResult, addExam: addExam, updateExamKey: updateExamKey,
     deleteExam: deleteExam, addHomework: addHomework, deleteHomework: deleteHomework, setChecked: setChecked, proxyHw: proxyHw,
     hwPhotos: hwPhotos, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs, accessLog: accessLog, photo: photo };
@@ -853,7 +912,7 @@ var Logic = (function () {
   }
 
   /** 쓰기 요청인지 (서버에서 잠금 걸 때 사용) */
-  var WRITES = ['hwPhoto', 'hwFinish', 'saveResult', 'deleteResult', 'addExam', 'updateExamKey', 'deleteExam', 'addHomework',
+  var WRITES = ['hwPhoto', 'hwFinish', 'practiceSubmit', 'saveResult', 'deleteResult', 'addExam', 'updateExamKey', 'deleteExam', 'addHomework',
     'deleteHomework', 'setChecked', 'proxyHw', 'importRoster', 'setClasses', 'saveEval', 'setHwDue'];
 
   return { TABLES: TABLES, ACCESS_HEAD: ACCESS_HEAD, TEXT_COLS: TEXT_COLS, WRITES: WRITES, VERSION: VERSION, handle: handle, cleanupPhotos: cleanupPhotos, itemStats: itemStats };
