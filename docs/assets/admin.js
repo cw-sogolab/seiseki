@@ -1124,7 +1124,7 @@
       '<div class="seg" role="tablist" aria-label="반 종류">' + KINDS.map(function (k) { return '<button type="button" role="tab" data-ik="' + k[0] + '" aria-selected="' + (k[0] === itemKind) + '">' + k[1] + '</button>'; }).join('') + '</div>';
     if (!exs.length) { $('#view').innerHTML = h + '<p class="empty">이 달 ' + esc(itemKind) + '반에 답안이 들어간 시험이 없어요.</p></div>'; bindItem(); return; }
     h += '<div class="fields" style="margin-top:14px"><div><label for="iE">시험</label><select id="iE">' + exs.map(function (e) {
-      return '<option value="' + esc(e.id) + '"' + (e.id === itemExam ? ' selected' : '') + '>' + esc((itemKind === '실전' ? '실전반(D·E)' : clsName(e.cls)) + ' · ' + e.label) + ' (' + withRes[e.id] + '명)</option>';
+      return '<option value="' + esc(e.id) + '"' + (e.id === itemExam ? ' selected' : '') + '>' + esc((itemKind === '실전' ? '실전반(D·E)' : (subjOf(e.label) && cls(e.cls) && cls(e.cls).time ? '[' + cls(e.cls).time + '] ' + subjOf(e.label) : clsName(e.cls))) + ' · ' + e.label) + ' (' + withRes[e.id] + '명)</option>';
     }).join('') + '</select></div></div>';
     var A = Logic.itemStats(D, itemExam);
     if (!A) { $('#view').innerHTML = h + '<p class="empty">문항 수가 없는 시험이에요.</p></div>'; bindItem(); return; }
