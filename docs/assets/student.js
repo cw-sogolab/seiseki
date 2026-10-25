@@ -461,6 +461,7 @@
     }).join('') + '</div></div>' : '';
     var left = real ? testsCard('실전', '테스트 결과') : testsCard('개념', '개념반 소테스트·월말') + testsCard('단풀', '단풀반 월말');
     left = left ? pager + left : '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';
+    if (mode === '과목' && view.danpul && /경제|정치|지리|현대사회|역사/.test(s)) left += practiceCard(s);
     if (hws.length) {
       var wCard = '<div class="card"><h2><i class="kdot" style="background:' + toneOf('개념', s) + '"></i>개념반 숙제</h2>';
       byMonth(hws, function (w) { return w.month; }).forEach(function (g) { wCard += '<h3 class="mhd">' + esc(g.m ? UI.monthLabel(g.m) : '') + '</h3>' + g.l.map(hwItem).join(''); });
@@ -470,6 +471,51 @@
     if ($('#wk')) drawWeak();
     UI.all('#panel [data-tm]').forEach(function (b) { b.onclick = function () { tmSel = b.getAttribute('data-tm'); var y = b.getBoundingClientRect().top; renderSubject(mode, s); var nb = $('#panel [data-tm="' + tmSel + '"]'); if (nb) window.scrollBy(0, nb.getBoundingClientRect().top - y); }; });
     UI.all('#panel [data-hw]').forEach(function (b) { b.onclick = function () { openUpload(b.getAttribute('data-hw')); }; });
+    UI.all('#panel [data-prac]').forEach(function (b) { b.onclick = function () { openPractice(b.getAttribute('data-prac')); }; });
+  }
+
+  /* ---------- 단풀반 EJU 기출 (2026-10-25): 학생이 기출 한 과목씩 답을 넣으면 서버가 채점. 월말 평균에는 안 들어감 ---------- */
+  var pracList = null, pracLast = null;
+  function pracKey(sj) { return SUBJS[sj] || sj; }
+  function practiceCard(s) {
+    var mine = null, tm = thisMonth();   // 이번 달 내 「EJU 기출」 기록 (선생님이 넣은 것도 같이 보임)
+    view.classes.forEach(function (c) { if (kindOf(c) === '단풀') c.tests.forEach(function (t) { if (t.month === tm && /EJU 기출/.test(t.label) && pracKey(String(t.label).split(' ')[0]) === s && t.score !== null) mine = t; }); });
+    var h = '<div class="card"><h2><i class="kdot" style="background:' + toneOf('단풀', s) + '"></i>EJU 기출 직접 입력 <span class="meta">' + esc(s) + '</span></h2>' +
+      '<p class="meta">단풀반에서 푸는 EJU 기출의 답을 직접 넣으면 바로 채점돼요. 위 「단풀반 월말」 목록에 같이 쌓여요.</p>';
+    if (pracLast && pracKey(pracLast.subj) === s) h += '<div class="pracres"><b>' + esc(pracLast.label) + '</b> ' + pracLast.score + ' / ' + pracLast.total + '점' +
+      (pracLast.wrong.length ? '<span class="meta"> · 틀린 문항 ' + pracLast.wrong.join(', ') + '번</span>' : '<span class="meta"> · 다 맞았어요!</span>') + '</div>';
+    else if (mine) h += '<div class="pracres"><b>이번 달 ' + esc(mine.label) + '</b> ' + mine.score + ' / ' + mine.total + '점' + (mine.wrong && mine.wrong.length ? '<span class="meta"> · 틀린 문항 ' + mine.wrong.join(', ') + '번</span>' : '') + '</div>';
+    return h + '<button class="btn block" type="button" data-prac="' + esc(s) + '">' + (mine || (pracLast && pracKey(pracLast.subj) === s) ? '다시 입력하기' : '기출 점수 입력하기') + '</button><div class="upbox" id="pracBox"></div></div>';
+  }
+  function openPractice(s) {
+    var box = $('#pracBox'); if (!box) return;
+    box.innerHTML = '<p class="meta">불러오는 중…</p>';
+    (pracList ? Promise.resolve({ ok: true, data: pracList }) : stuCall('practiceList', {})).then(function (r) {
+      if (!r.ok) { box.innerHTML = '<p class="msg err">' + esc(r.error) + '</p>'; return; }
+      pracList = r.data;
+      var x = pracList.filter(function (y) { return pracKey(y.subj) === s; })[0];
+      if (!x) { box.innerHTML = '<p class="empty">이 과목 기출은 아직 준비 중이에요.</p>'; return; }
+      var ans = {}, rows = '';
+      for (var n = 1; n <= x.n; n++) rows += '<div class="prow"><span class="pn">' + n + '번</span>' + [1, 2, 3, 4].map(function (v) { return '<button type="button" class="pc" data-n="' + n + '" data-v="' + v + '" aria-pressed="false">' + v + '</button>'; }).join('') + '</div>';
+      box.innerHTML = '<div class="up"><p class="uphint"><b>' + esc(x.label) + '</b> · ' + x.n + '문항. 모르는 문항은 비워 두세요 (틀린 것으로 셈).</p><div class="pgrid">' + rows + '</div>' +
+        '<p class="msg" id="pMsg" role="status"></p><button id="pSend" class="btn block" type="button">제출하기</button></div>';
+      UI.all('#pracBox .pc').forEach(function (b) { b.onclick = function () {
+        var k = b.getAttribute('data-n'), v = b.getAttribute('data-v'), on = ans[k] === v;
+        if (on) delete ans[k]; else ans[k] = v;
+        UI.all('#pracBox .pc[data-n="' + k + '"]').forEach(function (o) { o.setAttribute('aria-pressed', String(!on && o === b)); });
+      }; });
+      $('#pSend').onclick = function () {
+        var msg = $('#pMsg'), btn = $('#pSend'), str = '';
+        for (var k = 1; k <= x.n; k++) str += ans[k] || '0';
+        if (!/[1-9]/.test(str)) { msg.className = 'msg err'; msg.textContent = '답을 하나 이상 골라 주세요.'; return; }
+        setBusy(btn, true, '채점하는 중…'); msg.textContent = '';
+        stuCall('practiceSubmit', { paper: x.id, answers: str }).then(function (r2) {
+          setBusy(btn, false, '제출하기');
+          if (!r2.ok) { msg.className = 'msg err'; msg.textContent = r2.error; return; }
+          pracLast = r2.data.last; show(r2.data);
+        });
+      };
+    });
   }
 
   /* 실전반 과목별 정답률 · 취약 과목 (서버 view.subj: 시험지 「문항과목」으로 문항을 과목별로 나눔). 종합 | 달마다 */
