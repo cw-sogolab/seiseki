@@ -118,7 +118,7 @@
     var c = cls(code); if (!c || !c.code) return String(code);
     var t = c.time ? '[' + c.time + '] ' : '';
     if (c.kind === '실전') return t + '실전' + realSuffix(c.code);
-    return t + (subjIn(code, m || month) || c.kind + '반');
+    return t + (subjIn(code, m || month) || '') + (subjIn(code, m || month) ? ' ' + c.kind : c.kind + '반');   // 「[토일 13:00] 정치 단풀」 — 개념·단풀 구분 (2026-10-25 사용자)
   }
   /** 반 고르기 칸: 개념반·단풀반·실전반으로 묶어서 */
   function clsOptions(list, sel, note) {

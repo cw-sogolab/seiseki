@@ -528,7 +528,7 @@ body.preview{background-attachment:scroll}
 .phfail::after{content:'사진을 불러오지 못했어요'}
 /* 단풀반 EJU 기출 입력 (2026-10-25) */
 .pracres{margin:12px 0 4px;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--green) 14%,transparent);font-size:15px}
-.pgrid{margin-top:10px}.prow{display:flex;align-items:center;gap:8px;padding:5px 0}.pn{width:44px;font-weight:700;font-size:14px;color:var(--muted)}
+.pgrid{margin-top:10px}.pgrid .prow{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:0}.pn{width:44px;font-weight:700;font-size:14px;color:var(--muted)}
 .pc{flex:1;border:0;border-radius:10px;padding:10px 0;font-size:15px;font-weight:700;background:var(--surface);color:var(--muted);cursor:pointer;box-shadow:var(--shadow)}
 .pc[aria-pressed="true"]{background:#5B4BF0;color:#fff}
 #pPick{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line,#ddd);font-size:16px;background:var(--surface);color:inherit}
