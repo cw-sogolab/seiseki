@@ -461,7 +461,7 @@
     }).join('') + '</div></div>' : '';
     var left = real ? testsCard('실전', '테스트 결과') : testsCard('개념', '개념반 소테스트·월말') + testsCard('단풀', '단풀반 월말');
     left = left ? pager + left : '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';
-    if (mode === '과목' && view.danpul && PRAC_CH[s]) left += practiceCard(s);
+    if (mode === '과목' && view.danpul && /경제|정치|지리|현대사회|역사/.test(s)) left += practiceCard(s);
     if (hws.length) {
       var wCard = '<div class="card"><h2><i class="kdot" style="background:' + toneOf('개념', s) + '"></i>개념반 숙제</h2>';
       byMonth(hws, function (w) { return w.month; }).forEach(function (g) { wCard += '<h3 class="mhd">' + esc(g.m ? UI.monthLabel(g.m) : '') + '</h3>' + g.l.map(hwItem).join(''); });
@@ -475,48 +475,43 @@
   }
 
   /* ---------- 단풀반 EJU 기출 (2026-10-25): 학생이 기출 한 과목씩 답을 넣으면 서버가 채점. 월말 평균에는 안 들어감 ---------- */
-  var PRAC_CH = { '경제': '경', '정치': '정', '현대사회': '현', '지리': '지', '역사': '역' }, pracList = null, pracLast = null;
+  var pracList = null, pracLast = null;
+  function pracKey(sj) { return SUBJS[sj] || sj; }
   function practiceCard(s) {
-    var ch = PRAC_CH[s], recs = (view.practice || []).filter(function (r) { return r.subj === ch; });
+    var recs = (view.practice || []).filter(function (r) { return pracKey(r.subj) === s; });
     var h = '<div class="card"><h2><i class="kdot" style="background:' + toneOf('단풀', s) + '"></i>단풀반 EJU 기출 <span class="meta">' + esc(s) + '</span></h2>' +
-      '<p class="meta">풀어 본 기출의 ' + esc(s) + ' 문제 답을 넣으면 바로 채점돼요. 월말 테스트 점수에는 들어가지 않아요.</p>';
-    if (pracLast && pracLast.subj === ch) h += '<div class="pracres"><b>' + esc(pracLast.label) + '</b> ' + pracLast.score + ' / ' + pracLast.total + '점' +
+      '<p class="meta">단풀반에서 푼 EJU 기출 문제의 답을 넣으면 바로 채점돼요. 월말 테스트 점수에는 들어가지 않아요.</p>';
+    if (pracLast && pracKey(pracLast.subj) === s) h += '<div class="pracres"><b>' + esc(pracLast.label) + '</b> ' + pracLast.score + ' / ' + pracLast.total + '점' +
       (pracLast.wrong.length ? '<span class="meta"> · 틀린 문항 ' + pracLast.wrong.join(', ') + '번</span>' : '<span class="meta"> · 다 맞았어요!</span>') + '</div>';
     h += recs.length ? recs.map(function (r) {
       return '<div class="item"><div class="row"><div><b>' + esc(r.label) + '</b><p class="meta">' + esc(r.at.slice(0, 10)) + (r.tries > 1 ? ' · ' + r.tries + '번째 풀이' : '') +
         (r.wrong.length ? ' · 틀린 문항 ' + r.wrong.join(', ') + '번' : '') + '</p></div><span class="pills"><span class="pill ' + (r.score === r.total ? 'ok' : 'wait') + '">' + r.score + ' / ' + r.total + '</span></span></div></div>';
-    }).join('') : '<p class="empty">아직 입력한 기출이 없어요.</p>';
-    return h + '<button class="btn block" type="button" data-prac="' + ch + '">기출 점수 입력하기</button><div class="upbox" id="pracBox"></div></div>';
+    }).join('') : '<p class="empty">아직 입력한 기록이 없어요.</p>';
+    return h + '<button class="btn block" type="button" data-prac="' + esc(s) + '">' + (recs.length ? '다시 풀고 입력하기' : '기출 점수 입력하기') + '</button><div class="upbox" id="pracBox"></div></div>';
   }
-  function openPractice(ch) {
+  function openPractice(s) {
     var box = $('#pracBox'); if (!box) return;
     box.innerHTML = '<p class="meta">불러오는 중…</p>';
     (pracList ? Promise.resolve({ ok: true, data: pracList }) : stuCall('practiceList', {})).then(function (r) {
       if (!r.ok) { box.innerHTML = '<p class="msg err">' + esc(r.error) + '</p>'; return; }
       pracList = r.data;
-      var ps = pracList.filter(function (x) { return x.subs[ch]; });
-      if (!ps.length) { box.innerHTML = '<p class="empty">고를 수 있는 기출이 아직 없어요.</p>'; return; }
-      box.innerHTML = '<div class="up"><label for="pPick">기출 고르기</label><select id="pPick">' + ps.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.label) + '</option>'; }).join('') + '</select>' +
-        '<div id="pGrid" class="pgrid"></div><p class="msg" id="pMsg" role="status"></p><button id="pSend" class="btn block" type="button">제출하기</button></div>';
-      var ans = {};
-      function draw() {
-        var x = ps.filter(function (y) { return y.id === $('#pPick').value; })[0]; ans = {};
-        $('#pGrid').innerHTML = '<p class="meta">' + x.subs[ch].length + '문항 · 모르면 비워 두세요 (틀린 것으로 셈)</p>' + x.subs[ch].map(function (n) {
-          return '<div class="prow"><span class="pn">' + n + '번</span>' + [1, 2, 3, 4].map(function (v) { return '<button type="button" class="pc" data-n="' + n + '" data-v="' + v + '" aria-pressed="false">' + v + '</button>'; }).join('') + '</div>';
-        }).join('');
-        UI.all('#pGrid .pc').forEach(function (b) { b.onclick = function () {
-          var n = b.getAttribute('data-n'), v = b.getAttribute('data-v'), on = ans[n] === v;
-          if (on) delete ans[n]; else ans[n] = v;
-          UI.all('#pGrid .pc[data-n="' + n + '"]').forEach(function (o) { o.setAttribute('aria-pressed', String(!on && o === b)); });
-        }; });
-      }
-      $('#pPick').onchange = draw; draw();
+      var x = pracList.filter(function (y) { return pracKey(y.subj) === s; })[0];
+      if (!x) { box.innerHTML = '<p class="empty">이 과목 기출은 아직 준비 중이에요.</p>'; return; }
+      var ans = {}, rows = '';
+      for (var n = 1; n <= x.n; n++) rows += '<div class="prow"><span class="pn">' + n + '번</span>' + [1, 2, 3, 4].map(function (v) { return '<button type="button" class="pc" data-n="' + n + '" data-v="' + v + '" aria-pressed="false">' + v + '</button>'; }).join('') + '</div>';
+      box.innerHTML = '<div class="up"><p class="uphint"><b>' + esc(x.label) + '</b> · ' + x.n + '문항. 모르는 문항은 비워 두세요 (틀린 것으로 셈).</p><div class="pgrid">' + rows + '</div>' +
+        '<p class="msg" id="pMsg" role="status"></p><button id="pSend" class="btn block" type="button">제출하기</button></div>';
+      UI.all('#pracBox .pc').forEach(function (b) { b.onclick = function () {
+        var k = b.getAttribute('data-n'), v = b.getAttribute('data-v'), on = ans[k] === v;
+        if (on) delete ans[k]; else ans[k] = v;
+        UI.all('#pracBox .pc[data-n="' + k + '"]').forEach(function (o) { o.setAttribute('aria-pressed', String(!on && o === b)); });
+      }; });
       $('#pSend').onclick = function () {
-        var x = ps.filter(function (y) { return y.id === $('#pPick').value; })[0], msg = $('#pMsg'), btn = $('#pSend');
-        var str = x.subs[ch].map(function (n) { return ans[n] || '0'; }).join('');
+        var msg = $('#pMsg'), btn = $('#pSend'), str = '';
+        for (var k = 1; k <= x.n; k++) str += ans[k] || '0';
         if (!/[1-9]/.test(str)) { msg.className = 'msg err'; msg.textContent = '답을 하나 이상 골라 주세요.'; return; }
         setBusy(btn, true, '채점하는 중…'); msg.textContent = '';
-        stuCall('practiceSubmit', { paper: x.id, subj: ch, answers: str }).then(function (r2) {
+        stuCall('practiceSubmit', { paper: x.id, answers: str }).then(function (r2) {
           setBusy(btn, false, '제출하기');
           if (!r2.ok) { msg.className = 'msg err'; msg.textContent = r2.error; return; }
           pracLast = r2.data.last; show(r2.data);
