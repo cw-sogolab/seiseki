@@ -548,3 +548,5 @@ body.preview{background-attachment:scroll}
 .item .upbox:empty{display:none}
 .kgrp .stats{grid-template-columns:repeat(auto-fit,minmax(72px,1fr))}
 .kgrp .stats .st{padding:8px 9px}
+.kgrp.none{opacity:.85}
+.kgrp.none .empty{text-align:center;padding:26px 8px;margin:0}

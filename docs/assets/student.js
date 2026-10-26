@@ -111,7 +111,7 @@
   /* ---------- 그래프 + 마우스를 올리면(휴대폰은 누르면) 점수 말풍선 ---------- */
   var TIPS = [];
   function tipHtml(it) {
-    return '<b>' + esc(it.title) + '</b>' + (it.m ? '<span class="tm">' + (+it.m.slice(5)) + '월</span>' : '') +
+    return '<b>' + esc(it.title) + '</b>' + (it.m ? '<span class="tm">' + esc(UI.monthLabel(it.m)) + '</span>' : '') +
       '<div><i style="background:' + it.col + '"></i>내 점수 <b>' + (it.sc !== undefined ? it.sc + '/' + it.tot + ' · ' : '') + it.p + '%</b></div>' +
       (it.av !== null && it.av !== undefined && it.tot ? '<div><i class="av"></i>우리반 평균 ' + pct1(it.av, it.tot) + '%</div>' : '') +
       (it.cum ? '<div><i class="cu"></i>누적 평균 ' + it.cum.pct + '%' + (it.cum.n ? ' <small>(' + it.cum.n + '명)</small>' : '') + '</div>' : '');
@@ -158,7 +158,7 @@
     s += '<line class="guide" x1="0" x2="0" y1="' + T + '" y2="' + y(0) + '" stroke="var(--line)" stroke-width="1.5" style="display:none"/>';
     items.forEach(function (it, i) {
       s += '<text x="' + x(i) + '" y="' + (H - fs * 2.2) + '" text-anchor="middle" font-size="' + fs + '" fill="var(--muted)">' + esc(it.lab) + '</text>';
-      if (it.m && (i === 0 || items[i - 1].m !== it.m)) s += '<text x="' + x(i) + '" y="' + (H - fs * 0.6) + '" text-anchor="middle" font-size="' + fs + '" font-weight="700" fill="var(--ink2)">' + (+it.m.slice(5)) + '월</text>';
+      if (it.m && (i === 0 || items[i - 1].m !== it.m)) s += '<text x="' + x(i) + '" y="' + (H - fs * 0.6) + '" text-anchor="middle" font-size="' + fs + '" font-weight="700" fill="var(--ink2)">' + monthAxis(it.m) + '</text>';
     });
     var cu = items.map(function (it, i) { return it.cum ? x(i) + ',' + y(it.cum.pct) : null; });
     if (n > 1 && cu.filter(Boolean).length > 1) s += '<polyline points="' + cu.filter(Boolean).join(' ') + '" fill="none" stroke="var(--avg)" stroke-width="2" stroke-dasharray="5 4"/>';
@@ -202,7 +202,7 @@
       s += '<text x="' + cx + '" y="' + (top - 5) + '" text-anchor="middle" font-size="' + fs + '" font-weight="700" fill="var(--ink2)">' + it.p + '</text>';
       if (it.cum) s += '<line x1="' + (cx - bw / 2 - 6) + '" x2="' + (cx + bw / 2 + 6) + '" y1="' + y(it.cum.pct) + '" y2="' + y(it.cum.pct) + '" stroke="var(--ink2)" stroke-width="2" stroke-dasharray="4 3"/>';
       s += '<text x="' + cx + '" y="' + (H - fs * 2.2) + '" text-anchor="middle" font-size="' + fs + '" fill="var(--muted)">' + esc(it.lab) + '</text>';
-      s += '<text x="' + cx + '" y="' + (H - fs * 0.6) + '" text-anchor="middle" font-size="' + fs + '" font-weight="700" fill="var(--ink2)">' + (+it.m.slice(5)) + '월</text>';
+      s += '<text x="' + cx + '" y="' + (H - fs * 0.6) + '" text-anchor="middle" font-size="' + fs + '" font-weight="700" fill="var(--ink2)">' + monthAxis(it.m) + '</text>';
       s += hit(L + slot * i, slot, H, it);
     });
     s += '</svg></div><div class="legend">' + subs.map(function (sj) { var c0 = items.filter(function (it) { return it.s === sj; })[0].col; return '<span><i class="sq" style="background:' + c0 + '"></i>' + esc(sj) + '</span>'; }).join('') +
@@ -221,15 +221,19 @@
   var KINDS = ['개념', '단풀', '실전'];
   /** 묶는 기준: 개념·단풀은 과목(시험·숙제 이름 첫 낱말), 실전은 D·E */
   function grpOf(c, x) { return kindOf(c) === '실전' ? '실전반' : (SUBJS[String(x.label).split(' ')[0]] || '기타'); }   // 실전반은 D·E 를 하나로 (2026-10-22 사용자)
-  /** 들은 달: 「2·6·8월」 (해가 다르면 「25년 11월 · 2월」, 많으면 「2~9월 · 5달」) */
+  /** 들은 달 — 연도까지: 「2026년 2·6·10월」 (해가 다르면 「2025년 11월 · 2026년 2·6월」, 한 해에 5달 넘으면 「2026년 2~10월 · 9달」) */
   function monthsText(ms) {
     ms = ms.slice().sort(); if (!ms.length) return '';
-    var y = ms[0].slice(0, 4), same = ms.every(function (m) { return m.slice(0, 4) === y; }) && y === thisMonth().slice(0, 4);
-    if (!same) return ms.length > 2 ? monthShort(ms[0]) + '~' + monthShort(ms[ms.length - 1]) + ' · ' + ms.length + '달' : ms.map(monthShort).join(' · ');
-    if (ms.length > 4) return (+ms[0].slice(5)) + '~' + (+ms[ms.length - 1].slice(5)) + '월 · ' + ms.length + '달';
-    return ms.map(function (m) { return +m.slice(5); }).join('·') + '월';
+    var by = {}, ys = [];
+    ms.forEach(function (m) { var y = m.slice(0, 4); if (!by[y]) { by[y] = []; ys.push(y); } by[y].push(+m.slice(5)); });
+    return ys.map(function (y) {
+      var l = by[y];
+      return y + '년 ' + (l.length > 4 ? l[0] + '~' + l[l.length - 1] + '월 · ' + l.length + '달' : l.join('·') + '월');
+    }).join(' · ');
   }
-  function monthShort(m) { return m.slice(0, 4) === thisMonth().slice(0, 4) ? (+m.slice(5)) + '월' : m.slice(2, 4) + '년 ' + (+m.slice(5)) + '월'; }
+  function monthShort(m) { return UI.monthLabel(m); }
+  /** 그래프 아래 달 표시(좁음): 「26.10」 — 연도 두 자리 + 월 */
+  function monthAxis(m) { return m.slice(2, 4) + '.' + m.slice(5); }
   /** 반 종류 하나의 과목들: 지금 듣는 과목 먼저, 그다음 최근에 들은 순 */
   function subjList(k) {
     var m = {}, tm = thisMonth(), out = [];
@@ -260,7 +264,7 @@
         if (e.last > x.last) x.last = e.last;
         if (e.now) x.now = true;
         e.ms.forEach(function (mo) { if (x.ms.indexOf(mo) < 0) x.ms.push(mo); });
-        x.parts.push({ k: k, now: e.now, time: e.time });
+        x.parts.push({ k: k, now: e.now, time: e.time, ms: e.ms });
       });
     });
     Object.keys(m).forEach(function (s) { out.push(m[s]); });
@@ -299,8 +303,8 @@
     if (!subs.some(function (e) { return e.s === subjSel; })) subjSel = subs[0].s;
     $('#tabs').innerHTML = subs.map(function (e) {
       var big = e.s;
-      var nowParts = e.parts.filter(function (p) { return p.now; });
-      var small = nowParts.length ? nowParts.map(function (p) { return (kindSel === '실전' ? '' : p.k + ' ') + (p.time || ''); }).join(' · ') : monthsText(e.ms);
+      /* 칩 아래: 반 종류마다 들은 달 — 「개념 2026년 2·6월 · 단풀 2026년 10월」 (요일시간은 안 보임) */
+      var small = e.parts.map(function (p) { var t = monthsText(p.ms); return t ? (kindSel === '실전' ? '' : p.k + ' ') + t : ''; }).filter(Boolean).join(' · ');
       return '<button class="tab" type="button" role="tab" data-s="' + esc(e.s) + '" aria-selected="' + (e.s === subjSel) + '">' + esc(big) + (small ? '<small>' + esc(small) + '</small>' : '') + '</button>';
     }).join('');
     UI.all('#tabs [data-s]').forEach(function (b) { b.onclick = function () { subjSel = b.getAttribute('data-s'); renderTabs(); }; });
@@ -400,7 +404,7 @@
           av: lst.length === 1 ? lst[0].t.avg : null, cum: ca === null ? null : { pct: ca } });
         s += '<text x="' + (x + bw / 2) + '" y="' + (top - 4) + '" text-anchor="middle" font-size="' + (fs - 1) + '" font-weight="700" fill="var(--ink2)">' + v + '</text>';
       });
-      s += '<text x="' + cx + '" y="' + (H - fs * 0.8) + '" text-anchor="middle" font-size="' + fs + '" font-weight="700" fill="var(--ink2)">' + (+r.m.slice(5)) + '월</text>';
+      s += '<text x="' + cx + '" y="' + (H - fs * 0.8) + '" text-anchor="middle" font-size="' + fs + '" font-weight="700" fill="var(--ink2)">' + monthAxis(r.m) + '</text>';
     });
     s += '</svg></div><div class="legend">' + kinds.map(function (kd) { return '<span><i class="sq" style="background:' + toneOf(kd, sj) + '"></i>' + kd + '반 월말</span>'; }).join('') +
       '<span><i class="a" style="border-top-color:var(--ink2)"></i>누적 평균</span><span class="hint">막대에 마우스를 올리면(휴대폰은 누르면) 점수가 나와요</span></div>';
@@ -512,12 +516,17 @@
       else h += left;
     } else {
       // 개념반·단풀반은 반마다 한 덩어리로 (2026-10-26 사용자: 성적을 반별로 그룹져서 구분) — 덩어리 안에 그 반의 테스트·숙제
-      var groups = '';
+      var groups = '', none = [];
       [['개념', '개념반', '소테스트·월말'], ['단풀', '단풀반', '월말 · EJU 기출']].forEach(function (g) {
         var k = g[0], tc = testsCard(k, g[2]), hk = hwBy[k];
-        if (!tc && !hk.length) return;
+        if (!tc && !hk.length) { none.push(g); return; }
         var body = '<div class="kbody">' + (tc || '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>') + (hk.length ? '<div class="hwc">' + hwCard(k, hk) + '</div>' : '') + '</div>';
         groups += '<section class="kgrp" style="--tone:' + toneOf(k, s) + '"><h2 class="kh"><i class="kdot" style="background:' + toneOf(k, s) + '"></i>' + g[1] + (function () { var mm = []; tests.filter(function (x) { return x.kind === k; }).forEach(function (x) { if (x.t.month && mm.indexOf(x.t.month) < 0) mm.push(x.t.month); }); hwBy[k].forEach(function (w) { if (w.month && mm.indexOf(w.month) < 0) mm.push(w.month); }); var tx = [timeBy[k], monthsText(mm)].filter(Boolean).join(' · '); return tx ? '<small>' + esc(tx) + '</small>' : ''; })() + '</h2>' + body + '</section>';
+      });
+      // 한쪽 반 기록이 없으면 그 자리에 「수강 이력 없음」 — 한쪽만 넓게 그리지 않음 (2026-10-26 사용자)
+      if (groups) none.forEach(function (g) {
+        var ph = '<section class="kgrp none" style="--tone:' + toneOf(g[0], s) + '"><h2 class="kh"><i class="kdot" style="background:' + toneOf(g[0], s) + '"></i>' + g[1] + '</h2><div class="kbody"><div class="card"><p class="empty">수강 이력 없음</p></div></div></section>';
+        groups = g[0] === '개념' ? ph + groups : groups + ph;
       });
       h += groups ? '<div class="kgrid">' + groups + '</div>' : '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';   // 넓은 화면: 왼쪽 개념반 · 오른쪽 단풀반 (2026-10-26 사용자)
     }
