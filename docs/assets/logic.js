@@ -43,7 +43,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '0e572cd178';
+  var VERSION = 'b0fc131c3d';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -380,7 +380,7 @@ var Logic = (function () {
     var okp = practiceAllowed(env, stu);
     return ok(practicePapers(env).filter(okp).map(function (x) { return { id: x.id, label: x.label, subj: x.subj, n: x.total }; }));
   }
-  /** 학생: 답안 제출 → 서버가 채점해 시험결과에 저장 (정답은 안 알려 주고 틀린 번호만). 다시 넣으면 덮어씀 */
+  /** 학생: 답안 제출 → 서버가 채점해 시험결과에 저장 (정답은 안 알려 주고 틀린 번호만). 한 번만 낼 수 있음 */
   function practiceSubmit(env, p) {
     var stu = studentFor(env, p), mine = danpulClasses(env, stu);
     if (!mine.length) return fail('단풀반 학생만 쓸 수 있어요.');
@@ -397,6 +397,9 @@ var Logic = (function () {
       env.store.append('시험', row); M = {};
       e = { id: row['시험ID'], total: pp.total, key: pp.key };
     }
+    // 한 번만 (2026-10-26 사용자): 이미 결과가 있으면(선생님이 넣은 것 포함) 학생은 다시 못 냄 — 맞은 개수·답안을 고칠 수 없음
+    if (env.store.all('시험결과').some(function (r) { return S(r['시험ID']) === e.id && S(r['번호']) === stu.code && S(r['맞은개수']) !== ''; }))
+      return fail('이미 낸 기출이에요. 한 번만 낼 수 있어요. 고쳐야 하면 선생님께 말해 주세요.');
     var ans = S(p.answers).replace(/[^0-9]/g, '');
     if (ans.length > e.total) return fail('답이 문항 수(' + e.total + '개)보다 많아요.');
     ans = C.padAnswers(ans, e.total);
@@ -500,7 +503,7 @@ var Logic = (function () {
             score: me ? me.score : null, avg: C.mean(all), n: all.length, rank: rank,
             conv: me ? convOf(env, me) : null, convAvg: C.mean(convs), wrong: me ? me.wrong : [] };
           var ck = cum[c.kind + '|' + e.label];
-          t.cum = ck ? { pct: Math.round(ck.s / ck.n * 1000) / 10, n: ck.n } : null;   // 같은 시험 누적 평균 정답률(%)·인원
+          t.cum = ck && me ? { pct: Math.round(ck.s / ck.n * 1000) / 10, n: ck.n } : null;   // 같은 시험 누적 평균 정답률(%)·인원 — 내가 아직 안 본 시험에는 안 보냄(2026-10-26 사용자: 안 본 시험에 퍼센트가 붙음)
           if (showKey && me && me.answers) t.wrongDetail = C.grade(e.key, me.answers).wrong;   // 답안 기록이 없는(옮겨 온) 성적은 제외
           return t;
         }).filter(function (t) {
@@ -511,7 +514,8 @@ var Logic = (function () {
           var x = mySub[h.id];
           return { id: h.id, month: h.month, label: h.label, book: h.book, p0: h.p0, p1: h.p1, total: h.total,
             done: !!x, count: x ? x.count : null, photos: x ? x.photos : 0, checked: x ? x.checked : false,
-            due: h.due, late: isLate(h, x), overdue: !x && !!h.due && nowStamp > h.due };
+            due: h.due, late: isLate(h, x), overdue: !x && !!h.due && nowStamp > h.due,
+            practice: c.kind === '단풀' && /EJU 기출/.test(S(h.label)) };   // 단풀반 EJU 기출 숙제: 사진 없이 답안 입력
         }).filter(function (w) { return w.done || (w.month >= curMonth && current); });
         return { code: c.code, name: c.name, kind: c.kind, time: c.time, current: current, tests: tests, hw: hws };
       })
@@ -578,8 +582,14 @@ var Logic = (function () {
     return h;
   }
 
+  /** 단풀반 「과목 EJU 기출」 숙제는 사진이 아니라 답안을 입력해서 냄 (2026-10-26 사용자: 사진 안 찍음) */
+  function isPracticeHw(env, h) {
+    var cc = classes(env).filter(function (c) { return c.code === h.cls; })[0];
+    return !!cc && cc.kind === '단풀' && /EJU 기출/.test(S(h.label));
+  }
   function hwPhoto(env, p) {
     var stu = studentFor(env, p), h = hwFor(env, stu, p.hw);
+    if (isPracticeHw(env, h)) return fail('이 숙제는 사진이 아니라 답안을 직접 입력해서 내요.');
     var b64 = S(p.b64), hash = S(p.hash).toLowerCase();
     if (!b64) return fail('사진이 비어 있어요.');
     if (b64.length > PHOTO_MAX_B64) return fail('사진이 너무 커요 (한 장 3MB까지). 다시 찍어 주세요.');
@@ -635,6 +645,7 @@ var Logic = (function () {
 
   function hwFinish(env, p) {
     var stu = studentFor(env, p), h = hwFor(env, stu, p.hw);
+    if (isPracticeHw(env, h)) return fail('이 숙제는 사진이 아니라 답안을 직접 입력해서 내요.');
     var count = S(p.count) === '' ? '' : Math.max(0, Math.min(h.total || 9999, Math.round(num(p.count))));
     var photos = env.store.all('숙제사진').filter(function (r) { return S(r['숙제ID']) === h.id && S(r['번호']) === stu.code; }).length;
     if (!photos) return fail('사진을 한 장 이상 올려 주세요.');
