@@ -467,6 +467,21 @@
     function testsCard(k, ttl) {
       var all = tests.filter(function (x) { return x.kind === k; }), pm = thisMonth(), canP = pracOK && k === '단풀';
       if (!all.length && !canP) return '';
+      if (!real) {   // 개념반·단풀반: 달로 나누지 않고 한 페이지에 달마다 묶어서 (2026-10-26 사용자: 수강 이력이 있으면 언제 들었는지만 표기)
+        var ms = []; all.forEach(function (x) { if (ms.indexOf(x.t.month) < 0) ms.push(x.t.month); });
+        if (canP && ms.indexOf(pm) < 0) ms.push(pm);
+        ms.sort().reverse();
+        var c2 = '<div class="card"><h2><i class="kdot" style="background:' + toneOf(k, s) + '"></i>' + esc(ttl) + '</h2>';
+        ms.forEach(function (m) {
+          var l = all.filter(function (x) { return x.t.month === m; }), pi = '';
+          if (canP && m === pm && !l.some(function (x) { return /EJU 기출/.test(x.t.label); }))   // 이번 달 기출이 아직 시험으로 등록 안 됐으면 입력할 줄을 먼저 보여 줌 (낼 때 서버가 등록)
+            pi = testItem({ id: '', month: pm, kind: '소테스트', label: s + ' EJU 기출', date: '', total: 0, score: null, avg: null, n: 0, rank: null, conv: null, convAvg: null, wrong: [], cum: null }, null, true, false, s);
+          c2 += '<h3 class="mhd">' + esc(m ? UI.monthLabel(m) : '') + '</h3>' + l.map(function (x) {
+            return testItem(x.t, null, false, x.t.kind === '월말테스트' || /월말/.test(x.t.label), canP && /EJU 기출/.test(x.t.label) && x.t.month === pm ? s : '');
+          }).join('') + pi;
+        });
+        return c2 + '</div>';
+      }
       var list = all.filter(function (x) { return x.t.month === tmSel; });
       var pracItems = '';
       if (canP && tmSel === pm && !list.some(function (x) { return /EJU 기출/.test(x.t.label); }))   // 이번 달 기출이 아직 시험으로 등록 안 됐으면 입력할 줄을 먼저 보여 줌 (낼 때 서버가 등록)
@@ -482,7 +497,7 @@
       }).join('') + pracItems : '<p class="empty">이 달에는 ' + esc(ttl) + ' 기록이 없어요.</p>';
       return c + '</div>';
     }
-    var pager = tMonths.length > 1 ? '<div class="card mpg"><span class="lbl">달</span><div class="chiprow">' + tMonths.map(function (m) {
+    var pager = real && tMonths.length > 1 ? '<div class="card mpg"><span class="lbl">달</span><div class="chiprow">' + tMonths.map(function (m) {
       return '<button type="button" class="tab" data-tm="' + m + '" aria-selected="' + (m === tmSel) + '">' + esc(monthShort(m)) + '</button>';
     }).join('') + '</div></div>' : '';
     function hwCard(k, list) {
@@ -502,9 +517,9 @@
         var k = g[0], tc = testsCard(k, g[2]), hk = hwBy[k];
         if (!tc && !hk.length) return;
         var body = '<div class="kbody">' + (tc || '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>') + (hk.length ? '<div class="hwc">' + hwCard(k, hk) + '</div>' : '') + '</div>';
-        groups += '<section class="kgrp" style="--tone:' + toneOf(k, s) + '"><h2 class="kh"><i class="kdot" style="background:' + toneOf(k, s) + '"></i>' + g[1] + (timeBy[k] ? '<small>' + esc(timeBy[k]) + '</small>' : '') + '</h2>' + body + '</section>';
+        groups += '<section class="kgrp" style="--tone:' + toneOf(k, s) + '"><h2 class="kh"><i class="kdot" style="background:' + toneOf(k, s) + '"></i>' + g[1] + (function () { var mm = []; tests.filter(function (x) { return x.kind === k; }).forEach(function (x) { if (x.t.month && mm.indexOf(x.t.month) < 0) mm.push(x.t.month); }); hwBy[k].forEach(function (w) { if (w.month && mm.indexOf(w.month) < 0) mm.push(w.month); }); var tx = [timeBy[k], monthsText(mm)].filter(Boolean).join(' · '); return tx ? '<small>' + esc(tx) + '</small>' : ''; })() + '</h2>' + body + '</section>';
       });
-      h += groups ? pager + '<div class="kgrid">' + groups + '</div>' : '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';   // 넓은 화면: 왼쪽 개념반 · 오른쪽 단풀반 (2026-10-26 사용자)
+      h += groups ? '<div class="kgrid">' + groups + '</div>' : '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';   // 넓은 화면: 왼쪽 개념반 · 오른쪽 단풀반 (2026-10-26 사용자)
     }
     $('#panel').innerHTML = h; bindTips($('#panel'));
     if ($('#wk')) drawWeak();
