@@ -491,7 +491,7 @@ t('이 반 정답률·누적 정답률(같은 이름·같은 정답의 다른 �
   assert.strictEqual(Logic.itemStats(B, 'nope'), null);
 });
 console.log('단풀반 EJU 기출 입력');
-t('단풀반 학생만, 정답은 안 보냄, 선생님 입력과 같은 시험결과에 저장, 시험 자동 등록, 다시 넣으면 덮어씀', () => {
+t('단풀반 학생만, 정답은 안 보냄, 선생님 입력과 같은 시험결과에 저장, 시험 자동 등록, 한 번만 냄(두 번째는 막힘), 사진·개수로는 못 냄', () => {
   const e = Mock.seed(Mock.createEnv()), T = e._tables, R = (a, p) => Logic.handle(e, a, p);
   const key = T['시험지'].find(r => r['시험지ID'] === 'DP-경제-G')['정답']; assert.strictEqual(key.length, 12);
   const tokOf = c => R('login', { code: c, dev: 'd' + c }).data.tok;
@@ -514,8 +514,9 @@ t('단풀반 학생만, 정답은 안 보냄, 선생님 입력과 같은 시험�
   assert.ok(!R('practiceSubmit', { tok: dp, paper: 'DP-경제-G', answers: key + '1' }).ok, '문항 수보다 많음');
   assert.ok(!R('practiceSubmit', { tok: dp, paper: 'DP-경제-M', answers: key }).ok, '월말은 못 냄');
   const r2 = R('practiceSubmit', { tok: dp, paper: 'DP-경제-G', answers: key });
-  assert.strictEqual(T['시험'].length, nEx + 1, '다시 넣어도 시험은 하나'); assert.strictEqual(T['시험결과'].filter(r => r['시험ID'] === ex['시험ID'] && r['번호'] === 'NP882013').length, 1);
-  assert.strictEqual(r2.data.last.score, 12);
+  assert.ok(!r2.ok && /한 번만/.test(r2.error), '두 번째 제출은 막음: ' + JSON.stringify(r2));
+  assert.strictEqual(T['시험'].length, nEx + 1, '시험은 하나'); assert.strictEqual(T['시험결과'].filter(r => r['시험ID'] === ex['시험ID'] && r['번호'] === 'NP882013').length, 1);
+  assert.strictEqual(String(T['시험결과'].find(r => r['시험ID'] === ex['시험ID'] && r['번호'] === 'NP882013')['맞은개수']), '10', '맞은 개수는 그대로');
   assert.ok(!R('practiceSubmit', { paper: 'DP-경제-G', answers: key }).ok, '열쇠 없이는 못 냄');
   const hw0 = T['숙제'].length;
   const atok = R('adminLogin', { password: 'demo', dev: 'ht' }).data.token;
@@ -526,6 +527,11 @@ t('단풀반 학생만, 정답은 안 보냄, 선생님 입력과 같은 시험�
   assert.deepStrictEqual(R('practiceList', { tok: dp }).data.map(x => x.subj), ['경제'], '목록도 자기 반 과목만');
   assert.deepStrictEqual(R('login', { code: 'NP882013', dev: 'q9' }).data.danpul, ['경제']);
   const hwr = T['숙제'].filter(r => r['반코드'] === 'DP-SS' && r['이름'] === '경제 EJU 기출'); assert.strictEqual(hwr.length, 1, '단풀 EJU 기출은 숙제로도 등록');
+  assert.ok(!R('hwFinish', { tok: dp, hw: hwr[0]['숙제ID'], count: 12 }).ok, '기출 숙제는 맞은 개수를 직접 못 냄');
+  assert.ok(!R('hwPhoto', { tok: dp, hw: hwr[0]['숙제ID'], b64: '/9j/AAAA', hash: '' }).ok, '기출 숙제는 사진으로 못 냄');
+  { const v = R('login', { code: 'NP882013', dev: 'q10' }).data, dc = v.classes.find(c => c.code === 'DP-SS');
+    assert.ok(dc.hw.find(w => w.id === hwr[0]['숙제ID']).practice, '기출 숙제 표시(practice)');
+    assert.ok(dc.tests.filter(t => t.score === null).every(t => t.cum === null), '안 본 시험에는 누적 평균을 안 보냄'); }
   const sub = T['숙제제출'].filter(r => r['숙제ID'] === hwr[0]['숙제ID'] && r['번호'] === 'NP882013'); assert.strictEqual(sub.length, 1); assert.strictEqual(String(sub[0]['맞은개수']), '12');
   const adm = R('adminLogin', { password: 'demo', dev: 'itx' });
   const bs = adm.data.boot;
