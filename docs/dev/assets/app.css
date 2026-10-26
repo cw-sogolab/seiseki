@@ -534,10 +534,17 @@ body.preview{background-attachment:scroll}
 #pPick{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line,#ddd);font-size:16px;background:var(--surface);color:inherit}
 
 /* 개념반·단풀반을 반마다 한 덩어리로 (2026-10-26 사용자: 성적을 반별로 그룹져서 구분) */
+.kgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start;margin-top:12px}
+.kgrid>.kgrp{margin-top:0}
+.kgrid:has(>.kgrp:only-child){grid-template-columns:minmax(0,1fr)}
+.kbody{display:flex;flex-direction:column;gap:14px}
+.kbody .card{margin-top:0}
+@media (max-width:860px){.kgrid{grid-template-columns:minmax(0,1fr)}.kbody .hwc{order:-1}}
 .kgrp{margin-top:18px;padding:14px;border-radius:26px;background:color-mix(in srgb,var(--tone,#7466FF) 8%,transparent);border:1.5px solid color-mix(in srgb,var(--tone,#7466FF) 34%,transparent)}
 .kgrp>.kh{display:flex;align-items:center;gap:6px;margin:2px 4px 12px;font-size:19px;font-weight:800}
 .kgrp>.kh .kdot{width:12px;height:12px;margin-right:2px}
 .kgrp>.kh small{margin-left:6px;font-size:13px;font-weight:600;color:var(--muted)}
-.kgrp .sgrid{margin-top:0}
 @media (max-width:480px){.kgrp{padding:10px;border-radius:22px}}
 .item .upbox:empty{display:none}
+.kgrp .stats{grid-template-columns:repeat(auto-fit,minmax(72px,1fr))}
+.kgrp .stats .st{padding:8px 9px}

@@ -501,10 +501,10 @@
       [['개념', '개념반', '소테스트·월말'], ['단풀', '단풀반', '월말 · EJU 기출']].forEach(function (g) {
         var k = g[0], tc = testsCard(k, g[2]), hk = hwBy[k];
         if (!tc && !hk.length) return;
-        var body = hk.length ? '<div class="sgrid hwfirst"><div class="col1">' + (tc || '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>') + '</div><div class="col2">' + hwCard(k, hk) + '</div></div>' : tc;
+        var body = '<div class="kbody">' + (tc || '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>') + (hk.length ? '<div class="hwc">' + hwCard(k, hk) + '</div>' : '') + '</div>';
         groups += '<section class="kgrp" style="--tone:' + toneOf(k, s) + '"><h2 class="kh"><i class="kdot" style="background:' + toneOf(k, s) + '"></i>' + g[1] + (timeBy[k] ? '<small>' + esc(timeBy[k]) + '</small>' : '') + '</h2>' + body + '</section>';
       });
-      h += groups ? pager + groups : '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';
+      h += groups ? pager + '<div class="kgrid">' + groups + '</div>' : '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';   // 넓은 화면: 왼쪽 개념반 · 오른쪽 단풀반 (2026-10-26 사용자)
     }
     $('#panel').innerHTML = h; bindTips($('#panel'));
     if ($('#wk')) drawWeak();

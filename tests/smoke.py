@@ -70,6 +70,7 @@ with sync_playwright() as p:
             pg.click('#modes [data-mode="과목"]'); pg.wait_for_timeout(150)
             pg.click('#tabs [data-s="경제"]'); pg.wait_for_selector('#panel [data-prac]')
             check(pg.locator('#panel .kgrp').count() >= 1 and pg.locator('#panel .kgrp .kh', has_text='단풀반').count() == 1, '학생: 개념반·단풀반이 반별 덩어리로 나뉨')
+            if width > 860: check(pg.evaluate("(() => { const a = [...document.querySelectorAll('#panel .kgrp')].map(e => e.getBoundingClientRect()); return a.length < 2 || (a[0].right <= a[1].left + 1 && Math.abs(a[0].top - a[1].top) < 4); })()"), '넓은 화면: 개념반 왼쪽 · 단풀반 오른쪽')
             pg.click('#panel [data-prac] >> nth=0'); pg.wait_for_selector('#panel .pgrid .pc')
             pg.click('#panel .pgrid .pc[data-v="1"] >> nth=0'); pg.click('#panel .pgrid .pc[data-v="2"] >> nth=1')
             pg.click('#pSend'); pg.click('#pSend')   # 한 번 더 눌러야 제출됨
