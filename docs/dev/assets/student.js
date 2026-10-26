@@ -516,12 +516,17 @@
       else h += left;
     } else {
       // 개념반·단풀반은 반마다 한 덩어리로 (2026-10-26 사용자: 성적을 반별로 그룹져서 구분) — 덩어리 안에 그 반의 테스트·숙제
-      var groups = '';
+      var groups = '', none = [];
       [['개념', '개념반', '소테스트·월말'], ['단풀', '단풀반', '월말 · EJU 기출']].forEach(function (g) {
         var k = g[0], tc = testsCard(k, g[2]), hk = hwBy[k];
-        if (!tc && !hk.length) return;
+        if (!tc && !hk.length) { none.push(g); return; }
         var body = '<div class="kbody">' + (tc || '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>') + (hk.length ? '<div class="hwc">' + hwCard(k, hk) + '</div>' : '') + '</div>';
         groups += '<section class="kgrp" style="--tone:' + toneOf(k, s) + '"><h2 class="kh"><i class="kdot" style="background:' + toneOf(k, s) + '"></i>' + g[1] + (function () { var mm = []; tests.filter(function (x) { return x.kind === k; }).forEach(function (x) { if (x.t.month && mm.indexOf(x.t.month) < 0) mm.push(x.t.month); }); hwBy[k].forEach(function (w) { if (w.month && mm.indexOf(w.month) < 0) mm.push(w.month); }); var tx = [timeBy[k], monthsText(mm)].filter(Boolean).join(' · '); return tx ? '<small>' + esc(tx) + '</small>' : ''; })() + '</h2>' + body + '</section>';
+      });
+      // 한쪽 반 기록이 없으면 그 자리에 「수강 이력 없음」 — 한쪽만 넓게 그리지 않음 (2026-10-26 사용자)
+      if (groups) none.forEach(function (g) {
+        var ph = '<section class="kgrp none" style="--tone:' + toneOf(g[0], s) + '"><h2 class="kh"><i class="kdot" style="background:' + toneOf(g[0], s) + '"></i>' + g[1] + '</h2><div class="kbody"><div class="card"><p class="empty">수강 이력 없음</p></div></div></section>';
+        groups = g[0] === '개념' ? ph + groups : groups + ph;
       });
       h += groups ? '<div class="kgrid">' + groups + '</div>' : '<div class="card"><p class="empty">아직 등록된 테스트가 없어요.</p></div>';   // 넓은 화면: 왼쪽 개념반 · 오른쪽 단풀반 (2026-10-26 사용자)
     }
