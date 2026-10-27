@@ -1212,7 +1212,7 @@
       '<div class="tile"><span>이 반 낮은 문항</span><b>' + A.items.filter(function (it) { return it.flags.indexOf('low') >= 0 || it.flags.indexOf('below') >= 0; }).length + '<small>개</small></b><em>정답률 ' + 50 + '% 미만 · 누적보다 15%p↓</em></div>' +
       '<div class="tile"><span>오답 쏠림</span><b>' + A.items.filter(function (it) { return it.flags.indexOf('trap') >= 0; }).length + '<small>개</small></b><em>같은 오답을 30% 이상</em></div></div>';
     if (noItems) h += '<p class="msg">이 시험은 답안·틀린 번호 기록이 없어서(점수만 옮겨 온 성적) 문항별로는 볼 수 없어요.</p>';
-    h += '</div>';
+    h += '</div>' + rankCard(itemExam);
     if (!noItems) {
       // 눈여겨볼 문항은 10개까지: 이 반 정답률 낮은 순 → 같으면 표시가 많은 순 (나머지는 아래 전체 표에서)
       var flaggedAll = A.items.filter(function (it) { return it.flags.length; }).sort(function (a, b) { return ((a.here.rate === null ? 101 : a.here.rate) - (b.here.rate === null ? 101 : b.here.rate)) || (b.flags.length - a.flags.length); });
@@ -1246,6 +1246,20 @@
     }
     $('#view').innerHTML = h;
     bindItem();
+  }
+  /** 이 시험 등수 (2026-10-27 사용자): 그 반·그 시험 학생을 점수 높은 순으로, 같은 점수는 같은 등수 (학생 화면 등수와 같은 기준). 실전반은 D·E 합쳐서 */
+  function rankCard(examId) {
+    var e0 = D.exams.filter(function (e) { return e.id === examId; })[0]; if (!e0) return '';
+    var real = cls(e0.cls).kind === '실전', key = function (x) { return String(x.label).replace(/\s+/g, ''); };
+    var ids = {}; D.exams.forEach(function (e) { if (e.id === e0.id || (real && e.month === e0.month && cls(e.cls).kind === '실전' && key(e) === key(e0) && e.total === e0.total)) ids[e.id] = e; });
+    var rows = D.results.filter(function (r) { return ids[r.exam] && !(ids[r.exam].total && r.score > ids[r.exam].total); }).map(function (r) { var s = stu(r.code); return { name: s ? s.name : r.code, score: r.score, wrong: r.wrong ? r.wrong.length : 0, retry: r.retry ? ids[r.exam] && ids[r.exam].key ? Core.grade(ids[r.exam].key, r.answers).wrong.filter(function (w) { return r.retry.charAt(w.n - 1) === w.key; }).length : 0 : null }; });
+    if (!rows.length) return '';
+    rows.sort(function (a, b) { return b.score - a.score || a.name.localeCompare(b.name); });
+    rows.forEach(function (r) { r.rank = 1 + rows.filter(function (x) { return x.score > r.score; }).length; });
+    return '<div class="card"><h2>등수 <span class="meta">' + (real ? '실전반(D·E) ' : '이 반 ') + rows.length + '명 · 점수 높은 순, 같은 점수는 같은 등수</span></h2>' +
+      '<div class="tw"><table><thead><tr><th class="num">등수</th><th>이름</th><th class="num">점수</th><th class="num">틀린 문항</th><th class="num">오답 고침</th></tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr><td class="num"><b>' + r.rank + '</b></td><td>' + esc(r.name) + '</td><td class="num">' + r.score + ' / ' + e0.total + '</td><td class="num">' + r.wrong + '</td><td class="num">' + (r.retry === null ? '' : r.retry + ' / ' + r.wrong) + '</td></tr>'; }).join('') +
+      '</tbody></table></div></div>';
   }
   function bindItem() {
     all('#view [data-ik]').forEach(function (b) { b.onclick = function () { itemKind = b.getAttribute('data-ik'); itemExam = ''; vItem(); }; });
