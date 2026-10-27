@@ -256,6 +256,20 @@
     paperSet(kind, subj, true).forEach(function (p) { if (!hasPaper(code, p)) tasks.push(p.kind === '일문일답' ? regHw(code, p) : regExam(code, p)); });
     seq(tasks, done);
   }
+  var retryMode = false;   // 답안 입력 탭의 「오답 채점」 (2026-10-27 사용자): 학생이 종이로 다시 풀어 온 틀린 문항의 답을 입력
+  /** 오답 채점표: 처음 틀린 문항만 문항 / 정답 / 다시 쓴 답 (맞으면 ○) — 10문항씩 */
+  function retryTable(key, wrong, raw) {
+    var h = '';
+    for (var i = 0; i < wrong.length; i += 10) {
+      var cols = wrong.slice(i, i + 10).map(function (w, k) { return { n: w.n, key: w.key, a: raw.charAt(i + k) }; });
+      function row(cls, th, f) { return '<tr class="' + cls + '"><th>' + th + '</th>' + cols.map(f).join('') + '</tr>'; }
+      h += '<table class="wt all"><tbody>' + row('n', '문항', function (c) { return '<td>' + c.n + '</td>'; }) + row('k', '정답', function (c) { return '<td>' + c.key + '</td>'; }) +
+        row('a', '다시', function (c) { var ok = c.a === c.key; return '<td class="' + (ok ? 'o' : 'x') + '">' + (ok ? '○' : (!c.a || c.a === '0' ? '–' : c.a)) + '</td>'; }) + '</tbody></table>';
+    }
+    return '<div class="wtw">' + h + '</div>';
+  }
+  /** 오답답안(문항 수만큼 이어 쓴 것)에서 처음 틀린 문항의 답만 순서대로 */
+  function retryDigits(retry, wrong) { return wrong.map(function (w) { return retry ? retry.charAt(w.n - 1) : '0'; }).join(''); }
   var entryRender = 0, saving = 0, failed = {};   // failed: 저장 못 한 답안 (시험|번호 → 입력값) — 다시 누르면 채워 줌
   function vEntry() {
     var myRender = ++entryRender;
@@ -401,9 +415,10 @@
     $('#view').innerHTML =
       '<div class="grid2" style="margin-top:12px"><div class="card">' + head + picker +
       '<p class="meta" id="exMeta"></p>' +
+      '<div class="seg" id="modeSeg" role="tablist" aria-label="입력 종류" style="margin-top:12px"><button type="button" role="tab" data-mode="0" aria-selected="' + !retryMode + '">답안 입력</button><button type="button" role="tab" data-mode="1" aria-selected="' + retryMode + '">오답 채점</button></div>' +
       '<label for="stIn">학생 (이름 또는 번호)</label><input id="stIn" type="text" list="stList" autocomplete="off"><datalist id="stList"></datalist>' +
       '<div class="hit" id="hit"></div>' +
-      '<label for="ansIn">답안 (고른 번호를 이어서, 무응답은 0)</label><input id="ansIn" class="ans" type="text" inputmode="numeric" autocomplete="off">' +
+      '<label for="ansIn" id="ansLb">답안 (고른 번호를 이어서, 무응답은 0)</label><input id="ansIn" class="ans" type="text" inputmode="numeric" autocomplete="off">' +
       '<p class="meta" id="cnt"></p><div id="prev"></div>' +
       '<button type="button" class="btn" id="save">저장하고 다음 학생 (Enter)</button><p id="emsg" class="msg" role="status"></p>' +
       '</div><div class="card"><h2>입력 현황</h2><div id="roster"></div></div></div>';
@@ -414,6 +429,15 @@
     meta();
     $('#stList').innerHTML = mem.map(function (s) { return '<option value="' + esc(s.name) + '" label="' + esc(Core.fmtCode(s.code)) + '"></option>'; }).join('');
     $('#ansIn').maxLength = ex.total;
+    function wrongOf(rec) { return rec && rec.answers ? Core.grade(ex.key, rec.answers).wrong : []; }
+    /** 모드에 맞게 입력칸 이름·길이를 바꿈 (오답 채점이면 그 학생의 틀린 문항 수만큼) */
+    function syncMode() {
+      var rec = retryMode && cur ? resultOf(ex.id, cur.code) : null;
+      $('#ansLb').textContent = retryMode ? '다시 쓴 답 (틀린 문항 순서대로 이어서' + (rec && !rec.pending ? ', ' + wrongOf(rec).length + '개' : '') + ', 못 풀면 0)' : '답안 (고른 번호를 이어서, 무응답은 0)';
+      $('#ansIn').maxLength = retryMode ? (rec ? Math.max(1, wrongOf(rec).length) : ex.total) : ex.total;
+      $('#save').textContent = retryMode ? '오답 저장하고 다음 학생 (Enter)' : '저장하고 다음 학생 (Enter)';
+    }
+    all('#modeSeg [data-mode]').forEach(function (b) { b.onclick = function () { retryMode = b.getAttribute('data-mode') === '1'; vEntry(); }; });
     function resolve() {
       var q = $('#stIn').value.trim(), n = Core.normCode(q), hit = $('#hit'); cur = null;
       if (!q) { hit.className = 'hit'; hit.textContent = ''; return; }
@@ -422,8 +446,24 @@
       if (part.length === 1) { cur = part[0]; hit.className = 'hit good'; hit.textContent = cur.name + ' · ' + Core.fmtCode(cur.code) + (resultOf(ex.id, cur.code) ? ' · 이미 입력됨 (저장하면 덮어씀)' : ''); }
       else if (part.length > 1) { hit.className = 'hit bad'; hit.textContent = '비슷한 이름이 ' + part.length + '명이에요. 번호로 입력해 주세요.'; }
       else { hit.className = 'hit bad'; hit.textContent = '이 반에서 찾을 수 없어요.'; }
+      if (retryMode && cur) {
+        var rr = resultOf(ex.id, cur.code), nw = wrongOf(rr).length;
+        if (!rr) { hit.className = 'hit bad'; hit.textContent = cur.name + ' · 아직 이 시험 답안이 없어요. 「답안 입력」에서 먼저 넣어 주세요.'; }
+        else if (!nw) { hit.className = 'hit good'; hit.textContent = cur.name + ' · 틀린 문항이 없어요 (만점)'; }
+        else hit.textContent = cur.name + ' · 틀린 문항 ' + nw + '개 (' + wrongOf(rr).map(function (w) { return w.n; }).join(', ') + ')' + (rr.retry ? ' · 오답 채점됨 (저장하면 덮어씀)' : '');
+      }
+      syncMode();
+    }
+    function previewRetry() {
+      var rec = cur && resultOf(ex.id, cur.code), w = wrongOf(rec), v = Core.cleanAnswers($('#ansIn').value, Math.max(1, w.length)); $('#ansIn').value = v;
+      if (!rec || !w.length) { $('#cnt').textContent = ''; $('#prev').innerHTML = ''; return; }
+      $('#cnt').textContent = '입력 ' + v.length + ' / ' + w.length + (v.length && v.length < w.length ? ' · 남은 칸은 못 푼 것으로 저장돼요' : '');
+      if (!v) { $('#prev').innerHTML = ''; return; }
+      var fixed = w.filter(function (x, i) { return v.charAt(i) === x.key; }).length;
+      $('#prev').innerHTML = '<div class="result"><b>' + fixed + ' / ' + w.length + '</b><span class="meta">오답 다시 맞힘</span></div>' + (fixed === w.length ? '<p class="allok">전부 고쳤어요</p>' : '') + retryTable(ex.key, w, v);
     }
     function preview() {
+      if (retryMode) return previewRetry();
       var v = Core.cleanAnswers($('#ansIn').value, ex.total); $('#ansIn').value = v;
       $('#cnt').textContent = '입력 ' + v.length + ' / ' + ex.total + (v.length && v.length < ex.total ? ' · 남은 칸은 무응답으로 저장돼요' : '');
       if (!v) { $('#prev').innerHTML = ''; return; }
@@ -432,15 +472,52 @@
         (g.wrong.length ? '' : '<p class="allok">전부 맞았어요</p>') + gradeTable(ex.key, v);
     }
     function roster() {
-      $('#roster').innerHTML = '<div class="tw"><table><thead><tr><th>이름</th><th>번호</th><th class="num">점수</th><th>상태</th></tr></thead><tbody>' +
-        mem.map(function (s) { var r = resultOf(ex.id, s.code), f = failed[ex.id + '|' + s.code]; return '<tr class="click" data-c="' + esc(s.code) + '"><td>' + esc(s.name) + '</td><td class="code">' + esc(Core.fmtCode(s.code)) + '</td><td class="num">' + (r ? r.score + '/' + ex.total : '-') + '</td><td>' + (f !== undefined ? '<span class="pill no">저장 실패</span>' : r && r.pending ? '<span class="pill wait">저장 중</span>' : r ? '<span class="pill ok">입력됨</span>' : '<span class="pill no">미입력</span>') + '</td></tr>'; }).join('') +
-        '</tbody></table></div><p class="meta" style="margin-top:8px">줄을 누르면 그 학생을 불러옵니다. 미입력 ' + mem.filter(function (s) { return !resultOf(ex.id, s.code); }).length + '명</p>';
+      $('#roster').innerHTML = '<div class="tw"><table><thead><tr><th>이름</th><th>번호</th><th class="num">점수</th><th>' + (retryMode ? '오답' : '상태') + '</th></tr></thead><tbody>' +
+        mem.map(function (s) { var r = resultOf(ex.id, s.code), f = failed[ex.id + '|' + s.code];
+          if (retryMode) {
+            var w = wrongOf(r), fx = r && r.retry ? w.filter(function (x) { return r.retry.charAt(x.n - 1) === x.key; }).length : 0;
+            return '<tr class="click" data-c="' + esc(s.code) + '"><td>' + esc(s.name) + '</td><td class="code">' + esc(Core.fmtCode(s.code)) + '</td><td class="num">' + (r ? r.score + '/' + ex.total : '-') + '</td><td>' +
+              (!r ? '<span class="pill no">답안 없음</span>' : !w.length ? '<span class="pill ok">만점</span>' : r.retry ? '<span class="pill ' + (fx === w.length ? 'ok' : 'wait') + '">' + fx + '/' + w.length + ' 고침</span>' : '<span class="pill no">오답 ' + w.length + '개 미채점</span>') + '</td></tr>';
+          }
+          return '<tr class="click" data-c="' + esc(s.code) + '"><td>' + esc(s.name) + '</td><td class="code">' + esc(Core.fmtCode(s.code)) + '</td><td class="num">' + (r ? r.score + '/' + ex.total : '-') + '</td><td>' + (f !== undefined ? '<span class="pill no">저장 실패</span>' : r && r.pending ? '<span class="pill wait">저장 중</span>' : r ? '<span class="pill ok">입력됨</span>' : '<span class="pill no">미입력</span>') + '</td></tr>'; }).join('') +
+        '</tbody></table></div><p class="meta" style="margin-top:8px">줄을 누르면 그 학생을 불러옵니다. ' + (retryMode ? '오답 미채점 ' + mem.filter(function (s) { var r = resultOf(ex.id, s.code); return r && !r.retry && wrongOf(r).length; }).length : '미입력 ' + mem.filter(function (s) { return !resultOf(ex.id, s.code); }).length) + '명</p>';
       all('#roster tr.click').forEach(function (tr) {
-        tr.onclick = function () { var s = stu(tr.getAttribute('data-c')), r = resultOf(ex.id, s.code), f = failed[ex.id + '|' + s.code]; $('#stIn').value = s.name; resolve(); $('#ansIn').value = f !== undefined ? f : r ? r.answers.replace(/0+$/, '') : ''; preview(); $('#ansIn').focus(); };
+        tr.onclick = function () { var s = stu(tr.getAttribute('data-c')), r = resultOf(ex.id, s.code), f = failed[ex.id + '|' + s.code]; $('#stIn').value = s.name; resolve(); $('#ansIn').value = retryMode ? (r && r.retry ? retryDigits(r.retry, wrongOf(r)).replace(/0+$/, '') : '') : f !== undefined ? f : r ? r.answers.replace(/0+$/, '') : ''; preview(); $('#ansIn').focus(); };
       });
     }
     // 저장은 기다리지 않음: 채점 결과를 바로 표에 넣고 다음 학생으로 넘어가며, 서버 저장은 뒤에서 (실패하면 표에 「저장 실패」)
+    function saveRetry() {
+      var m = $('#emsg'), v = $('#ansIn').value;
+      resolve();
+      if (!cur) return msg(m, false, '학생을 먼저 정해 주세요.');
+      var who = cur, e0 = ex, rec = resultOf(e0.id, who.code), w = wrongOf(rec);
+      if (!rec || rec.pending) return msg(m, false, '이 시험 답안이 먼저 저장돼 있어야 해요.');
+      if (!w.length) return msg(m, false, '틀린 문항이 없는 학생이에요.');
+      if (!v) return msg(m, false, '다시 쓴 답을 입력해 주세요.');
+      var raw = Core.cleanAnswers(v, w.length), arr = Core.padAnswers('', e0.total).split('');
+      w.forEach(function (x, i) { arr[x.n - 1] = raw.charAt(i) || '0'; });
+      var before = rec, after = Object.assign({}, rec, { retry: arr.join('') }), fixed = w.filter(function (x, i) { return raw.charAt(i) === x.key; }),
+        left = w.filter(function (x, i) { return raw.charAt(i) !== x.key; }).map(function (x) { return x.n; });
+      var same = function (x) { return x.exam === e0.id && x.code === who.code; };
+      replace(D.results, same, after);
+      saving++;
+      msg(m, true, who.name + ' 오답 ' + fixed.length + '/' + w.length + ' 고침' + (left.length ? ' · 아직 틀림 ' + left.join(', ') : ' · 전부 고침') + ' — 저장 중…');
+      $('#stIn').value = ''; $('#ansIn').value = ''; $('#hit').textContent = ''; $('#prev').innerHTML = ''; $('#cnt').textContent = ''; cur = null; syncMode();
+      meta(); roster(); $('#stIn').focus();
+      req('saveRetry', { exam: e0.id, code: who.code, answers: v }).then(function (r) {
+        saving--;
+        var here = myRender === entryRender && $('#emsg');
+        if (!r.ok) {
+          replace(D.results, same, before);
+          if (here) { msg($('#emsg'), false, who.name + ' 오답 저장 못 했어요: ' + r.error + ' — 표에서 이름을 눌러 다시 저장해 주세요.'); roster(); }
+          return;
+        }
+        replace(D.results, same, Object.assign({}, after, { retry: r.data.retry }));
+        if (here) { roster(); if (!saving && /저장 중/.test($('#emsg').textContent)) msg($('#emsg'), true, $('#emsg').textContent.replace(' — 저장 중…', ' — 저장했어요')); }
+      });
+    }
     function save() {
+      if (retryMode) return saveRetry();
       var m = $('#emsg'), v = $('#ansIn').value;
       resolve();
       if (!cur) return msg(m, false, '학생을 먼저 정해 주세요.');
@@ -472,7 +549,7 @@
     $('#ansIn').oninput = preview;
     $('#ansIn').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); save(); } };
     $('#save').onclick = save;
-    roster(); $('#stIn').focus();
+    syncMode(); roster(); $('#stIn').focus();
   }
 
   /* ---------- 시험 ---------- */

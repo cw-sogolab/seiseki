@@ -166,6 +166,24 @@ t('학생 로그인 → 본인 점수·반 평균·틀린 번호만', () => {
   assert.ok(!tt.wrongDetail, '정답은 기본으로 숨김');
   assert.ok(!JSON.stringify(r.data).includes('가학생'), '다른 학생 이름 노출 없음');
 });
+t('오답 채점: 틀린 문항 순서대로 저장, 점수는 그대로, 학생 화면엔 다시 맞힌 번호만', () => {
+  const code = codes['나학생'];
+  assert.ok(!H('saveRetry', { exam: exam.id, code, answers: '12' }).ok, '강사만');
+  assert.ok(!H('saveRetry', { token, exam: exam.id, code: codes['가학생(동작)'], answers: '1' }).ok, '만점 학생은 오답 없음');
+  assert.ok(!H('saveRetry', { token, exam: exam.id, code, answers: '' }).ok, '빈 답 거절');
+  let r = H('saveRetry', { token, exam: exam.id, code, answers: '13' });
+  assert.ok(r.ok, r.error); assert.deepStrictEqual(r.data.fixed, [1]); assert.strictEqual(r.data.retry, '13000');
+  const row = env._tables['시험결과'].filter(x => x['번호'] === code)[0];
+  assert.strictEqual(row['맞은개수'], 3, '원점수는 그대로'); assert.strictEqual(row['답안'], '21341');
+  const tt = H('login', { code: 'tr-520 615', dev: 's1r' }).data.classes.filter(c => c.code === 'GN-HM')[0].tests[0];
+  assert.deepStrictEqual(tt.wrong, [1, 2]); assert.deepStrictEqual(tt.fixed, [1]); assert.strictEqual(tt.score, 3);
+  assert.ok(!JSON.stringify(tt).includes('13000'), '오답답안(정답 추측 가능)은 학생에게 안 보냄');
+  H('saveResult', { token, exam: exam.id, code, answers: '21341' });
+  assert.strictEqual(env._tables['시험결과'].filter(x => x['번호'] === code)[0]['오답답안'], '13000', '같은 답안 다시 저장해도 오답 채점 유지');
+  H('saveResult', { token, exam: exam.id, code, answers: '21343' });
+  assert.ok(!env._tables['시험결과'].filter(x => x['번호'] === code)[0]['오답답안'], '답안이 바뀌면 오답 채점 지움');
+  H('saveResult', { token, exam: exam.id, code, answers: '21341' });
+});
 t('차단 학생·확인숫자 틀린 번호는 못 들어옴, 5번이면 잠김', () => {
   assert.ok(!H('login', { code: 'AB123450', dev: 's8' }).ok);
   assert.ok(/다시 확인/.test(H('login', { code: 'KM482912', dev: 's9' }).error));

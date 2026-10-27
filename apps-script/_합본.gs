@@ -275,7 +275,8 @@ var Logic = (function () {
     // 수강: 성적노트에서만 쓰는 반 정보 (원생명단에는 반을 넣지 않음 — 2026-10-17 사용자 결정)
     '수강': ['번호', '반코드', '수정일'],
     '시험': ['시험ID', '반코드', '월', '종류', '이름', '문항수', '정답', '시험일', '등록일'],
-    '시험결과': ['시험ID', '번호', '답안', '맞은개수', '틀린번호', '환산점수', '입력일'],
+    // 오답답안: 소테스트 뒤 학생이 종이로 다시 써 온 틀린 문항의 답 (문항 수만큼 이어 쓰고, 처음 틀린 자리에만 값, 나머지는 0). 점수·평균에는 안 들어감
+    '시험결과': ['시험ID', '번호', '답안', '맞은개수', '틀린번호', '환산점수', '입력일', '오답답안'],
     // 마감: 비워 두면 자동(숙제 k = 그 달 2k+1번째 수업 시작). 「YYYY-MM-DD HH:MM」을 넣으면 그걸 씀
     '숙제': ['숙제ID', '반코드', '월', '이름', '교재', '시작쪽', '끝쪽', '문항수', '등록일', '마감'],
     // 처음제출일: 늦음 판단용 (사진을 더 올려도 바뀌지 않음). 비어 있으면 최종제출일
@@ -293,9 +294,9 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = 'b0fc131c3d';
+  var VERSION = '4ab51fd437';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
-  var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
+  var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '오답답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
   var PHOTO_MAX_B64 = 4 * 1024 * 1024; // 사진 한 장 3MB (base64 로는 약 4MB)
   var PHOTO_MAX_PER_HW = 24;         // 숙제 하나에 한 학생 사진 최대 (화면은 한 번에 12장)
@@ -370,7 +371,7 @@ var Logic = (function () {
   function results_(env) {
     return env.store.all('시험결과').map(function (r) {
       return { exam: S(r['시험ID']), code: S(r['번호']), answers: S(r['답안']), score: num(r['맞은개수']),
-        wrong: S(r['틀린번호']).split(',').filter(Boolean).map(Number), conv: S(r['환산점수']) === '' ? null : num(r['환산점수']), at: S(r['입력일']) };
+        wrong: S(r['틀린번호']).split(',').filter(Boolean).map(Number), conv: S(r['환산점수']) === '' ? null : num(r['환산점수']), at: S(r['입력일']), retry: S(r['오답답안']) };
     }).filter(function (r) { return r.exam; });
   }
   /** 실전반 환산점수(득점등화, Core.equate) — 「시험결과」 환산점수 칸이 비어 있는 실전 모의고사·월말에 씀.
@@ -751,7 +752,8 @@ var Logic = (function () {
           var rank = me && !(e.total && me.score > e.total) ? 1 + all.filter(function (x) { return x > me.score; }).length : null;
           var t = { id: e.id, month: e.month, kind: e.kind, label: e.label, date: e.date, total: e.total,
             score: me ? me.score : null, avg: C.mean(all), n: all.length, rank: rank,
-            conv: me ? convOf(env, me) : null, convAvg: C.mean(convs), wrong: me ? me.wrong : [] };
+            conv: me ? convOf(env, me) : null, convAvg: C.mean(convs), wrong: me ? me.wrong : [],
+            fixed: me ? retryFixed(e.key, me.wrong, me.retry) : [] };   // fixed: 오답 채점에서 다시 맞힌 번호 (정답은 안 보냄)
           var ck = cum[c.kind + '|' + e.label];
           t.cum = ck && me ? { pct: Math.round(ck.s / ck.n * 1000) / 10, n: ck.n } : null;   // 같은 시험 누적 평균 정답률(%)·인원 — 내가 아직 안 본 시험에는 안 보냄(2026-10-26 사용자: 안 본 시험에 퍼센트가 붙음)
           if (showKey && me && me.answers) t.wrongDetail = C.grade(e.key, me.answers).wrong;   // 답안 기록이 없는(옮겨 온) 성적은 제외
@@ -1013,9 +1015,36 @@ var Logic = (function () {
     var ans = C.padAnswers(raw, e.total), g = C.grade(e.key, ans);
     var row = { '시험ID': e.id, '번호': stu.code, '답안': ans, '맞은개수': g.score,
       '틀린번호': g.wrong.map(function (w) { return w.n; }).join(','), '입력일': stamp(env) };
+    var old = results(env).filter(function (x) { return x.exam === e.id && x.code === stu.code; })[0];
+    if (old && old.retry && old.answers !== ans) row['오답답안'] = '';   // 답안이 바뀌면 틀린 문항이 달라지니 지난 오답 채점은 지움
     upsert(env, '시험결과', function (r) { return S(r['시험ID']) === e.id && S(r['번호']) === stu.code; }, row);
     practiceHw(env, e, stu.code, g.score, true);
     return ok({ exam: e.id, code: stu.code, answers: ans, score: g.score, wrong: g.wrong.map(function (w) { return w.n; }), conv: null, at: row['입력일'] });
+  }
+
+  /** 오답 채점 (2026-10-27 사용자, 개발판): 소테스트를 채점한 뒤 학생이 종이로 틀린 문항을 다시 풀어 오면, 강사가 그 답을 틀린 문항 순서대로 이어서 입력.
+   *  원점수·평균은 그대로, 「오답답안」 칸에만 저장. 처음 틀린 문항 중 다시 맞힌 번호가 학생 화면에서 ✓ 가 됨. */
+  function saveRetry(env, p) {
+    var e = exams(env).filter(function (x) { return x.id === S(p.exam); })[0];
+    if (!e) return fail('시험을 찾지 못했어요.');
+    var stu = findStudent(env, C.normCode(p.code));
+    if (!stu) return fail('학생을 찾지 못했어요.');
+    var r = results(env).filter(function (x) { return x.exam === e.id && x.code === stu.code; })[0];
+    if (!r || !r.answers) return fail('먼저 이 시험 답안을 입력해 주세요.');
+    var wrong = C.grade(e.key, r.answers).wrong;
+    if (!wrong.length) return fail('틀린 문항이 없어요.');
+    var raw = C.cleanAnswers(p.answers, wrong.length);
+    if (!raw) return fail('다시 쓴 답을 입력해 주세요.');
+    var retry = C.padAnswers('', e.total).split('');
+    wrong.forEach(function (w, i) { retry[w.n - 1] = raw.charAt(i) || '0'; });
+    retry = retry.join('');
+    env.store.update('시험결과', function (x) { return S(x['시험ID']) === e.id && S(x['번호']) === stu.code; }, { '오답답안': retry });
+    return ok({ exam: e.id, code: stu.code, retry: retry, fixed: retryFixed(e.key, r.wrong, retry) });
+  }
+  /** 처음 틀린 문항(wrong 번호들) 중 오답답안이 정답과 같은 번호들 */
+  function retryFixed(key, wrong, retry) {
+    if (!retry) return [];
+    return wrong.filter(function (n) { return retry.charAt(n - 1) === S(key).charAt(n - 1); });
   }
 
   function deleteResult(env, p) {
@@ -1168,7 +1197,7 @@ var Logic = (function () {
   }
 
   var STUDENT = { login: login, hwPhoto: hwPhoto, hwFinish: hwFinish, practiceList: practiceList, practiceSubmit: practiceSubmit };
-  var ADMIN = { bootstrap: bootstrap, saveResult: saveResult, deleteResult: deleteResult, addExam: addExam, updateExamKey: updateExamKey,
+  var ADMIN = { bootstrap: bootstrap, saveResult: saveResult, saveRetry: saveRetry, deleteResult: deleteResult, addExam: addExam, updateExamKey: updateExamKey,
     deleteExam: deleteExam, addHomework: addHomework, deleteHomework: deleteHomework, setChecked: setChecked, proxyHw: proxyHw,
     hwPhotos: hwPhotos, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs, accessLog: accessLog, photo: photo };
 
@@ -1199,7 +1228,7 @@ var Logic = (function () {
   }
 
   /** 쓰기 요청인지 (서버에서 잠금 걸 때 사용) */
-  var WRITES = ['hwPhoto', 'hwFinish', 'practiceSubmit', 'saveResult', 'deleteResult', 'addExam', 'updateExamKey', 'deleteExam', 'addHomework',
+  var WRITES = ['hwPhoto', 'hwFinish', 'practiceSubmit', 'saveResult', 'saveRetry', 'deleteResult', 'addExam', 'updateExamKey', 'deleteExam', 'addHomework',
     'deleteHomework', 'setChecked', 'proxyHw', 'importRoster', 'setClasses', 'saveEval', 'setHwDue'];
 
   return { TABLES: TABLES, ACCESS_HEAD: ACCESS_HEAD, TEXT_COLS: TEXT_COLS, WRITES: WRITES, VERSION: VERSION, handle: handle, cleanupPhotos: cleanupPhotos, itemStats: itemStats };

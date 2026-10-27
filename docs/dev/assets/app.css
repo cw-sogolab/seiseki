@@ -501,6 +501,7 @@ table.wt.all td.g5{border-left:6px solid var(--surface)!important}
 .wrongs .lbl{flex:0 0 auto;font-size:12px;font-weight:600;color:var(--muted)}
 .wrongs .wn{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13.5px;font-weight:700;color:var(--red);font-variant-numeric:tabular-nums}
 .wrongs .wn i{font-style:normal;min-width:1.4em}
+.wrongs .wn i.fx{color:var(--green);text-decoration:none}
 @media (max-width:520px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
 /* 강사 화면 「학생별」 안의 학생 화면 (?as=): 머리띠·바닥·숙제 제출 버튼 숨김 */
