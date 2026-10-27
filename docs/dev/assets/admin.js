@@ -1256,9 +1256,9 @@
     if (!rows.length) return '';
     rows.sort(function (a, b) { return b.score - a.score || a.name.localeCompare(b.name); });
     rows.forEach(function (r) { r.rank = 1 + rows.filter(function (x) { return x.score > r.score; }).length; });
-    return '<div class="card"><h2>등수 <span class="meta">' + (real ? '실전반(D·E) ' : '이 반 ') + rows.length + '명 · 점수 높은 순, 같은 점수는 같은 등수</span></h2>' +
+    return '<div class="card"><h2>등수 <span class="meta">' + (real ? '실전반(D·E) ' : '이 반 ') + rows.length + '명 · 점수 높은 순, 같은 점수는 같은 등수 · <span class="pill ok">1~5등</span> <span class="pill mid">중간</span> <span class="pill no">마지막 5명</span></span></h2>' +
       '<div class="tw"><table><thead><tr><th class="num">등수</th><th>이름</th><th class="num">점수</th><th class="num">틀린 문항</th><th class="num">오답 고침</th></tr></thead><tbody>' +
-      rows.map(function (r) { return '<tr><td class="num"><b>' + r.rank + '</b></td><td>' + esc(r.name) + '</td><td class="num">' + r.score + ' / ' + e0.total + '</td><td class="num">' + r.wrong + '</td><td class="num">' + (r.retry === null ? '' : r.retry + ' / ' + r.wrong) + '</td></tr>'; }).join('') +
+      rows.map(function (r, i) { var tone = r.rank <= 5 ? 'ok' : i >= rows.length - 5 ? 'no' : 'mid'; return '<tr><td class="num"><span class="pill ' + tone + '">' + r.rank + '</span></td><td>' + esc(r.name) + '</td><td class="num">' + r.score + ' / ' + e0.total + '</td><td class="num">' + r.wrong + '</td><td class="num">' + (r.retry === null ? '' : r.retry + ' / ' + r.wrong) + '</td></tr>'; }).join('') +
       '</tbody></table></div></div>';
   }
   function bindItem() {

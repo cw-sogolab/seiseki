@@ -353,6 +353,7 @@ td.gneg{color:var(--red);font-weight:700}
 .cmp b.neg{color:var(--red)}
 
 /* 숙제 마감·늦음 (2026-10-21) */
+.pill.mid{background:var(--orange-soft);color:var(--orange)}
 .pill.late{background:var(--orange-soft);color:var(--orange)}
 .pills{display:flex;gap:6px;align-items:center;flex:0 0 auto;flex-wrap:wrap;justify-content:flex-end}
 .meta.due{margin-top:2px}
