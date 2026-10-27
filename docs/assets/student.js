@@ -315,7 +315,12 @@
   function wrongBlock(t) {
     if (t.score === null) return '';
     if (t.wrongDetail) return '<div class="chips"><span class="lbl">틀린 문항</span>' + t.wrongDetail.map(function (w) { return '<span class="chip">' + w.n + '번 정답 ' + w.key + ' · 내 답 ' + (w.ans === '0' ? '-' : w.ans) + '</span>'; }).join('') + '</div>';
-    if (t.wrong && t.wrong.length) return '<div class="wrongs"><span class="lbl">틀린 문항 ' + t.wrong.length + '개</span><span class="wn">' + t.wrong.map(function (n) { return '<i>' + n + '</i>'; }).join('') + '</span></div>';
+    if (t.wrong && t.wrong.length) {
+      var fx = t.fixed || [], left = t.wrong.length - fx.length;   // 오답 채점에서 다시 맞힌 문항 (2026-10-27 사용자, 개발판)
+      return '<div class="wrongs"><span class="lbl">틀린 문항 ' + t.wrong.length + '개' + (fx.length ? (left ? ' · ' + fx.length + '개 고침' : ' · 전부 고침') : '') + '</span><span class="wn">' + t.wrong.map(function (n) {
+        return fx.indexOf(n) >= 0 ? '<i class="fx" title="오답 확인함">' + n + '✓</i>' : '<i>' + n + '</i>';
+      }).join('') + '</span></div>';
+    }
     if (t.score === t.total) return '<div class="chips"><span class="pill ok">전부 맞았어요</span></div>';
     return '';
   }
