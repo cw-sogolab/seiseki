@@ -1067,7 +1067,7 @@
   /* ---------- 월말 표 ---------- */
   function monthTable(cc) {
     var c = cls(cc), real = c.kind === '실전';
-    var exs = D.exams.filter(function (e) { return e.cls === cc && e.month === month; }).sort(function (a, b) { return a.date.localeCompare(b.date); });
+    var exs = D.exams.filter(function (e) { return e.cls === cc && e.month === month && !(c.kind === '단풀' && /EJU 기출/.test(e.label)); }).sort(function (a, b) { return a.date.localeCompare(b.date); });   // 단풀반 EJU 기출은 숙제로만 (2026-10-28 사용자)
     var hws = D.homework.filter(function (h) { return h.cls === cc && h.month === month; });
     var head = ['이름', '학생평가'].concat(hws.map(function (h) { return h.label + (h.total ? '(' + h.total + '문)' : ''); }),
       exs.map(function (e) { return e.label + (real ? '(개수/환산)' : '(' + e.total + '문)'); }), ['평균', '숙제 제출']);
@@ -1131,7 +1131,7 @@
   function monthModel(cc) {
     var c = cls(cc), kind = c.kind, time = String(c.time || '').replace(/\s+/g, '');
     var yymm = month.slice(2, 4) + month.slice(5, 7);
-    var exs = D.exams.filter(function (e) { return e.cls === cc && e.month === month; }).sort(function (a, b) { return (a.date + a.created).localeCompare(b.date + b.created); });
+    var exs = D.exams.filter(function (e) { return e.cls === cc && e.month === month && !(kind === '단풀' && /EJU 기출/.test(e.label)); }).sort(function (a, b) { return (a.date + a.created).localeCompare(b.date + b.created); });   // 단풀반 EJU 기출은 숙제로만 (2026-10-28 사용자)
     var hws = D.homework.filter(function (h) { return h.cls === cc && h.month === month; });
     var subj = '';
     exs.concat(hws).some(function (x) { subj = subjOf(x.label); return !!subj; });
