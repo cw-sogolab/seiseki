@@ -193,13 +193,15 @@
   function render() { if (oneTimer) { clearInterval(oneTimer); oneTimer = 0; } $('#period').hidden = tab === 'plan' || tab === 'one'; renderPeriod(); ({ entry: vEntry, exams: vExams, item: vItem, hw: vHw, stu: vStu, one: vOne, month: vMonth, plan: vPlan })[tab](); }
 
   /** 채점표: 답지처럼 5문항씩 묶어서 모든 문항을 보여 줌 (한 줄에 10문항 = 5칸 묶음 둘). 맞은 문항은 ○, 틀린 문항은 학생 답을 빨갛게 — 시험지에 바로 체크하기 쉽게 */
-  function gradeTable(key, ans) {
-    var n = key.length; ans = Core.padAnswers(ans, n);
+  /** 한 줄 문항 수: 월말테스트 답지는 8개씩 끊겨 있어 8개씩 (2026-10-29 사용자), 나머지는 10개씩 */
+  function perLine(ex) { return ex && ex.kind === '월말테스트' ? 8 : 10; }
+  function gradeTable(key, ans, per) {
+    per = per || 10; var n = key.length; ans = Core.padAnswers(ans, n);
     var h = '', cols = [];
-    function g5(j) { return (j % 5 === 0 && j % 10 !== 0) ? ' g5' : ''; }   // 5칸마다 띄움
+    function g5(j) { return (per === 10 && j % 5 === 0 && j % 10 !== 0) ? ' g5' : ''; }   // 5칸마다 띄움
     function row(cls, th, f) { return '<tr class="' + cls + '"><th>' + th + '</th>' + cols.map(f).join('') + '</tr>'; }
-    for (var i = 0; i < n; i += 10) {
-      cols = []; for (var j = i; j < Math.min(i + 10, n); j++) cols.push(j);
+    for (var i = 0; i < n; i += per) {
+      cols = []; for (var j = i; j < Math.min(i + per, n); j++) cols.push(j);
       h += '<table class="wt all"><tbody>' +
         row('n', '문항', function (j) { return '<td class="' + g5(j) + '">' + (j + 1) + '</td>'; }) +
         row('k', '정답', function (j) { return '<td class="' + g5(j) + '">' + key.charAt(j) + '</td>'; }) +
@@ -258,10 +260,10 @@
   }
   var retryMode = false;   // 답안 입력 탭의 「오답 채점」 (2026-10-27 사용자): 학생이 종이로 다시 풀어 온 틀린 문항의 답을 입력
   /** 오답 채점표: 처음 틀린 문항만 문항 / 정답 / 다시 쓴 답 (맞으면 ○) — 10문항씩 */
-  function retryTable(key, wrong, raw) {
-    var h = '';
-    for (var i = 0; i < wrong.length; i += 10) {
-      var cols = wrong.slice(i, i + 10).map(function (w, k) { return { n: w.n, key: w.key, a: raw.charAt(i + k) }; });
+  function retryTable(key, wrong, raw, per) {
+    var h = ''; per = per || 10;
+    for (var i = 0; i < wrong.length; i += per) {
+      var cols = wrong.slice(i, i + per).map(function (w, k) { return { n: w.n, key: w.key, a: raw.charAt(i + k) }; });
       function row(cls, th, f) { return '<tr class="' + cls + '"><th>' + th + '</th>' + cols.map(f).join('') + '</tr>'; }
       h += '<table class="wt all"><tbody>' + row('n', '문항', function (c) { return '<td>' + c.n + '</td>'; }) + row('k', '정답', function (c) { return '<td>' + c.key + '</td>'; }) +
         row('a', '다시', function (c) { var ok = c.a === c.key; return '<td class="' + (ok ? 'o' : 'x') + '">' + (ok ? '○' : (!c.a || c.a === '0' ? '–' : c.a)) + '</td>'; }) + '</tbody></table>';
@@ -461,7 +463,7 @@
       $('#cnt').textContent = '입력 ' + v.length + ' / ' + w.length + (v.length && v.length < w.length ? ' · 남은 칸은 못 푼 것으로 저장돼요' : '');
       if (!v) { $('#prev').innerHTML = ''; return; }
       var fixed = w.filter(function (x, i) { return v.charAt(i) === x.key; }).length;
-      $('#prev').innerHTML = '<div class="result"><b>' + fixed + ' / ' + w.length + '</b><span class="meta">오답 다시 맞힘</span></div>' + (fixed === w.length ? '<p class="allok">전부 고쳤어요</p>' : '') + retryTable(ex.key, w, v);
+      $('#prev').innerHTML = '<div class="result"><b>' + fixed + ' / ' + w.length + '</b><span class="meta">오답 다시 맞힘</span></div>' + (fixed === w.length ? '<p class="allok">전부 고쳤어요</p>' : '') + retryTable(ex.key, w, v, perLine(ex));
     }
     function preview() {
       if (retryMode) return previewRetry();
@@ -470,7 +472,7 @@
       if (!v) { $('#prev').innerHTML = ''; return; }
       var g = Core.grade(ex.key, v);
       $('#prev').innerHTML = '<div class="result"><b>' + g.score + ' / ' + ex.total + '</b><span class="meta">틀린 문항 ' + g.wrong.length + '개</span></div>' +
-        (g.wrong.length ? '' : '<p class="allok">전부 맞았어요</p>') + gradeTable(ex.key, v);
+        (g.wrong.length ? '' : '<p class="allok">전부 맞았어요</p>') + gradeTable(ex.key, v, perLine(ex));
     }
     function roster() {
       $('#roster').innerHTML = '<div class="tw"><table><thead><tr><th>이름</th><th>번호</th><th class="num">점수</th><th>' + (retryMode ? '오답' : '상태') + '</th></tr></thead><tbody>' +
