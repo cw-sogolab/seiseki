@@ -44,7 +44,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '4ab51fd437';
+  var VERSION = 'b2f0b664c2';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '오답답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -772,7 +772,7 @@ var Logic = (function () {
     return ok({ exam: e.id, code: stu.code, answers: ans, score: g.score, wrong: g.wrong.map(function (w) { return w.n; }), conv: null, at: row['입력일'] });
   }
 
-  /** 오답 채점 (2026-10-27 사용자, 개발판): 소테스트를 채점한 뒤 학생이 종이로 틀린 문항을 다시 풀어 오면, 강사가 그 답을 틀린 문항 순서대로 이어서 입력.
+  /** 오답 채점 (2026-10-27 사용자, 개발판): 소테스트를 채점한 뒤 학생이 종이로 틀린 문항을 다시 풀어 오면, 강사가 그 답을 틀린 문항 순서대로 이어서 입력. 아직 틀린 문항이 남으면 다음 차례에는 그 문항만 입력(여러 번).
    *  원점수·평균은 그대로, 「오답답안」 칸에만 저장. 처음 틀린 문항 중 다시 맞힌 번호가 학생 화면에서 ✓ 가 됨. */
   function saveRetry(env, p) {
     var e = exams(env).filter(function (x) { return x.id === S(p.exam); })[0];
@@ -783,10 +783,13 @@ var Logic = (function () {
     if (!r || !r.answers) return fail('먼저 이 시험 답안을 입력해 주세요.');
     var wrong = C.grade(e.key, r.answers).wrong;
     if (!wrong.length) return fail('틀린 문항이 없어요.');
-    var raw = C.cleanAnswers(p.answers, wrong.length);
+    // 여러 번 (2026-10-29 사용자): 이미 다시 맞힌 문항은 두고, 아직 틀린 문항만 순서대로 받음
+    var left = wrong.filter(function (w) { return !(r.retry && r.retry.charAt(w.n - 1) === w.key); });
+    if (!left.length) return fail('틀린 문항을 전부 고쳤어요.');
+    var raw = C.cleanAnswers(p.answers, left.length);
     if (!raw) return fail('다시 쓴 답을 입력해 주세요.');
-    var retry = C.padAnswers('', e.total).split('');
-    wrong.forEach(function (w, i) { retry[w.n - 1] = raw.charAt(i) || '0'; });
+    var retry = (r.retry ? r.retry : C.padAnswers('', e.total)).split('');
+    left.forEach(function (w, i) { retry[w.n - 1] = raw.charAt(i) || '0'; });
     retry = retry.join('');
     env.store.update('시험결과', function (x) { return S(x['시험ID']) === e.id && S(x['번호']) === stu.code; }, { '오답답안': retry });
     return ok({ exam: e.id, code: stu.code, retry: retry, fixed: retryFixed(e.key, r.wrong, retry) });
