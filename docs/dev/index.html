@@ -18,11 +18,11 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#F5F3FF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#14122B" media="(prefers-color-scheme: dark)">
-<link rel="icon" href="assets/favicon.svg?v=202610291155" type="image/svg+xml">
-<link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=202610291155">
+<link rel="icon" href="assets/favicon.svg?v=202610291158" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=202610291158">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800;900&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="assets/app.css?v=202610291155">
+<link rel="stylesheet" href="assets/app.css?v=202610291158">
 </head>
 <body>
 <template id="sTpl">
@@ -90,11 +90,11 @@
 <footer class="foot"><picture><source srcset="assets/logo-mark-dark.svg" media="(prefers-color-scheme: dark)"><img src="assets/logo-mark-light.svg" alt="" width="16" height="16"></picture>성적노트 · made by <b>cw-sogolab</b></footer>
 </template>
 <script>/* 학생 화면 또는 강사 화면(#teacher)을 꺼내 붙임 */(function(){var T=window.SEISEKI_TEACHER,t=document.getElementById(T?'tTpl':'sTpl');document.body.appendChild(t.content.cloneNode(true));if(T)document.body.classList.add('locked');})();</script>
-<script src="../assets/config.js?v=202610291155"></script>
-<script src="assets/core.js?v=202610291155"></script>
-<script src="assets/logic.js?v=202610291155"></script>
-<script src="assets/mock.js?v=202610291155"></script>
-<script src="assets/api.js?v=202610291155"></script>
-<script>/* 화면별 스크립트: 학생 student.js / 강사 monthxlsx·plan·admin.js (순서대로) */(function(){var v='?v=202610291155';(window.SEISEKI_TEACHER?['monthxlsx','plan','admin']:['student']).forEach(function(n){var s=document.createElement('script');s.src='assets/'+n+'.js'+v;s.async=false;document.body.appendChild(s);});addEventListener('hashchange',function(){if(/^#(teacher|admin)$/.test(location.hash)!==window.SEISEKI_TEACHER)location.reload();});})();</script>
+<script src="../assets/config.js?v=202610291158"></script>
+<script src="assets/core.js?v=202610291158"></script>
+<script src="assets/logic.js?v=202610291158"></script>
+<script src="assets/mock.js?v=202610291158"></script>
+<script src="assets/api.js?v=202610291158"></script>
+<script>/* 화면별 스크립트: 학생 student.js / 강사 monthxlsx·plan·admin.js (순서대로) */(function(){var v='?v=202610291158';(window.SEISEKI_TEACHER?['monthxlsx','plan','admin']:['student']).forEach(function(n){var s=document.createElement('script');s.src='assets/'+n+'.js'+v;s.async=false;document.body.appendChild(s);});addEventListener('hashchange',function(){if(/^#(teacher|admin)$/.test(location.hash)!==window.SEISEKI_TEACHER)location.reload();});})();</script>
 </body>
 </html>
