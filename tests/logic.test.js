@@ -178,8 +178,12 @@ t('오답 채점: 틀린 문항 순서대로 저장, 점수는 그대로, 학생
   const tt = H('login', { code: 'tr-520 615', dev: 's1r' }).data.classes.filter(c => c.code === 'GN-HM')[0].tests[0];
   assert.deepStrictEqual(tt.wrong, [1, 2]); assert.deepStrictEqual(tt.fixed, [1]); assert.strictEqual(tt.score, 3);
   assert.ok(!JSON.stringify(tt).includes('13000'), '오답답안(정답 추측 가능)은 학생에게 안 보냄');
+  // 여러 번: 아직 틀린 문항(2번)만 다시 받음, 이미 맞힌 1번은 그대로
+  let r2 = H('saveRetry', { token, exam: exam.id, code, answers: '2' });
+  assert.ok(r2.ok, r2.error); assert.deepStrictEqual(r2.data.fixed, [1, 2]); assert.strictEqual(r2.data.retry, '12000');
+  assert.ok(!H('saveRetry', { token, exam: exam.id, code, answers: '1' }).ok, '전부 고쳤으면 더 받지 않음');
   H('saveResult', { token, exam: exam.id, code, answers: '21341' });
-  assert.strictEqual(env._tables['시험결과'].filter(x => x['번호'] === code)[0]['오답답안'], '13000', '같은 답안 다시 저장해도 오답 채점 유지');
+  assert.strictEqual(env._tables['시험결과'].filter(x => x['번호'] === code)[0]['오답답안'], '12000', '같은 답안 다시 저장해도 오답 채점 유지');
   H('saveResult', { token, exam: exam.id, code, answers: '21343' });
   assert.ok(!env._tables['시험결과'].filter(x => x['번호'] === code)[0]['오답답안'], '답안이 바뀌면 오답 채점 지움');
   H('saveResult', { token, exam: exam.id, code, answers: '21341' });
