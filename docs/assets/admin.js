@@ -1208,10 +1208,12 @@
     }).join('') + '</select></div></div>';
     var A = Logic.itemStats(D, itemExam);
     if (!A) { $('#view').innerHTML = h + '<p class="empty">문항 수가 없는 시험이에요.</p></div>'; bindItem(); return; }
+    function cnt(x) { return x.rate === null || !x.t ? '' : Math.round(x.rate * x.t / 100) + '/' + x.t + '명'; }   // 이 문항을 맞힌 사람 / 답안이 있는 사람
+    function avgN(a) { return a.avg === null ? '' : (Math.round(a.avg * A.total / 10) / 10) + ' / ' + A.total + '개'; }   // 평균 맞힌 개수 / 문항 수
     var real = A.kind === '실전', noItems = !A.items.some(function (it) { return it.here.t; }), hasCum = A.cum.n > A.here.n;   // 다른 달·반 기록이 있어야 누적이 의미 있음
     h += '<div class="tiles four itiles">' +
-      '<div class="tile"><span>' + (real ? '실전반(D·E)' : '이 반') + '</span><b>' + (A.here.avg === null ? '-' : A.here.avg + '<small>%</small>') + '</b><em>' + A.here.n + '명 평균 정답률</em></div>' +
-      '<div class="tile"><span>누적 (같은 시험 모든 달·반)</span><b>' + (!hasCum || A.cum.avg === null ? '-' : A.cum.avg + '<small>%</small>') + '</b><em>' + (hasCum ? A.cum.n + '명 · ' + A.cum.months.map(function (m) { return (+m.slice(5)) + '월'; }).join('·') : '이 시험은 이 반 기록뿐이에요') + '</em></div>' +
+      '<div class="tile"><span>' + (real ? '실전반(D·E)' : '이 반') + '</span><b>' + (A.here.avg === null ? '-' : A.here.avg + '<small>%</small>') + '</b><em>' + A.here.n + '명 평균 정답률' + (A.here.avg === null ? '' : ' · 평균 ' + avgN(A.here) + ' 맞힘') + '</em></div>' +
+      '<div class="tile"><span>누적 (같은 시험 모든 달·반)</span><b>' + (!hasCum || A.cum.avg === null ? '-' : A.cum.avg + '<small>%</small>') + '</b><em>' + (hasCum ? A.cum.n + '명 · 평균 ' + avgN(A.cum) + ' · ' + A.cum.months.map(function (m) { return (+m.slice(5)) + '월'; }).join('·') : '이 시험은 이 반 기록뿐이에요') + '</em></div>' +
       '<div class="tile"><span>이 반 낮은 문항</span><b>' + A.items.filter(function (it) { return it.flags.indexOf('low') >= 0 || it.flags.indexOf('below') >= 0; }).length + '<small>개</small></b><em>정답률 ' + 50 + '% 미만 · 누적보다 15%p↓</em></div>' +
       '<div class="tile"><span>오답 쏠림</span><b>' + A.items.filter(function (it) { return it.flags.indexOf('trap') >= 0; }).length + '<small>개</small></b><em>같은 오답을 30% 이상</em></div></div>';
     if (noItems) h += '<p class="msg">이 시험은 답안·틀린 번호 기록이 없어서(점수만 옮겨 온 성적) 문항별로는 볼 수 없어요.</p>';
@@ -1224,7 +1226,7 @@
         var g = it.here.rate !== null && it.cum.rate !== null && A.cum.n > A.here.n ? Math.round((it.here.rate - it.cum.rate) * 10) / 10 : null;
         var tr = it.here.trap && it.here.trap.cnt >= 2 && it.here.trap.pct >= 30 ? it.here.trap : (hasCum && it.cum.trap && it.cum.trap.cnt >= 3 && it.cum.trap.pct >= 30 ? it.cum.trap : null), trIsCum = tr && tr !== it.here.trap;
         return '<div class="prow"><div><b>' + it.i + '번</b>' +
-          '<span class="meta">' + (it.subj ? esc(it.subj) + ' · ' : '') + '정답 ' + circ(it.key) + ' · 이 반 ' + (it.here.rate === null ? '-' : it.here.rate + '%') + (hasCum ? ' · 누적 ' + (it.cum.rate === null ? '-' : it.cum.rate + '%') : '') + (g === null ? '' : ' (' + (g > 0 ? '+' : '') + g + '%p)') +
+          '<span class="meta">' + (it.subj ? esc(it.subj) + ' · ' : '') + '정답 ' + circ(it.key) + ' · 이 반 ' + (it.here.rate === null ? '-' : it.here.rate + '% (' + cnt(it.here) + ')') + (hasCum ? ' · 누적 ' + (it.cum.rate === null ? '-' : it.cum.rate + '% (' + cnt(it.cum) + ')') : '') + (g === null ? '' : ' (' + (g > 0 ? '+' : '') + g + '%p)') +
           (tr ? ' · 많이 고른 오답 ' + circ(tr.ch) + ' ' + tr.pct + '%' + (trIsCum ? '(누적)' : '') : '') + '</span></div>' +
           '<div class="pills">' + it.flags.map(function (f) { return '<span class="pill ' + FLAG[f][1] + '">' + FLAG[f][0] + '</span>'; }).join('') + '</div></div>';
       }).join('') + '</div>' + (flaggedAll.length > 10 ? '<p class="meta" style="margin-top:8px">나머지 ' + (flaggedAll.length - 10) + '개는 아래 전체 문항 표에서 왼쪽 빨간 줄로 보여요.</p>' : '') : '<p class="empty">특별히 낮거나 오답이 몰린 문항이 없어요.</p>') + '</div>';
@@ -1240,7 +1242,7 @@
         rows.map(function (it) {
           var g = it.here.rate !== null && it.cum.rate !== null && A.cum.n > A.here.n ? Math.round((it.here.rate - it.cum.rate) * 10) / 10 : null;
           return '<tr class="' + (it.flags.length ? 'flag' : '') + '"><td class="num"><b>' + it.i + '</b></td><td>' + circ(it.key) + '</td>' + (real ? '<td>' + esc(it.subj) + '</td>' : '') +
-            '<td class="num' + (it.flags.indexOf('low') >= 0 ? ' bad' : '') + '">' + (it.here.rate === null ? '-' : it.here.rate + '%') + '</td><td class="num' + (it.flags.indexOf('cumLow') >= 0 ? ' bad' : '') + '">' + (!hasCum || it.cum.rate === null ? '-' : it.cum.rate + '%') + '</td>' +
+            '<td class="num' + (it.flags.indexOf('low') >= 0 ? ' bad' : '') + '">' + (it.here.rate === null ? '-' : it.here.rate + '%<br><small class="meta">' + cnt(it.here) + '</small>') + '</td><td class="num' + (it.flags.indexOf('cumLow') >= 0 ? ' bad' : '') + '">' + (!hasCum || it.cum.rate === null ? '-' : it.cum.rate + '%<br><small class="meta">' + cnt(it.cum) + '</small>') + '</td>' +
             '<td class="num' + (g !== null && g <= -15 ? ' bad' : g !== null && g >= 0 ? ' good' : '') + '">' + (g === null ? '' : (g > 0 ? '+' : '') + g) + '</td>' +
             chs.map(function (c) { var v = it.here.dist[c]; var cl = c === it.key ? 'ok' : it.here.trap && it.here.trap.ch === c ? 'tr' : ''; return '<td class="num ch ' + cl + '">' + (v ? v + '%' : (it.here.d ? '<span class="z">0</span>' : '')) + '</td>'; }).join('') +
             '<td class="num">' + (it.here.d && it.here.blank ? it.here.blank + '%' : '') + '</td>' +
