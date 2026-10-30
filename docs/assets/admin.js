@@ -737,7 +737,10 @@
     var toCheck = done.filter(function (s) { var u = subOf(hw.id, s.code); return u.photos && !u.checked; }).length;
     var past = hw.due && nowStamp() > hw.due;
     $('#view').innerHTML =
-      '<div class="card"><label for="hSel">숙제</label><select id="hSel">' + hws.map(function (h) { return '<option value="' + esc(h.id) + '"' + (h.id === curHw ? ' selected' : '') + '>' + esc(cls(h.cls).time ? '[' + cls(h.cls).time + ']' : clsShort(h.cls)) + ' ' + esc(h.label) + (h.due ? ' · 마감 ' + Core.fmtDue(h.due) : '') + '</option>'; }).join('') + '</select>' +
+      '<div class="card"><label for="hSel">숙제</label><select id="hSel">' + hws.map(function (h, i) { return { h: h, i: i }; }).sort(function (a, b) {   // 반별로 묶고, 그 안에서 마감 빠른 순 (등록한 순서가 아니라). 마감이 없으면 등록 순서
+        var ca = cls(a.h.cls), cb = cls(b.h.cls), ka = (ca.time || '') + ca.code, kb = (cb.time || '') + cb.code;
+        return ka < kb ? -1 : ka > kb ? 1 : ((a.h.due || '9') < (b.h.due || '9') ? -1 : (a.h.due || '9') > (b.h.due || '9') ? 1 : a.i - b.i);
+      }).map(function (x) { var h = x.h; return '<option value="' + esc(h.id) + '"' + (h.id === curHw ? ' selected' : '') + '>' + esc(cls(h.cls).time ? '[' + cls(h.cls).time + ']' : clsShort(h.cls)) + ' ' + esc(h.label) + (h.due ? ' · 마감 ' + Core.fmtDue(h.due) : '') + '</option>'; }).join('') + '</select>' +
       '<p class="meta" style="margin-top:8px">' + pages(hw) + (hw.total ? ' · ' + hw.total + '문' : '') + ' · 제출 ' + done.length + ' / ' + mem.length + '명 · 확인 ' + done.filter(function (s) { return subOf(hw.id, s.code).checked; }).length + '명' +
       ' · 늦음 ' + done.filter(function (s) { return subOf(hw.id, s.code).late; }).length + '명</p>' +
       '<div class="duebox"><span>마감 <b>' + (hw.due ? esc(Core.fmtDue(hw.due)) : '없음') + '</b> ' + (hw.dueSet ? '<span class="pill blue">직접 정함</span>' : '<span class="meta">(자동: ' + (hw.week ? hw.week + '번째 숙제 → ' + (2 * hw.week + 1) + '번째 수업 시작' : '수업 요일을 몰라요') + ')</span>') + (past ? ' <span class="pill wait">마감 지남</span>' : '') + '</span>' +
