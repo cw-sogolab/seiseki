@@ -374,7 +374,7 @@
     var go = !w.done && w.month === thisMonth() && canPractice(s);
     return '<div class="item"><div class="row"><div><b>' + esc(w.label) + '</b><p class="meta">' + detail + '</p>' + (due ? '<p class="meta due' + (w.overdue ? ' over' : '') + '">' + due + '</p>' : '') + '</div>' +
       (w.done ? '<span class="pills">' + (w.late ? '<span class="pill late">늦음</span>' : '') + '<span class="pill ok">채점 완료</span></span>'
-        : '<span class="pills">' + (w.overdue ? '<span class="pill no">미제출</span>' : '') + (go ? '<button class="btn sm" type="button" data-prac="' + esc(s) + '">' + (w.overdue ? '늦게 내기' : '입력하기') + '</button>' : '') + '</span>') + '</div>' +
+        : '<span class="pills">' + (w.overdue ? '<span class="pill no">미제출</span>' : '') + (go ? '<button class="btn sm" type="button" data-prac="' + esc(s) + '|단풀">' + (w.overdue ? '늦게 내기' : '입력하기') + '</button>' : '') + '</span>') + '</div>' +
       (w.done && t ? wrongBlock(t) : '') + (go ? '<div class="upbox"></div>' : '') + '</div>';
   }
   /** 달마다 묶기 (최근 달 먼저) */
@@ -470,11 +470,12 @@
     // 테스트 결과는 달마다 한 페이지 (2026-10-21 사용자): 위에 달 고르기, 기본은 가장 최근 달
     var tMonths = []; tests.forEach(function (x) { if (x.t.month && tMonths.indexOf(x.t.month) < 0) tMonths.push(x.t.month); });
     var pracOK = !real && mode === '과목' && canPractice(s);
+    var pracKind = { '개념': canPractice(s, '개념'), '단풀': canPractice(s, '단풀') };
     if (pracOK && tMonths.indexOf(thisMonth()) < 0) tMonths.push(thisMonth());   // 이번 달 기출 입력칸이 보이게
     tMonths.sort().reverse();
     if (tmKey !== mode + '|' + s || tMonths.indexOf(tmSel) < 0) { tmKey = mode + '|' + s; tmSel = tMonths[0] || ''; }
     function testsCard(k, ttl) {
-      var all = tests.filter(function (x) { return x.kind === k; }), pm = thisMonth(), canP = pracOK && k === '단풀';
+      var all = tests.filter(function (x) { return x.kind === k; }), pm = thisMonth(), canP = pracOK && !!pracKind[k];
       if (!all.length && !canP) return '';
       if (!real) {   // 개념반·단풀반: 달로 나누지 않고 한 페이지에 달마다 묶어서 (2026-10-26 사용자: 수강 이력이 있으면 언제 들었는지만 표기)
         var ms = []; all.forEach(function (x) { if (ms.indexOf(x.t.month) < 0) ms.push(x.t.month); });
@@ -484,9 +485,9 @@
         ms.forEach(function (m) {
           var l = all.filter(function (x) { return x.t.month === m; }), pi = '';
           if (canP && m === pm && !l.some(function (x) { return /EJU 기출/.test(x.t.label); }))   // 이번 달 기출이 아직 시험으로 등록 안 됐으면 입력할 줄을 먼저 보여 줌 (낼 때 서버가 등록)
-            pi = testItem({ id: '', month: pm, kind: '소테스트', label: s + ' EJU 기출', date: '', total: 0, score: null, avg: null, n: 0, rank: null, conv: null, convAvg: null, wrong: [], cum: null }, null, true, false, s);
+            pi = testItem({ id: '', month: pm, kind: '소테스트', label: s + ' EJU 기출', date: '', total: 0, score: null, avg: null, n: 0, rank: null, conv: null, convAvg: null, wrong: [], cum: null }, null, true, false, s + '|' + k);
           c2 += '<h3 class="mhd">' + esc(m ? UI.monthLabel(m) : '') + '</h3>' + l.map(function (x) {
-            return testItem(x.t, null, false, x.t.kind === '월말테스트' || /월말/.test(x.t.label), canP && /EJU 기출/.test(x.t.label) && x.t.month === pm ? s : '');
+            return testItem(x.t, null, false, x.t.kind === '월말테스트' || /월말/.test(x.t.label), canP && /EJU 기출/.test(x.t.label) && x.t.month === pm ? s + '|' + k : '');
           }).join('') + pi;
         });
         return c2 + '</div>';
@@ -494,7 +495,7 @@
       var list = all.filter(function (x) { return x.t.month === tmSel; });
       var pracItems = '';
       if (canP && tmSel === pm && !list.some(function (x) { return /EJU 기출/.test(x.t.label); }))   // 이번 달 기출이 아직 시험으로 등록 안 됐으면 입력할 줄을 먼저 보여 줌 (낼 때 서버가 등록)
-        pracItems = testItem({ id: '', month: pm, kind: '소테스트', label: s + ' EJU 기출', date: '', total: 0, score: null, avg: null, n: 0, rank: null, conv: null, convAvg: null, wrong: [], cum: null }, null, true, false, s);
+        pracItems = testItem({ id: '', month: pm, kind: '소테스트', label: s + ' EJU 기출', date: '', total: 0, score: null, avg: null, n: 0, rank: null, conv: null, convAvg: null, wrong: [], cum: null }, null, true, false, s + '|' + k);
       var c = '<div class="card"><h2>' + (real ? '' : '<i class="kdot" style="background:' + toneOf(k, s) + '"></i>') + esc(ttl) + ' <span class="meta">' + esc(tmSel ? UI.monthLabel(tmSel) : '') + '</span></h2>';
       var rm = real && view.realMonth && view.realMonth[tmSel];   // 실전반: 이 달 환산점수 평균·등수 (D·E 합쳐서)
       if (rm) c += '<p class="mlbl">이 달 종합 · 환산점수 (D·E 합쳐서)</p><div class="stats mstats">' +
@@ -502,7 +503,7 @@
         '<div class="st"><span>등수</span><b>' + rm.rank + '등</b><em>' + rm.n + '명 중</em></div>' +
         '<div class="st"><span>우리반 평균</span><b>' + rm.classAvg + '</b><em>' + (rm.avg - rm.classAvg >= 0 ? '+' : '') + Math.round((rm.avg - rm.classAvg) * 10) / 10 + '</em></div></div>';
       c += list.length || pracItems ? list.map(function (x) {
-        return testItem(x.t, null, real, !real && (x.t.kind === '월말테스트' || /월말/.test(x.t.label)), canP && /EJU 기출/.test(x.t.label) && x.t.month === pm ? s : '');
+        return testItem(x.t, null, real, !real && (x.t.kind === '월말테스트' || /월말/.test(x.t.label)), canP && /EJU 기출/.test(x.t.label) && x.t.month === pm ? s + '|' + k : '');
       }).join('') + pracItems : '<p class="empty">이 달에는 ' + esc(ttl) + ' 기록이 없어요.</p>';
       return c + '</div>';
     }
@@ -539,7 +540,7 @@
     if ($('#wk')) drawWeak();
     UI.all('#panel [data-tm]').forEach(function (b) { b.onclick = function () { tmSel = b.getAttribute('data-tm'); var y = b.getBoundingClientRect().top; renderSubject(mode, s); var nb = $('#panel [data-tm="' + tmSel + '"]'); if (nb) window.scrollBy(0, nb.getBoundingClientRect().top - y); }; });
     UI.all('#panel [data-hw]').forEach(function (b) { b.onclick = function () { openUpload(b.getAttribute('data-hw')); }; });
-    UI.all('#panel [data-prac]').forEach(function (b) { b.onclick = function () { var it = b.closest('.item'); openPractice(b.getAttribute('data-prac'), it && it.querySelector('.upbox')); }; });
+    UI.all('#panel [data-prac]').forEach(function (b) { b.onclick = function () { var it = b.closest('.item'); var pk = b.getAttribute('data-prac').split('|'); openPractice(pk[0], it && it.querySelector('.upbox'), pk[1]); }; });
   }
 
   /* ---------- 단풀반 EJU 기출 (2026-10-25): 학생이 기출 한 과목씩 답을 넣으면 서버가 채점. 월말 평균에는 안 들어감 ----------
@@ -547,17 +548,18 @@
   var pracList = null;
   function pracKey(sj) { return SUBJS[sj] || sj; }
   /** 이 과목의 기출을 내가 지금 입력할 수 있는지 (단풀반 학생, 내 반 과목만 — 서버가 다시 확인) */
-  function canPractice(s) {
-    return !!(view.danpul && view.danpul.length && /경제|정치|지리|현대사회|역사/.test(s) && (view.danpul.indexOf('*') >= 0 || view.danpul.some(function (w) { return pracKey(w) === s; })));
+  function canPractice(s, k) {
+    var a = (view.pracBy && k ? view.pracBy[k] : view.danpul) || [];
+    return !!(a.length && /경제|정치|지리|현대사회|역사/.test(s) && (a.indexOf('*') >= 0 || a.some(function (w) { return pracKey(w) === s; })));
   }
-  function openPractice(s, box) {
+  function openPractice(s, box, kind) {
     if (!box) return;
     UI.all('#panel .upbox').forEach(function (b) { if (b !== box) b.innerHTML = ''; });
     box.innerHTML = '<p class="meta">불러오는 중…</p>';
     (pracList ? Promise.resolve({ ok: true, data: pracList }) : stuCall('practiceList', {})).then(function (r) {
       if (!r.ok) { box.innerHTML = '<p class="msg err">' + esc(r.error) + '</p>'; return; }
       pracList = r.data;
-      var x = pracList.filter(function (y) { return pracKey(y.subj) === s; })[0];
+      var x = pracList.filter(function (y) { return pracKey(y.subj) === s && (!kind || y.ban === kind); })[0];
       if (!x) { box.innerHTML = '<p class="empty">이 과목 기출은 아직 준비 중이에요.</p>'; return; }
       var ans = {}, rows = '';
       for (var n = 1; n <= x.n; n++) rows += '<div class="prow"><span class="pn">' + n + '번</span>' + [1, 2, 3, 4].map(function (v) { return '<button type="button" class="pc" data-n="' + n + '" data-v="' + v + '" aria-pressed="false">' + v + '</button>'; }).join('') + '</div>';

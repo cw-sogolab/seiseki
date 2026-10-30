@@ -1073,7 +1073,7 @@
   /* ---------- 월말 표 ---------- */
   function monthTable(cc) {
     var c = cls(cc), real = c.kind === '실전';
-    var exs = D.exams.filter(function (e) { return e.cls === cc && e.month === month && !(c.kind === '단풀' && /EJU 기출/.test(e.label)); }).sort(function (a, b) { return a.date.localeCompare(b.date); });   // 단풀반 EJU 기출은 숙제로만 (2026-10-28 사용자)
+    var exs = D.exams.filter(function (e) { return e.cls === cc && e.month === month && !(c.kind !== '실전' && /EJU 기출/.test(e.label)); }).sort(function (a, b) { return a.date.localeCompare(b.date); });   // 개념반·단풀반 EJU 기출은 학생평가·엑셀에 안 나옴 (필수 아님, 2026-10-30 사용자)
     var hws = D.homework.filter(function (h) { return h.cls === cc && h.month === month; });
     var head = ['이름', '학생평가'].concat(hws.map(function (h) { return h.label + (h.total ? '(' + h.total + '문)' : ''); }),
       exs.map(function (e) { return e.label + (real ? '(개수/환산)' : '(' + e.total + '문)'); }), ['평균', '숙제 제출']);
@@ -1137,7 +1137,7 @@
   function monthModel(cc) {
     var c = cls(cc), kind = c.kind, time = String(c.time || '').replace(/\s+/g, '');
     var yymm = month.slice(2, 4) + month.slice(5, 7);
-    var exs = D.exams.filter(function (e) { return e.cls === cc && e.month === month && !(kind === '단풀' && /EJU 기출/.test(e.label)); }).sort(function (a, b) { return (a.date + a.created).localeCompare(b.date + b.created); });   // 단풀반 EJU 기출은 숙제로만 (2026-10-28 사용자)
+    var exs = D.exams.filter(function (e) { return e.cls === cc && e.month === month && !(kind !== '실전' && /EJU 기출/.test(e.label)); }).sort(function (a, b) { return (a.date + a.created).localeCompare(b.date + b.created); });   // 개념반·단풀반 EJU 기출은 학생평가·엑셀에 안 나옴 (필수 아님, 2026-10-30 사용자)
     var hws = D.homework.filter(function (h) { return h.cls === cc && h.month === month; });
     var subj = '';
     exs.concat(hws).some(function (x) { subj = subjOf(x.label); return !!subj; });
@@ -1216,7 +1216,7 @@
     var real = A.kind === '실전', noItems = !A.items.some(function (it) { return it.here.t; }), hasCum = A.cum.n > A.here.n;   // 다른 달·반 기록이 있어야 누적이 의미 있음
     h += '<div class="tiles four itiles">' +
       '<div class="tile"><span>' + (real ? '실전반(D·E)' : '이 반') + '</span><b>' + (A.here.avg === null ? '-' : A.here.avg + '<small>%</small>') + '</b><em>' + A.here.n + '명 평균 정답률' + (A.here.avg === null ? '' : ' · 평균 ' + avgN(A.here) + ' 맞힘') + '</em></div>' +
-      '<div class="tile"><span>누적 (같은 시험 모든 달·반)</span><b>' + (!hasCum || A.cum.avg === null ? '-' : A.cum.avg + '<small>%</small>') + '</b><em>' + (hasCum ? A.cum.n + '명 · 평균 ' + avgN(A.cum) + ' · ' + A.cum.months.map(function (m) { return (+m.slice(5)) + '월'; }).join('·') : '이 시험은 이 반 기록뿐이에요') + '</em></div>' +
+      '<div class="tile"><span>누적 (같은 시험 모든 달·반)</span><b>' + (!hasCum || A.cum.avg === null ? '-' : A.cum.avg + '<small>%</small>') + '</b><em>' + (hasCum ? A.cum.n + '명 · 평균 ' + avgN(A.cum) : '이 시험은 이 반 기록뿐이에요') + '</em></div>' +
       '<div class="tile"><span>이 반 낮은 문항</span><b>' + A.items.filter(function (it) { return it.flags.indexOf('low') >= 0 || it.flags.indexOf('below') >= 0; }).length + '<small>개</small></b><em>정답률 ' + 50 + '% 미만 · 누적보다 15%p↓</em></div>' +
       '<div class="tile"><span>오답 쏠림</span><b>' + A.items.filter(function (it) { return it.flags.indexOf('trap') >= 0; }).length + '<small>개</small></b><em>같은 오답을 30% 이상</em></div></div>';
     if (noItems) h += '<p class="msg">이 시험은 답안·틀린 번호 기록이 없어서(점수만 옮겨 온 성적) 문항별로는 볼 수 없어요.</p>';

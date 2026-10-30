@@ -294,7 +294,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '80be1bfe69';
+  var VERSION = '31083403af';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '오답답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -603,17 +603,21 @@ var Logic = (function () {
    * 단풀반에서만 푸는 과목별 「EJU 기출」(시험지 DP-과목-G, 소테스트)은 선생님이 「답안 입력」으로 넣기도 하고 학생이 직접 넣기도 함 —
    * 같은 시험·같은 시험결과 칸에 저장(둘 중 나중에 넣은 것이 남음). 이번 달 그 시험이 아직 등록 안 됐으면 시험지로 자동 등록. 정답은 학생에게 안 보냄. */
   function practicePapers(env) {
-    return papers(env).filter(function (x) { return x.ban === '단풀' && /EJU 기출/.test(x.label) && x.key.length === x.total; });
+    // 개념반·단풀반 둘 다 입력 (2026-10-30 사용자) — 시험지는 반 종류마다 따로(문항 수가 다를 수 있음)
+    return papers(env).filter(function (x) { return (x.ban === '단풀' || x.ban === '개념') && /EJU 기출/.test(x.label) && x.key.length === x.total; });
   }
-  function danpulClasses(env, stu) {
+  /** 기출을 입력할 수 있는 내 반: 단풀반·개념반 (kind 를 주면 그 종류만) */
+  function danpulClasses(env, stu, kinds) {
     var kind = {}; classes(env).forEach(function (c) { kind[c.code] = c.kind; });
-    return stu.classes.filter(function (c) { return kind[c] === '단풀'; });
+    var want = kinds || ['단풀', '개념'];
+    return stu.classes.filter(function (c) { return want.indexOf(kind[c]) >= 0; });
   }
+  function classKind(env, code) { var c = classes(env).filter(function (x) { return x.code === code; })[0]; return c ? c.kind : ''; }
   function subjWord(label) { var w = S(label).split(' ')[0]; return w === '현대사회' ? '현사' : w === '세계사' ? '역사' : w; }
   /** 학생이 이번 달 입력할 수 있는 과목: 내 단풀반의 이번 달 과목만 (그 반에 과목이 아직 없으면 제한 없음 '*') — 2026-10-25 사용자: 자기 반만 */
-  function practiceSubjects(env, stu) {
+  function practiceSubjects(env, stu, kinds) {
     var month = C.monthOf(env.now()), out = {}, open = false;
-    danpulClasses(env, stu).forEach(function (cc) {
+    danpulClasses(env, stu, kinds).forEach(function (cc) {
       var found = false;
       exams(env).concat(homework(env)).forEach(function (x) { if (x.cls === cc && x.month === month && /^(경제|정치|지리|현사|현대사회|역사|세계사)\s/.test(S(x.label))) { out[subjWord(x.label)] = 1; found = true; } });
       if (!found) open = true;
@@ -627,14 +631,17 @@ var Logic = (function () {
   /** 학생: 입력할 수 있는 기출 목록(과목·문항 수만, 정답은 안 보냄) */
   function practiceList(env, p) {
     var stu = studentFor(env, p);
-    if (!danpulClasses(env, stu).length) return fail('단풀반 학생만 쓸 수 있어요.');
+    if (!danpulClasses(env, stu).length) return fail('개념반·단풀반 학생만 쓸 수 있어요.');
     var okp = practiceAllowed(env, stu);
-    return ok(practicePapers(env).filter(okp).map(function (x) { return { id: x.id, label: x.label, subj: x.subj, n: x.total }; }));
+    var kinds = {}; danpulClasses(env, stu).forEach(function (c) { kinds[classKind(env, c)] = 1; });
+    return ok(practicePapers(env).filter(function (x) { return kinds[x.ban] && okp(x); }).map(function (x) { return { id: x.id, label: x.label, subj: x.subj, n: x.total, ban: x.ban }; }));
   }
   /** 학생: 답안 제출 → 서버가 채점해 시험결과에 저장 (정답은 안 알려 주고 틀린 번호만). 한 번만 낼 수 있음 */
   function practiceSubmit(env, p) {
     var stu = studentFor(env, p), mine = danpulClasses(env, stu);
-    if (!mine.length) return fail('단풀반 학생만 쓸 수 있어요.');
+    if (!mine.length) return fail('개념반·단풀반 학생만 쓸 수 있어요.');
+    var pp0 = practicePapers(env).filter(function (x) { return x.id === S(p.paper); })[0];
+    if (pp0) { var mk = danpulClasses(env, stu, [pp0.ban]); if (!mk.length) return fail('내 반 종류의 기출이 아니에요.'); mine = mk; }   // 그 시험지 반 종류의 내 반에만 등록
     var pp = practicePapers(env).filter(function (x) { return x.id === S(p.paper); })[0];
     if (!pp) return fail('시험지를 찾지 못했어요.');
     if (!practiceAllowed(env, stu)(pp)) return fail('내 단풀반 과목의 기출만 입력할 수 있어요.');
@@ -643,7 +650,11 @@ var Logic = (function () {
     var e = null;
     mine.forEach(function (cc) { if (!e) e = ex.filter(function (x) { return x.cls === cc && x.month === month && x.label === pp.label; })[0] || null; });
     if (!e) {
-      var row = { '시험ID': newId(env, 'E'), '반코드': mine[0], '월': month, '종류': pp.kind || '소테스트', '이름': pp.label, '문항수': pp.total, '정답': pp.key,
+      // 그 과목(이번 달 시험·숙제 이름)을 하는 내 반에 등록, 못 찾으면 첫 반
+      var home = mine.filter(function (cc) {
+        return exams(env).concat(homework(env)).some(function (x) { return x.cls === cc && x.month === month && subjWord(x.label) === subjWord(pp.label); });
+      })[0] || mine[0];
+      var row = { '시험ID': newId(env, 'E'), '반코드': home, '월': month, '종류': pp.kind || '소테스트', '이름': pp.label, '문항수': pp.total, '정답': pp.key,
         '시험일': C.dateOf(env.now()), '등록일': stamp(env) };
       env.store.append('시험', row); M = {};
       e = { id: row['시험ID'], total: pp.total, key: pp.key };
@@ -737,6 +748,7 @@ var Logic = (function () {
     return {
       name: stu.name, code: stu.code, subj: subjInfo, realMonth: realMonth,
       danpul: danpulClasses(env, stu).length > 0 ? practiceSubjects(env, stu) : [],
+      pracBy: { '개념': danpulClasses(env, stu, ['개념']).length ? practiceSubjects(env, stu, ['개념']) : [], '단풀': danpulClasses(env, stu, ['단풀']).length ? practiceSubjects(env, stu, ['단풀']) : [] },
       classes: cls.filter(function (c) { return mine.indexOf(c.code) >= 0; }).sort(function (a, b) {
         return (stu.classes.indexOf(a.code) < 0) - (stu.classes.indexOf(b.code) < 0); // 지금 듣는 반 먼저
       }).map(function (c) {
