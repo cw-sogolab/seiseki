@@ -294,7 +294,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = 'b2f0b664c2';
+  var VERSION = '80be1bfe69';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '오답답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -800,7 +800,7 @@ var Logic = (function () {
    * 구분: 로그인(번호를 넣고 들어옴) / 자동(「기억하기」로 열어 뒤에서 새로 불러옴, 숙제 내다 열쇠가 지나 다시 들어옴). 강사 「학생별」로 본 것은 남기지 않음 */
   var ACCESS_HEAD = ['시각', '번호', '이름', '구분', '기기'];
   function logAccess(env, stu, p) {
-    if (!env.logAccess) return;
+    if (!env.logAccess || S(p.poll) === '1') return;   // 10초마다 자동으로 새로 불러오는 것(poll)은 남기지 않음
     var row = { '시각': stamp(env), '번호': stu.code, '이름': stu.name, '구분': S(p.auto) === '1' ? '자동' : '로그인', '기기': S(p.dev).replace(/[^A-Za-z0-9]/g, '').slice(0, 8) };
     try { env.logAccess(row); } catch (e) { /* 기록을 못 해도 로그인은 그대로 */ }
   }

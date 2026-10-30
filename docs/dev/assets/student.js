@@ -750,6 +750,30 @@
     };
   }
 
+  /** 10초마다 자동으로 새로 불러옴 (2026-10-30 사용자: 시험 보는 동안 본인 성적·등수를 화면에 띄워 두기). 접속기록에는 안 남김(poll).
+   *  화면이 보일 때만, 사진·기출 입력 중이거나 글자 칸에 커서가 있으면 건너뜀, 30분 동안 아무것도 안 만지면 멈췄다가 만지면 다시 시작 */
+  var POLL_MS = 10000, IDLE_MS = 30 * 60 * 1000, polling = false, lastTouch = Date.now(), lastJson = '';
+  ['click', 'touchstart', 'keydown', 'scroll'].forEach(function (ev) { window.addEventListener(ev, function () { lastTouch = Date.now(); }, { passive: true }); });
+  function poll() {
+    if (!code || !view || polling || busy || document.hidden || $('#app').hidden || document.body.classList.contains('preview')) return;
+    if (Date.now() - lastTouch > IDLE_MS || $('#panel .up')) return;
+    var a = document.activeElement; if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+    polling = true;
+    Api.call('login', { code: code, auto: 1, poll: 1 }).then(function (r) {
+      polling = false;
+      if (!r || !r.ok || !view || $('#panel .up')) return;
+      tok = r.data.tok || tok;
+      var keep = Object.assign({}, r.data); delete keep.tok;
+      var js = JSON.stringify(keep);
+      if (js === lastJson) return;   // 바뀐 게 없으면 다시 그리지 않음 (스크롤·펼침 그대로)
+      lastJson = js;
+      var y = window.scrollY; show(r.data); window.scrollTo(0, y);
+      if ($('#remember').checked) UI.store.set('seiseki.view', JSON.stringify({ at: Date.now(), v: keep }));
+    }, function () { polling = false; });
+  }
+  setInterval(poll, POLL_MS);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
+
   $('#go').onclick = function () { login($('#sid').value); };
   $('#sid').addEventListener('keydown', function (e) { if (e.key === 'Enter') login($('#sid').value); });
   $('#out').onclick = function () { UI.store.del('seiseki.code'); UI.store.del('seiseki.view'); view = null; code = ''; tok = ''; kindSel = ''; subjSel = ''; $('#app').hidden = true; $('#acts').hidden = true; $('#login').hidden = false; $('#sid').value = ''; };
