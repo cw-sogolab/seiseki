@@ -325,7 +325,7 @@
     return '';
   }
 
-  /** noWrong: 개념·단풀 월말테스트는 틀린 문항을 안 보여 줌 (2026-10-22 사용자).  prac: 단풀반 EJU 기출 — 아직 안 냈으면 이 줄 안에서 바로 답안 입력 (2026-10-26 사용자) */
+  /** noWrong: 개념반 월말테스트는 틀린 문항을 안 보여 줌 (2026-10-22 사용자). 단풀반 월말은 보여 줌 (2026-10-31 사용자).  prac: 단풀반 EJU 기출 — 아직 안 냈으면 이 줄 안에서 바로 답안 입력 (2026-10-26 사용자) */
   function testItem(t, extra, noDate, noWrong, prac) {
     var h = '<div class="item"><div class="row"><b>' + esc(t.label) + (extra ? ' <span class="meta">' + esc(extra) + '</span>' : '') + '</b>' +
       (t.score === null ? '<span class="pills"><span class="pill wait">아직 입력 전</span>' + (prac ? '<button class="btn sm" type="button" data-prac="' + esc(prac) + '">입력하기</button>' : '') + '</span>'
@@ -487,7 +487,7 @@
           if (canP && m === pm && !l.some(function (x) { return /EJU 기출/.test(x.t.label); }))   // 이번 달 기출이 아직 시험으로 등록 안 됐으면 입력할 줄을 먼저 보여 줌 (낼 때 서버가 등록)
             pi = testItem({ id: '', month: pm, kind: '소테스트', label: s + ' EJU 기출', date: '', total: 0, score: null, avg: null, n: 0, rank: null, conv: null, convAvg: null, wrong: [], cum: null }, null, true, false, s + '|' + k);
           c2 += '<h3 class="mhd">' + esc(m ? UI.monthLabel(m) : '') + '</h3>' + l.map(function (x) {
-            return testItem(x.t, null, false, x.t.kind === '월말테스트' || /월말/.test(x.t.label), canP && /EJU 기출/.test(x.t.label) && x.t.month === pm ? s + '|' + k : '');
+            return testItem(x.t, null, false, k !== '단풀' && (x.t.kind === '월말테스트' || /월말/.test(x.t.label)), canP && /EJU 기출/.test(x.t.label) && x.t.month === pm ? s + '|' + k : '');
           }).join('') + pi;
         });
         return c2 + '</div>';
@@ -503,7 +503,7 @@
         '<div class="st"><span>등수</span><b>' + rm.rank + '등</b><em>' + rm.n + '명 중</em></div>' +
         '<div class="st"><span>우리반 평균</span><b>' + rm.classAvg + '</b><em>' + (rm.avg - rm.classAvg >= 0 ? '+' : '') + Math.round((rm.avg - rm.classAvg) * 10) / 10 + '</em></div></div>';
       c += list.length || pracItems ? list.map(function (x) {
-        return testItem(x.t, null, real, !real && (x.t.kind === '월말테스트' || /월말/.test(x.t.label)), canP && /EJU 기출/.test(x.t.label) && x.t.month === pm ? s + '|' + k : '');
+        return testItem(x.t, null, real, !real && k !== '단풀' && (x.t.kind === '월말테스트' || /월말/.test(x.t.label)), canP && /EJU 기출/.test(x.t.label) && x.t.month === pm ? s + '|' + k : '');
       }).join('') + pracItems : '<p class="empty">이 달에는 ' + esc(ttl) + ' 기록이 없어요.</p>';
       return c + '</div>';
     }
