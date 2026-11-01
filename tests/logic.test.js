@@ -54,6 +54,14 @@ t('명단 파싱: 시간·종류로 반 찾기, 여러 반, 모르는 반', () =
   assert.deepStrictEqual(r.rows.map(x => [x.name, x.classes.join('+')]), [['홍길동(동작)', 'GN-HM'], ['김하나', 'SJ-D+DP-SS']]);
   assert.strictEqual(r.unknown.length, 2);
 });
+t('aca 출석 체크 캡처 글자 → 반·이름', () => {
+  const ocr = '출석 체크\n2026.11.01 (일)\n[11월]종과개념(정치)(화목20:20)\n출석 결석 지각 조퇴 보강\n0 0 0 0 0\n문자발송 전체출석 저장하기\n학생 출결사항\n' +
+    '★홍유진\n출석 결석 지각 조퇴 보강\n김나윤(검정) 출석 결석 지각 조퇴 보강\n김이원\n김지원 (양천)\n김나윤(검정)\n박지혁';
+  const r = Core.parseAcaOcr(ocr);
+  assert.strictEqual(r.cls, '종과개념(정치)(화목20:20)');
+  assert.deepStrictEqual(r.names, ['홍유진', '김나윤(검정)', '김이원', '김지원(양천)', '박지혁']);
+  assert.strictEqual(Core.matchClass(r.cls, [{ code: 'GN-HM', name: '개념반 화목 20:20', kind: '개념', time: '화목 20:20' }, { code: 'DP-SS', name: '단풀반 토일 13:00', kind: '단풀', time: '토일 13:00' }]), 'GN-HM');
+});
 t('Core.gs·Logic.gs가 개발판 파일과 같은지', () => {
   const root = path.join(__dirname, '..');
   for (const [a, b] of [['docs/dev/assets/core.js', 'apps-script/Core.gs'], ['docs/dev/assets/logic.js', 'apps-script/Logic.gs']]) {

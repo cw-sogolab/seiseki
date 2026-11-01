@@ -212,6 +212,14 @@ function saveImage_(o) {
   var blob = Utilities.newBlob(Utilities.base64Decode(o.b64), o.mime, o.name);
   return folder.createFile(blob).getId();
 }
+/** 캡처 글자 인식 (2026-11-01, 월초 명단): 구글 드라이브 OCR(무료)로 잠깐 구글 문서를 만들어 글을 읽고 바로 휴지통으로.
+ *  편집기 「서비스」에 Drive API(v3)를 추가해야 함 (appsscript.json dependencies) */
+function ocr_(o) {
+  var blob = Utilities.newBlob(Utilities.base64Decode(o.b64), o.mime, 'aca 명단 캡처');
+  var f = Drive.Files.create({ name: '성적노트 명단 캡처 (지워도 됨)', mimeType: 'application/vnd.google-apps.document' }, blob, { ocrLanguage: 'ko' });
+  try { return DocumentApp.openById(f.id).getBody().getText(); }
+  finally { try { DriveApp.getFileById(f.id).setTrashed(true); } catch (e) {} }
+}
 
 /* ---------- env 조립 ---------- */
 /** lock: 쓰기 요청이면 잡은 잠금. 사진을 드라이브에 저장하는 동안은 잠금을 잠깐 풀어 다른 학생 저장이 줄 서지 않게 함 */
@@ -231,6 +239,7 @@ function makeEnv_(lock) {
     logAccess: function (row) { if (accessLogOn_()) accessBuffer_(row); },
     readLog: function () { return readAccessLog_(); },
     readImage: function (id) { var b = DriveApp.getFileById(id).getBlob(); return { mime: b.getContentType() || 'image/jpeg', b64: Utilities.base64Encode(b.getBytes()) }; },
+    ocr: function (o) { return ocr_(o); },
     saveImage: function (o) {
       if (!lock) return saveImage_(o);
       lock.releaseLock();

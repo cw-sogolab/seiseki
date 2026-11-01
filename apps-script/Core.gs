@@ -116,6 +116,24 @@ var Core = (function () {
     return { rows: rows, unknown: unknown };
   }
 
+  /** aca2000 「출석 체크」 화면 캡처를 글자 인식(OCR)한 글 → { cls:'종과개념(정치)(화목20:20)', names:[…] } (2026-11-01)
+   *  반은 「[11월]…」 줄에서, 이름은 한글 2~4자(+괄호 지역) 줄에서 읽음. 출석·결석 같은 버튼 글자와 ★ 표시는 지움 */
+  var ACA_WORDS = ['출석체크', '학생', '출결사항', '문자발송', '전체출석', '저장하기', '출석', '결석', '지각', '조퇴', '보강'];
+  function parseAcaOcr(text) {
+    var cls = '', names = [];
+    S(text).split(/\r?\n/).forEach(function (line) {
+      var m = /\[\s*\d{1,2}\s*월\s*\]\s*(.+)$/.exec(line);
+      if (m) { if (!cls) cls = m[1].replace(/\s+/g, ''); return; }
+      if (/^\s*출석\s*체크\s*$/.test(line)) return;
+      var s = line.replace(/[★☆*•·]/g, ' ').replace(/（/g, '(').replace(/）/g, ')');
+      ['출석', '결석', '지각', '조퇴', '보강'].forEach(function (w) { s = s.split(w).join(' '); });
+      s = s.replace(/\s+/g, '');
+      if (!/^[가-힣]{2,4}(\([가-힣A-Za-z0-9]{1,6}\))?$/.test(s) || ACA_WORDS.indexOf(s) >= 0) return;
+      if (names.indexOf(s) < 0) names.push(s);
+    });
+    return { cls: cls, names: names };
+  }
+
   /* ---------- 수업 달력 (숙제 마감 계산용) ----------
    * cal = { 'YYYY-MM': { start, end, off:['YYYY-MM-DD'] } } — 기록장 「달력」 탭(학원 연간 계획표)에서 읽음 (logic.js calendar()).
    * 달력에 없는 달은 달력상 1일~말일로 계산하고, 강사 화면이 경고함. */
@@ -239,7 +257,7 @@ var Core = (function () {
   return {
     LETTERS: LETTERS, normCode: normCode, isValidCode: isValidCode, luhnOk: luhnOk, withCheck: withCheck, codeProblem: codeProblem, fmtCode: fmtCode, genCode: genCode,
     cleanAnswers: cleanAnswers, cleanKey: cleanKey, padAnswers: padAnswers,
-    grade: grade, mean: mean, parseRoster: parseRoster, matchClass: matchClass, monthOf: monthOf, dateOf: dateOf, baseName: baseName, S: S,
+    grade: grade, mean: mean, parseRoster: parseRoster, parseAcaOcr: parseAcaOcr, matchClass: matchClass, monthOf: monthOf, dateOf: dateOf, baseName: baseName, S: S,
     classDays: classDays, lessons: lessons, nextMonth: nextMonth, hwDue: hwDue, fmtDue: fmtDue, hashDist: hashDist, sameHash: sameHash, DUP_BITS: DUP_BITS, equate: equate
   };
 })();

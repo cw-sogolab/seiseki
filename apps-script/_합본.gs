@@ -118,6 +118,24 @@ var Core = (function () {
     return { rows: rows, unknown: unknown };
   }
 
+  /** aca2000 「출석 체크」 화면 캡처를 글자 인식(OCR)한 글 → { cls:'종과개념(정치)(화목20:20)', names:[…] } (2026-11-01)
+   *  반은 「[11월]…」 줄에서, 이름은 한글 2~4자(+괄호 지역) 줄에서 읽음. 출석·결석 같은 버튼 글자와 ★ 표시는 지움 */
+  var ACA_WORDS = ['출석체크', '학생', '출결사항', '문자발송', '전체출석', '저장하기', '출석', '결석', '지각', '조퇴', '보강'];
+  function parseAcaOcr(text) {
+    var cls = '', names = [];
+    S(text).split(/\r?\n/).forEach(function (line) {
+      var m = /\[\s*\d{1,2}\s*월\s*\]\s*(.+)$/.exec(line);
+      if (m) { if (!cls) cls = m[1].replace(/\s+/g, ''); return; }
+      if (/^\s*출석\s*체크\s*$/.test(line)) return;
+      var s = line.replace(/[★☆*•·]/g, ' ').replace(/（/g, '(').replace(/）/g, ')');
+      ['출석', '결석', '지각', '조퇴', '보강'].forEach(function (w) { s = s.split(w).join(' '); });
+      s = s.replace(/\s+/g, '');
+      if (!/^[가-힣]{2,4}(\([가-힣A-Za-z0-9]{1,6}\))?$/.test(s) || ACA_WORDS.indexOf(s) >= 0) return;
+      if (names.indexOf(s) < 0) names.push(s);
+    });
+    return { cls: cls, names: names };
+  }
+
   /* ---------- 수업 달력 (숙제 마감 계산용) ----------
    * cal = { 'YYYY-MM': { start, end, off:['YYYY-MM-DD'] } } — 기록장 「달력」 탭(학원 연간 계획표)에서 읽음 (logic.js calendar()).
    * 달력에 없는 달은 달력상 1일~말일로 계산하고, 강사 화면이 경고함. */
@@ -241,7 +259,7 @@ var Core = (function () {
   return {
     LETTERS: LETTERS, normCode: normCode, isValidCode: isValidCode, luhnOk: luhnOk, withCheck: withCheck, codeProblem: codeProblem, fmtCode: fmtCode, genCode: genCode,
     cleanAnswers: cleanAnswers, cleanKey: cleanKey, padAnswers: padAnswers,
-    grade: grade, mean: mean, parseRoster: parseRoster, matchClass: matchClass, monthOf: monthOf, dateOf: dateOf, baseName: baseName, S: S,
+    grade: grade, mean: mean, parseRoster: parseRoster, parseAcaOcr: parseAcaOcr, matchClass: matchClass, monthOf: monthOf, dateOf: dateOf, baseName: baseName, S: S,
     classDays: classDays, lessons: lessons, nextMonth: nextMonth, hwDue: hwDue, fmtDue: fmtDue, hashDist: hashDist, sameHash: sameHash, DUP_BITS: DUP_BITS, equate: equate
   };
 })();
@@ -294,7 +312,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '31083403af';
+  var VERSION = 'f4e57d5ac0';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '오답답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -1144,6 +1162,17 @@ var Logic = (function () {
       .map(function (x, k) { delete x.i; x.order = k + 1; return x; }));
   }
 
+  /** 월초 명단 캡처 읽기 (2026-11-01): aca2000 「출석 체크」 화면 캡처 한 장 → 서버가 글자 인식(env.ocr, 구글 드라이브 OCR) → 반·이름.
+   *  저장은 하지 않음 — 화면이 붙여넣기 칸에 채우고 선생님이 확인한 뒤 importRoster */
+  function ocrRoster(env, p) {
+    if (!env.ocr) return fail('미리보기에서는 캡처를 읽을 수 없어요.');
+    var img = p.image || {}, b64 = S(img.b64);
+    if (!b64) return fail('사진이 없어요.');
+    if (b64.length > 14000000) return fail('사진이 너무 커요 (10MB 이하로).');
+    var r = C.parseAcaOcr(env.ocr({ mime: S(img.mime) || 'image/png', b64: b64 }));
+    return ok({ cls: r.cls, code: r.cls ? C.matchClass(r.cls, classes(env)) : '', names: r.names });
+  }
+
   /** 월초 명단 붙여넣기: 원생명단에서 이름을 찾아 번호를 쓰고, 없는 이름만 새 번호로 원생명단에 추가. 반은 수강 탭에 */
   function importRoster(env, p) {
     var cls = classes(env), parsed = C.parseRoster(p.text, cls), all = students(env);
@@ -1214,7 +1243,7 @@ var Logic = (function () {
   var STUDENT = { login: login, hwPhoto: hwPhoto, hwFinish: hwFinish, practiceList: practiceList, practiceSubmit: practiceSubmit };
   var ADMIN = { bootstrap: bootstrap, saveResult: saveResult, saveRetry: saveRetry, deleteResult: deleteResult, addExam: addExam, updateExamKey: updateExamKey,
     deleteExam: deleteExam, addHomework: addHomework, deleteHomework: deleteHomework, setChecked: setChecked, proxyHw: proxyHw,
-    hwPhotos: hwPhotos, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs, accessLog: accessLog, photo: photo };
+    hwPhotos: hwPhotos, ocrRoster: ocrRoster, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs, accessLog: accessLog, photo: photo };
 
   function handle(env, action, p) {
     p = p || {};
@@ -1465,6 +1494,14 @@ function saveImage_(o) {
   var blob = Utilities.newBlob(Utilities.base64Decode(o.b64), o.mime, o.name);
   return folder.createFile(blob).getId();
 }
+/** 캡처 글자 인식 (2026-11-01, 월초 명단): 구글 드라이브 OCR(무료)로 잠깐 구글 문서를 만들어 글을 읽고 바로 휴지통으로.
+ *  편집기 「서비스」에 Drive API(v3)를 추가해야 함 (appsscript.json dependencies) */
+function ocr_(o) {
+  var blob = Utilities.newBlob(Utilities.base64Decode(o.b64), o.mime, 'aca 명단 캡처');
+  var f = Drive.Files.create({ name: '성적노트 명단 캡처 (지워도 됨)', mimeType: 'application/vnd.google-apps.document' }, blob, { ocrLanguage: 'ko' });
+  try { return DocumentApp.openById(f.id).getBody().getText(); }
+  finally { try { DriveApp.getFileById(f.id).setTrashed(true); } catch (e) {} }
+}
 
 /* ---------- env 조립 ---------- */
 /** lock: 쓰기 요청이면 잡은 잠금. 사진을 드라이브에 저장하는 동안은 잠금을 잠깐 풀어 다른 학생 저장이 줄 서지 않게 함 */
@@ -1484,6 +1521,7 @@ function makeEnv_(lock) {
     logAccess: function (row) { if (accessLogOn_()) accessBuffer_(row); },
     readLog: function () { return readAccessLog_(); },
     readImage: function (id) { var b = DriveApp.getFileById(id).getBlob(); return { mime: b.getContentType() || 'image/jpeg', b64: Utilities.base64Encode(b.getBytes()) }; },
+    ocr: function (o) { return ocr_(o); },
     saveImage: function (o) {
       if (!lock) return saveImage_(o);
       lock.releaseLock();

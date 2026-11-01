@@ -1013,6 +1013,8 @@
     $('#view').innerHTML =
       '<div class="card"><h2>월초 명단 붙여넣기</h2><p class="meta">aca2000에서 복사한 이름과 반을 한 줄에 하나씩 붙여넣으세요. 이름과 반은 탭이나 쉼표로 나뉩니다. 반이 여러 개면 / 로 이어 쓰세요. 반은 이름·시간(예: 화목 20:20)으로 찾습니다.<br>' +
       '이름은 <b>원생명단</b>(퇴실퀴즈와 같이 쓰는 명단)에서 찾아 그 번호를 쓰고, 명단에 없는 이름만 새 번호를 만들어 원생명단에 추가합니다.</p>' +
+      '<p class="meta" style="margin-top:10px"><b>캡처로 넣기</b> — aca2000 「출석 체크」 화면(맨 위에 [11월]반 이름이 보이게)을 캡처해 올리면 이름과 반을 읽어 아래 칸에 채웁니다. 반마다 한 장씩, 여러 장 한꺼번에 올려도 됩니다. 사진에서 읽은 글이라 <b>이름 오타를 꼭 확인</b>한 뒤 반영하세요.</p>' +
+      '<input type="file" id="ocrIn" accept="image/*" multiple aria-label="출석 체크 캡처 올리기"><div id="ocrOut"></div>' +
       '<textarea id="paste" class="paste" aria-label="명단" placeholder="홍길동(동작)&#9;개념반 화목 20:20&#10;김하나(분당)&#9;단풀 토일13:00/실전문풀 D"></textarea>' +
       '<label class="check"><input type="checkbox" id="deact"> 이 명단에 없는 학생은 이번 달 반을 비우기 (번호와 지난 기록은 그대로)</label>' +
       '<button type="button" class="btn" id="issue">반영하기</button><div id="iOut"></div></div>' +
@@ -1041,6 +1043,38 @@
       all('#view [data-la]').forEach(function (td) { var c = td.getAttribute('data-la'); td.textContent = err ? '-' : acc.sum[c] ? accShort(acc.sum[c].last) : '없음'; });
     });
     all('#view [data-see]').forEach(function (b) { b.onclick = function () { oneCode = b.getAttribute('data-see'); tab = 'one'; renderNav(); render(); window.scrollTo(0, 0); }; });
+    $('#ocrIn').onchange = function () {
+      var inp = this, files = Array.prototype.slice.call(inp.files || []), out = $('#ocrOut'), lines = [], notes = [];
+      if (!files.length) return;
+      inp.disabled = true;
+      (function next(i) {
+        if (i >= files.length) {
+          inp.disabled = false; inp.value = '';
+          var ta = $('#paste'); if (lines.length) ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + lines.join('\n');
+          out.innerHTML = '<div class="' + (notes.some(function (n) { return n.bad; }) ? 'warnbox' : 'okbox') + '">' + notes.map(function (n) { return esc(n.t); }).join('<br>') + '</div>';
+          return;
+        }
+        out.innerHTML = '<p class="meta">캡처 읽는 중… (' + (i + 1) + '/' + files.length + ')</p>';
+        var fr = new FileReader();
+        fr.onload = function () {
+          var u = String(fr.result), k = u.indexOf(',');
+          req('ocrRoster', { image: { mime: files[i].type || 'image/png', b64: u.slice(k + 1) } }).then(function (r) {
+            var who = files.length > 1 ? (i + 1) + '번째 사진: ' : '';
+            if (!r.ok) notes.push({ bad: 1, t: who + r.error });
+            else {
+              var x = r.data;
+              if (!x.names.length) notes.push({ bad: 1, t: who + '이름을 찾지 못했어요.' });
+              else if (!x.cls) notes.push({ bad: 1, t: who + x.names.length + '명 — 반 이름 줄([11월]…)을 못 읽었어요. 칸에서 반을 적어 주세요.' });
+              else notes.push({ bad: !x.code, t: who + x.cls + ' → ' + (x.code ? clsName(x.code) : '반 목록에서 못 찾음') + ' · ' + x.names.length + '명' });
+              x.names.forEach(function (n) { lines.push(n + (x.cls ? '\t' + x.cls : '')); });
+            }
+            next(i + 1);
+          });
+        };
+        fr.onerror = function () { notes.push({ bad: 1, t: files[i].name + ': 파일을 읽지 못했어요.' }); next(i + 1); };
+        fr.readAsDataURL(files[i]);
+      })(0);
+    };
     $('#issue').onclick = function () {
       var b = this; b.disabled = true;
       req('importRoster', { text: $('#paste').value, deactivateMissing: $('#deact').checked }).then(function (r) {

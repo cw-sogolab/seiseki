@@ -44,7 +44,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '31083403af';
+  var VERSION = 'f4e57d5ac0';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '오답답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -894,6 +894,17 @@ var Logic = (function () {
       .map(function (x, k) { delete x.i; x.order = k + 1; return x; }));
   }
 
+  /** 월초 명단 캡처 읽기 (2026-11-01): aca2000 「출석 체크」 화면 캡처 한 장 → 서버가 글자 인식(env.ocr, 구글 드라이브 OCR) → 반·이름.
+   *  저장은 하지 않음 — 화면이 붙여넣기 칸에 채우고 선생님이 확인한 뒤 importRoster */
+  function ocrRoster(env, p) {
+    if (!env.ocr) return fail('미리보기에서는 캡처를 읽을 수 없어요.');
+    var img = p.image || {}, b64 = S(img.b64);
+    if (!b64) return fail('사진이 없어요.');
+    if (b64.length > 14000000) return fail('사진이 너무 커요 (10MB 이하로).');
+    var r = C.parseAcaOcr(env.ocr({ mime: S(img.mime) || 'image/png', b64: b64 }));
+    return ok({ cls: r.cls, code: r.cls ? C.matchClass(r.cls, classes(env)) : '', names: r.names });
+  }
+
   /** 월초 명단 붙여넣기: 원생명단에서 이름을 찾아 번호를 쓰고, 없는 이름만 새 번호로 원생명단에 추가. 반은 수강 탭에 */
   function importRoster(env, p) {
     var cls = classes(env), parsed = C.parseRoster(p.text, cls), all = students(env);
@@ -964,7 +975,7 @@ var Logic = (function () {
   var STUDENT = { login: login, hwPhoto: hwPhoto, hwFinish: hwFinish, practiceList: practiceList, practiceSubmit: practiceSubmit };
   var ADMIN = { bootstrap: bootstrap, saveResult: saveResult, saveRetry: saveRetry, deleteResult: deleteResult, addExam: addExam, updateExamKey: updateExamKey,
     deleteExam: deleteExam, addHomework: addHomework, deleteHomework: deleteHomework, setChecked: setChecked, proxyHw: proxyHw,
-    hwPhotos: hwPhotos, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs, accessLog: accessLog, photo: photo };
+    hwPhotos: hwPhotos, ocrRoster: ocrRoster, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs, accessLog: accessLog, photo: photo };
 
   function handle(env, action, p) {
     p = p || {};
