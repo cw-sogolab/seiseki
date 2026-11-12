@@ -552,3 +552,21 @@ body.preview{background-attachment:scroll}
 .kgrp .stats .st{padding:8px 9px}
 .kgrp.none{opacity:.85}
 .kgrp.none .empty{text-align:center;padding:26px 8px;margin:0}
+/* 실전 시험 문항 과목 고르기 (2026-11-12) — 과목색은 학생 화면 그래프와 같게 (정 #FC5230 · 경 #5A6FD6 · 현 #2E9ED8 · 지 #5F9467 · 역 #D99A00) */
+.sjcell{white-space:nowrap}
+.sjed{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.sjed .grp{margin-top:0}
+.sjbr{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.sjbr button{border:2px solid transparent;border-radius:999px;padding:7px 14px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;opacity:.55}
+.sjbr button[aria-checked="true"]{opacity:1;border-color:var(--ink);box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.sjbr .sjclear{background:var(--fill);color:var(--muted)}
+.sjgrid{display:flex;flex-wrap:wrap;gap:10px 14px}
+.sjg{display:flex;gap:4px}
+.sjit{width:40px;height:46px;border-radius:10px;border:1px solid var(--line);background:var(--fill);color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;padding:0;font-family:var(--f-body)}
+.sjit span{font-size:11px;line-height:1.1}
+.sjit b{font-size:15px;line-height:1.2}
+.sjit[class*="sj-"]{color:#fff;border-color:transparent}
+.sj-0{background:#FC5230}.sj-1{background:#5A6FD6}.sj-2{background:#2E9ED8}.sj-3{background:#5F9467}.sj-4{background:#D99A00}
+.sjed #sjTxt{letter-spacing:.08em}
+.sjact{margin-top:10px}
+@media (max-width:430px){.sjit{width:34px;height:42px}.sjgrid{gap:8px 10px}}
