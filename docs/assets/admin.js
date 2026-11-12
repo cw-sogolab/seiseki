@@ -1309,9 +1309,9 @@
     var withRes = {}; D.results.forEach(function (r) { withRes[r.exam] = (withRes[r.exam] || 0) + 1; });
     var exs = examsOfMonth().filter(function (e) { var c = cls(e.cls); return c && c.kind === itemKind && withRes[e.id]; });
     if (itemKind === '실전') {   // 실전반은 D·E 를 하나로: 같은 이름 시험은 한 번만 (분석도 D·E 합쳐서)
-      var seen = {}, cnt = {};
-      exs.forEach(function (e) { var k = String(e.label).replace(/\s+/g, ''); cnt[k] = (cnt[k] || 0) + withRes[e.id]; });
-      exs = exs.filter(function (e) { var k = String(e.label).replace(/\s+/g, ''); if (seen[k]) return false; seen[k] = 1; withRes[e.id] = cnt[k]; return true; });
+      var seen = {}, byLabel = {};   // 이름을 cnt 로 쓰면 아래 function cnt 를 덮어써서 실전반 화면이 멈췄음 (2026-11-12)
+      exs.forEach(function (e) { var k = String(e.label).replace(/\s+/g, ''); byLabel[k] = (byLabel[k] || 0) + withRes[e.id]; });
+      exs = exs.filter(function (e) { var k = String(e.label).replace(/\s+/g, ''); if (seen[k]) return false; seen[k] = 1; withRes[e.id] = byLabel[k]; return true; });
       if (!exs.some(function (e) { return e.id === itemExam; })) { var cur = examsOfMonth().filter(function (e) { return e.id === itemExam; })[0]; if (cur) { var same = exs.filter(function (e) { return String(e.label).replace(/\s+/g, '') === String(cur.label).replace(/\s+/g, ''); })[0]; if (same) itemExam = same.id; } }
     }
     if (!exs.some(function (e) { return e.id === itemExam; })) itemExam = exs.length ? exs.slice().sort(function (a, b) { return (b.date || b.created).localeCompare(a.date || a.created); })[0].id : '';
