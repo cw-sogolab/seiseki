@@ -476,6 +476,33 @@ t('문항과목으로 과목별 내 정답률·반 평균, 달별·종합, 취�
   assert.ok(v.all.n >= 3 && v.all.subs.length === 5, '종합에 10월·9월 모의고사도 (예시 문항과목)');
   assert.strictEqual(Logic.handle(e, 'login', { code: 'KM482919' }).data.subj, null, '실전반 기록이 없으면 null');
 });
+t('문항 과목 고르기(setExamSubjs): 같은 이름 시험지 줄을 고치고, 없으면 새로 만들고, 형식이 틀리면 거절', () => {
+  const e = Mock.seed(Mock.createEnv()), T = e._tables, key = '1234123412341234';
+  const tk = Logic.handle(e, 'adminLogin', { password: 'demo', dev: 's' }).data.token, R = (a, p) => Logic.handle(e, a, Object.assign({ token: tk }, p));
+  T['시험'].push({ '시험ID': 'MZ', '반코드': 'SJ-D', '월': '2026-11', '종류': '모의고사', '이름': 'EJU 2017(1)', '문항수': '16', '정답': key, '시험일': '2026-11-03', '등록일': '' });
+  const sj = '경경경경정정정정지지지지역역현현';
+  // 시험지 줄이 없으면 새로 만듦 (반종류는 시험의 반에서, 정답은 시험에서)
+  let r = R('setExamSubjs', { exam: 'MZ', subjs: sj }); assert.ok(r.ok, r.error);
+  let rows = T['시험지'].filter(x => x['이름'] === 'EJU 2017(1)');
+  assert.strictEqual(rows.length, 1); assert.deepStrictEqual([rows[0]['반종류'], rows[0]['문항과목'], rows[0]['정답'], rows[0]['출처']], ['실전', sj, key, '강사 화면']);
+  assert.ok(r.data.papers.some(p => p.label === 'EJU 2017(1)' && p.subjs === sj), '응답(bootstrap)에 바로 반영');
+  // 이름 표기가 달라도(EJU 2017-1) 같은 시험지 줄을 고침, 새 줄을 또 만들지 않음
+  T['시험'].push(Object.assign({}, T['시험'].find(x => x['시험ID'] === 'MZ'), { '시험ID': 'MZ2', '이름': 'EJU 2017-1', '월': '2026-12' }));
+  r = R('setExamSubjs', { exam: 'MZ2', subjs: '정'.repeat(16) }); assert.ok(r.ok, r.error);
+  rows = T['시험지'].filter(x => x['이름'] === 'EJU 2017(1)');
+  assert.strictEqual(rows.length, 1); assert.strictEqual(rows[0]['문항과목'], '정'.repeat(16));
+  // 과목별 정답률이 고친 분류를 씀
+  T['시험결과'].push({ '시험ID': 'MZ', '번호': 'BD774119', '답안': key, '맞은개수': '16', '틀린번호': '', '환산점수': '', '입력일': '' });
+  const nov = Logic.handle(e, 'login', { code: 'BD774119' }).data.subj.months.find(m => m.m === '2026-11');
+  assert.deepStrictEqual(nov.subs.map(o => o.s), ['정치']);
+  // 거절: 글자 수·글자 종류, 관리자 아님
+  assert.ok(!R('setExamSubjs', { exam: 'MZ', subjs: '정정' }).ok);
+  assert.ok(!R('setExamSubjs', { exam: 'MZ', subjs: '사'.repeat(16) }).ok);
+  assert.ok(!Logic.handle(e, 'setExamSubjs', { exam: 'MZ', subjs: sj }).ok);
+  // 빈 값이면 지움
+  assert.ok(R('setExamSubjs', { exam: 'MZ', subjs: '' }).ok); assert.strictEqual(rows[0]['문항과목'], '');
+  assert.ok(Logic.WRITES.includes('setExamSubjs'));
+});
 console.log('학생 화면 등수');
 t('시험마다 내 등수(같은 점수는 같은 등수)·인원, 다른 학생 점수는 안 보냄', () => {
   const e = Mock.seed(Mock.createEnv());

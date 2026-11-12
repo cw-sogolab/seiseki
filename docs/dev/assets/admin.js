@@ -564,6 +564,37 @@
     var c = cls(e.cls);
     return { kind: c.kind, sub: c.kind === '실전' ? '실전반 ' + realSuffix(c.code) : (subjOf(e.label) || '기타') };
   }
+  /* ---------- 실전 시험 문항 과목 고르기 (2026-11-12 사용자) ----------
+   * 과목 붓(정·경·현·지·역)을 고르고 문항 번호를 누르면 칠해짐(Shift 누르고 누르면 앞에 누른 문항부터 한꺼번에).
+   * 저장하면 서버 setExamSubjs → 「시험지」 탭 「문항과목」(같은 이름 시험지 줄, 없으면 새 줄). 같은 이름의 다른 달 시험에도 그대로 쓰임. */
+  var SJ = [['정', '정치'], ['경', '경제'], ['현', '현대사회'], ['지', '지리'], ['역', '역사']];
+  var sjOpen = '', sjDraft = [], sjBrush = '정', sjLast = -1;
+  function sjKey(l) { return String(l).replace(/\s+/g, '').replace(/\((\d)\)$/, '-$1'); }   // logic labelKey 와 같게 (EJU 2011(2) = EJU 2011-2)
+  function subjsOf(e) {
+    var hit = (D.papers || []).filter(function (p) { return sjKey(p.label) === sjKey(e.label) && p.total === e.total && p.subjs && p.subjs.length === e.total; })[0];
+    return hit ? hit.subjs : '';
+  }
+  function sjCount(s) {
+    return SJ.map(function (x) { var n = s.split(x[0]).length - 1; return n ? x[0] + ' ' + n : ''; }).filter(Boolean).join(' · ');
+  }
+  function sjEditor(e) {
+    if (sjDraft.length !== e.total) { var cur = subjsOf(e); sjDraft = []; for (var i = 0; i < e.total; i++) sjDraft.push(cur.charAt(i) || ''); }
+    var blank = sjDraft.filter(function (x) { return !x; }).length, h = '';
+    for (var g = 0; g < e.total; g += 5) {
+      h += '<div class="sjg">';
+      for (var j = g; j < Math.min(g + 5, e.total); j++) h += '<button type="button" class="sjit' + (sjDraft[j] ? ' sj-' + SJ.map(function (x) { return x[0]; }).indexOf(sjDraft[j]) : '') + '" data-sji="' + j + '" aria-label="' + (j + 1) + '번 ' + (sjDraft[j] || '비어 있음') + '"><span>' + (j + 1) + '</span><b>' + (sjDraft[j] || '·') + '</b></button>';
+      h += '</div>';
+    }
+    return '<div class="sjed" id="sjEd"><h3 class="grp">' + esc(e.label) + ' — 문항 과목</h3>' +
+      '<p class="meta">과목을 고르고 문항 번호를 누르세요. Shift를 누른 채 누르면 앞에 누른 문항부터 한꺼번에 칠해져요. 같은 이름 시험(다른 달·다른 반)에도 그대로 쓰여요.</p>' +
+      '<div class="sjbr" role="radiogroup" aria-label="칠할 과목">' + SJ.map(function (x, k) { return '<button type="button" role="radio" class="sj-' + k + '" data-sjb="' + x[0] + '" aria-checked="' + (sjBrush === x[0]) + '">' + x[1] + '</button>'; }).join('') +
+      '<button type="button" role="radio" class="sjclear" data-sjb="" aria-checked="' + (sjBrush === '') + '">지우개</button></div>' +
+      '<div class="sjgrid">' + h + '</div>' +
+      '<p class="meta" id="sjCnt">' + (sjCount(sjDraft.join('')) || '아직 고른 과목이 없어요') + (blank ? ' · <b>빈칸 ' + blank + '</b>' : '') + '</p>' +
+      '<label for="sjTxt">한 줄로 보기 <span class="opt">(정경현지역 글자를 붙여 넣어도 돼요)</span></label><input id="sjTxt" class="ans" type="text" autocomplete="off" value="' + esc(sjDraft.map(function (x) { return x || '·'; }).join('')) + '">' +
+      '<div class="sjact"><button type="button" class="btn sm" id="sjSave" data-exam="' + esc(e.id) + '">과목 저장</button> <button type="button" class="btn sub sm" id="sjClose">닫기</button></div>' +
+      '<p id="sjMsg" class="msg" role="status"></p></div>';
+  }
   function vExams() {
     var exs = examsOfMonth(), papers = D.papers || [];
     if (!KINDS.some(function (k) { return k[0] === examKind; })) examKind = entryKind || '개념';
@@ -618,13 +649,18 @@
       h += '<h3 class="grp">' + k[1] + '</h3>';
       if (k[0] === '실전') {
         var labels = []; ofKind.forEach(function (e) { if (labels.indexOf(e.label) < 0) labels.push(e.label); });
-        h += '<div class="tw"><table><thead><tr><th>시험</th><th>종류</th><th class="num">문항</th><th>입력</th><th>정답</th><th></th></tr></thead><tbody>' + labels.map(function (lb) {
+        h += '<div class="tw"><table><thead><tr><th>시험</th><th>종류</th><th class="num">문항</th><th>입력</th><th>문항 과목</th><th>정답</th><th></th></tr></thead><tbody>' + labels.map(function (lb) {
           var es = ofKind.filter(function (e) { return e.label === lb; }), ids = es.map(function (e) { return e.id; });
           var cnt = es.map(function (e) { return realSuffix(e.cls) + ' ' + D.results.filter(function (r) { return r.exam === e.id; }).length + '명'; }).join(' · ');
           var any = es.some(function (e) { return D.results.some(function (r) { return r.exam === e.id; }); });
-          return '<tr><td><b>' + esc(lb) + '</b></td><td>' + esc(es[0].kind) + '</td><td class="num">' + es[0].total + '</td><td>' + cnt + '</td>' + keyCell(ids, es[0]) +
+          var sj = subjsOf(es[0]);
+          return '<tr><td><b>' + esc(lb) + '</b></td><td>' + esc(es[0].kind) + '</td><td class="num">' + es[0].total + '</td><td>' + cnt + '</td>' +
+            '<td class="sjcell">' + (sj ? '<span class="meta">' + sjCount(sj) + '</span>' : '<span class="pill wait">아직 없음</span>') +
+            ' <button class="btn soft sm" type="button" data-sjed="' + esc(es[0].id) + '"' + (sjOpen === es[0].id ? ' aria-pressed="true"' : '') + '>' + (sj ? '고치기' : '고르기') + '</button></td>' + keyCell(ids, es[0]) +
             '<td>' + (any ? '' : '<button class="btn sm danger" type="button" data-del="' + esc(ids.join(',')) + '">삭제</button>') + '</td></tr>';
         }).join('') + '</tbody></table></div>';
+        var open = ofKind.filter(function (e) { return e.id === sjOpen; })[0];
+        if (open) h += sjEditor(open);
         return;
       }
       var cl = []; ofKind.forEach(function (e) { if (cl.indexOf(e.cls) < 0) cl.push(e.cls); });
@@ -640,6 +676,48 @@
     if (exs.length) h += '<p class="meta" style="margin-top:10px">정답을 고쳐 저장하면 이미 입력한 답안을 새 정답으로 다시 채점해요.</p>';
     h += '<p id="xMsg" class="msg" role="status"></p></div>';
     $('#view').innerHTML = h;
+
+    all('#view [data-sjed]').forEach(function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-sjed');
+        sjOpen = sjOpen === id ? '' : id; sjDraft = []; sjLast = -1; vExams();
+        var ed = $('#sjEd'); if (ed && ed.scrollIntoView) ed.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      };
+    });
+    var sjExam = exs.filter(function (e) { return e.id === sjOpen; })[0];
+    if (sjExam) bindSj(sjExam);
+    function bindSj(e) {
+      function redraw() { var ed = $('#sjEd'); if (!ed) return; ed.outerHTML = sjEditor(e); bindSj(e); }
+      all('#sjEd [data-sjb]').forEach(function (b) { b.onclick = function () { sjBrush = b.getAttribute('data-sjb'); redraw(); }; });
+      all('#sjEd [data-sji]').forEach(function (b) {
+        b.onclick = function (ev) {
+          var i = +b.getAttribute('data-sji'), a = i, z = i;
+          if (ev.shiftKey && sjLast >= 0) { a = Math.min(sjLast, i); z = Math.max(sjLast, i); }
+          for (var k = a; k <= z; k++) sjDraft[k] = sjBrush;
+          sjLast = i; redraw();
+          var nb = $('#sjEd [data-sji="' + i + '"]'); if (nb) nb.focus();
+        };
+      });
+      $('#sjTxt').onchange = function () {
+        var v = this.value.replace(/\s+/g, ''), bad = v.replace(/[정경현지역·.\-_]/g, '');
+        if (bad) return msg($('#sjMsg'), false, '정·경·현·지·역 글자만 쓸 수 있어요. (빈칸은 · )');
+        for (var k = 0; k < e.total; k++) { var ch = v.charAt(k); sjDraft[k] = '정경현지역'.indexOf(ch) >= 0 && ch ? ch : ''; }
+        redraw();
+        if (v.length !== e.total) msg($('#sjMsg'), false, '글자 수가 ' + v.length + '개예요. 문항은 ' + e.total + '개라 모자라거나 남는 건 빈칸·버림으로 했어요.');
+      };
+      $('#sjClose').onclick = function () { sjOpen = ''; sjDraft = []; vExams(); };
+      $('#sjSave').onclick = function () {
+        var s = sjDraft.join(''), blank = sjDraft.filter(function (x) { return !x; }).length;
+        if (blank && blank < e.total) return msg($('#sjMsg'), false, '빈칸이 ' + blank + '문항 남았어요. 모두 고른 뒤 저장해 주세요.');
+        var b = this; b.disabled = true; b.textContent = '저장하는 중…';
+        req('setExamSubjs', { exam: e.id, subjs: blank ? '' : s }).then(function (r) {
+          b.disabled = false; b.textContent = '과목 저장';
+          if (!r.ok) return msg($('#sjMsg'), false, r.error);
+          D = normSubj(r.data); sjDraft = []; vExams();
+          msg($('#sjMsg'), true, blank ? '과목 분류를 지웠어요.' : '저장했어요 — ' + sjCount(s) + '. 학생 화면 「과목별 정답률」에 바로 반영돼요.');
+        });
+      };
+    }
 
     all('#view [data-ek]').forEach(function (b) { b.onclick = function () { examKind = b.getAttribute('data-ek'); vExams(); }; });
     all('#view [data-xr]').forEach(function (b) { b.onclick = function () { examRound = b.getAttribute('data-xr'); vExams(); }; });

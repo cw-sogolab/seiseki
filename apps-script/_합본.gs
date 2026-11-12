@@ -312,7 +312,7 @@ var Logic = (function () {
     '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = 'f4e57d5ac0';
+  var VERSION = '30cdea792e';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
   var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '오답답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
@@ -1114,6 +1114,26 @@ var Logic = (function () {
     return bootstrap(env);
   }
 
+  /** 실전 시험 문항 과목 (2026-11-12 사용자 「문항 과목 고르기」): 시험 하나를 골라 문항마다 정·경·현·지·역 한 글자를 정함.
+   *  저장 자리는 「시험지」 탭 「문항과목」 — 이름(labelKey)·문항 수가 같은 시험지 줄을 모두 고치고, 없으면 시험에서 시험지 줄을 새로 만듦(출처 「강사 화면」).
+   *  같은 이름의 다른 달 시험에도 그대로 적용됨(과목별 정답률·문항 분석이 시험지를 이름으로 찾음). 빈 값이면 지움. */
+  function setExamSubjs(env, p) {
+    var e = exams(env).filter(function (x) { return x.id === S(p.exam); })[0];
+    if (!e) return fail('시험을 찾지 못했어요.');
+    var sj = S(p.subjs).replace(/\s+/g, '');
+    if (/[^정경현지역]/.test(sj)) return fail('과목은 정·경·현·지·역 한 글자씩만 적어요.');
+    if (sj && sj.length !== e.total) return fail('과목 수가 문항 수와 달라요. (' + sj.length + '/' + e.total + ')');
+    var lk = labelKey(e.label), hit = papers(env).filter(function (x) { return labelKey(x.label) === lk && x.total === e.total; });
+    if (hit.length) {
+      hit.forEach(function (x) { env.store.update('시험지', function (r) { return S(r['시험지ID']) === x.id; }, { '문항과목': sj }); });
+    } else if (sj) {
+      var kind = ''; classes(env).forEach(function (c) { if (c.code === e.cls) kind = c.kind; });
+      env.store.append('시험지', { '시험지ID': newId(env, 'P'), '반종류': kind, '과목': '', '종류': e.kind, '회차': '', '이름': e.label,
+        '문항수': e.total, '정답': e.key, '출처': '강사 화면', '문항과목': sj });
+    }
+    return bootstrap(env);
+  }
+
   function deleteExam(env, p) {
     var id = S(p.exam);
     if (results(env).some(function (r) { return r.exam === id; })) return fail('입력된 결과가 있는 시험은 지울 수 없어요.');
@@ -1241,7 +1261,7 @@ var Logic = (function () {
   }
 
   var STUDENT = { login: login, hwPhoto: hwPhoto, hwFinish: hwFinish, practiceList: practiceList, practiceSubmit: practiceSubmit };
-  var ADMIN = { bootstrap: bootstrap, saveResult: saveResult, saveRetry: saveRetry, deleteResult: deleteResult, addExam: addExam, updateExamKey: updateExamKey,
+  var ADMIN = { bootstrap: bootstrap, saveResult: saveResult, saveRetry: saveRetry, deleteResult: deleteResult, addExam: addExam, updateExamKey: updateExamKey, setExamSubjs: setExamSubjs,
     deleteExam: deleteExam, addHomework: addHomework, deleteHomework: deleteHomework, setChecked: setChecked, proxyHw: proxyHw,
     hwPhotos: hwPhotos, ocrRoster: ocrRoster, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs, accessLog: accessLog, photo: photo };
 
@@ -1272,7 +1292,7 @@ var Logic = (function () {
   }
 
   /** 쓰기 요청인지 (서버에서 잠금 걸 때 사용) */
-  var WRITES = ['hwPhoto', 'hwFinish', 'practiceSubmit', 'saveResult', 'saveRetry', 'deleteResult', 'addExam', 'updateExamKey', 'deleteExam', 'addHomework',
+  var WRITES = ['hwPhoto', 'hwFinish', 'practiceSubmit', 'saveResult', 'saveRetry', 'deleteResult', 'addExam', 'updateExamKey', 'setExamSubjs', 'deleteExam', 'addHomework',
     'deleteHomework', 'setChecked', 'proxyHw', 'importRoster', 'setClasses', 'saveEval', 'setHwDue'];
 
   return { TABLES: TABLES, ACCESS_HEAD: ACCESS_HEAD, TEXT_COLS: TEXT_COLS, WRITES: WRITES, VERSION: VERSION, handle: handle, cleanupPhotos: cleanupPhotos, itemStats: itemStats };
