@@ -798,5 +798,14 @@
     // 지난번 화면을 바로 보여 주고(기다리지 않게), 뒤에서 새로 불러와 바꿈
     if (keep && keep.v && keep.v.code === saved) { code = saved; show(keep.v); login(saved, true); }
     else login(saved);
-  } else Api.warm();   // 번호를 치는 동안 서버를 미리 깨워 둠
+  } else {
+    // 스토어 사이트에서 넘어온 번호(#sid=번호): 주소 조각은 서버로 가지 않음. 바로 지우고 조회 (기억하기는 켜지 않음)
+    var hm = /[#&]sid=([A-Za-z0-9 -]{6,12})/.exec(location.hash);
+    if (hm) {
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+      var hc = Core.normCode(hm[1]);
+      if (Core.isValidCode(hc)) { $('#sid').value = Core.fmtCode(hc); login(hc); return; }
+    }
+    Api.warm();   // 번호를 치는 동안 서버를 미리 깨워 둠
+  }
 })();
