@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HubGradesAdmin 테스트</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800;900&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="../grades-native/gr.css">
+<link rel="stylesheet" href="ga.css">
+<style>
+/* 허브 틀 흉내: 바탕색만 가진 빈 페이지. ?clash 로 열면 일부러 전역 규칙을 심어 .ga 가 흔들리는지 확인 */
+html,body{margin:0}
+body{background:#F5F3FF;font-family:sans-serif}
+@media (prefers-color-scheme: dark){body{background:#14122B;color:#fff}}
+.bar{padding:10px 16px;font:600 13px sans-serif;background:#ff6a3d;color:#fff}
+.bar a{color:#fff;margin-left:10px}
+.login{max-width:360px;margin:60px auto;padding:24px;background:#fff;border-radius:20px;font:15px sans-serif}
+.login input{width:100%;padding:10px;margin:8px 0;box-sizing:border-box}
+body.clash button{background:red;border-radius:0}
+.clash .card{padding:0;background:yellow}
+body.clash h2{font-size:40px}
+body.clash table{border:3px solid red}
+body.clash *{font-family:serif}
+</style>
+</head>
+<body>
+<div class="bar">HubGradesAdmin 테스트 · <a href="?demo">?demo (가상 데이터, 비밀번호 demo)</a> <a href="?demo&clash">충돌 테스트</a> <a href="?demo&unmount">mount→unmount→mount</a> <a href="?api=서버주소">서울 서버 (?api=주소)</a></div>
+<div id="login" class="login" hidden>
+  <b>관리자 비밀번호</b>
+  <input id="pw" type="password" autocomplete="off">
+  <button id="go" type="button">들어가기</button>
+  <p id="lmsg" style="color:#c00;min-height:1.2em"></p>
+</div>
+<div id="root"></div>
+<script>
+var Q = new URLSearchParams(location.search), DEMO = Q.has('demo');
+if (Q.has('clash')) document.body.classList.add('clash');
+['../../assets/config.js'].concat(DEMO ? ['../assets/core.js', '../assets/logic.js', '../assets/mock.js'] : []).forEach(function (s) { document.write('<script src="' + s + '"><\/script>'); });
+</script>
+<script src="../hub-session.js"></script>
+<script src="ga.js"></script>
+<script>
+/* 데모: 서버 없이 mock.js(메모리). 허브의 HubSession 대신 같은 모양(adminCall)의 가짜 세션을 씀.
+ * SeisekiMock 을 지금 잡아 둠 — 학생별 미리보기가 window.SeisekiMock 을 잠깐 바꿔 끼우므로 늦게 읽으면 안 됨 */
+var cfg = (window.SEISEKI_CONFIG || {}).API_URL || {};
+var api = DEMO ? '' : (Q.get('api') || cfg.dev || '');
+var session;
+if (DEMO) {
+  var Mock = window.SeisekiMock, tok = '';
+  session = {
+    adminLogin: function (pw) { return Mock.api('adminLogin', { password: pw }).then(function (r) { if (r.ok) tok = r.data.token; return r; }); },
+    adminCall: function (a, p) { return Mock.api(a, Object.assign({ dev: 'demo' }, p || {}, { token: tok })).then(function (r) { if (!r.ok && r.needLogin) tok = ''; return r; }); }
+  };
+} else {
+  HubSession.init({ code: '', name: '', env: 'dev', apiUrl: api });
+  session = HubSession;
+}
+var boot = null;
+function go() {
+  HubGradesAdmin.mount(document.getElementById('root'), {
+    session: session, apiUrl: api, env: 'dev', demo: DEMO, boot: boot,
+    onPending: function (n) { console.log('pending', n); },
+    onAuthError: function (m) { console.warn('auth error:', m); document.getElementById('login').hidden = false; HubGradesAdmin.unmount(); }
+  });
+}
+function login(pw) {
+  return session.adminLogin(pw).then(function (r) {
+    var msg = document.getElementById('lmsg');
+    if (!r.ok) { msg.textContent = r.error || '로그인 실패'; return; }
+    document.getElementById('login').hidden = true; boot = (r.data && r.data.boot) || null; go();
+  });
+}
+document.getElementById('go').onclick = function () { login(document.getElementById('pw').value.trim()); };
+document.getElementById('pw').onkeydown = function (e) { if (e.key === 'Enter') document.getElementById('go').click(); };
+if (DEMO) login('demo'); else document.getElementById('login').hidden = false;
+if (Q.has('unmount')) setTimeout(function () { HubGradesAdmin.unmount(); document.getElementById('root').innerHTML = '<p style="padding:20px">unmount 됨 — 1초 뒤 다시 mount</p>'; setTimeout(go, 1000); }, 3000);
+</script>
+</body>
+</html>

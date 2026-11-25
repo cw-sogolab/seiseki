@@ -8,7 +8,8 @@
  *   cache: { get(k), put(k,v,sec), remove(k) },
  *   props: { get(k) },
  *   now(): Date, uuid(): string, rand32(): int,
- *   saveImage({ folders:[...], name, mime, b64 }) -> fileId
+ *   saveImage({ folders:[...], name, mime, b64 }) -> fileId,
+ *   readImage(fileId) -> {mime,b64},  trashImage(fileId) (선택: QnA 질문을 지울 때 사진 파일도 지움)
  * }
  */
 var Logic = (function () {
@@ -41,12 +42,15 @@ var Logic = (function () {
     // 계획서: 지난 월간 강의계획서의 일정 줄 (월초 강의계획서 내려받기가 내용·교재 범위를 이어서 씀). 반 = 실전 D·E
     '계획서': ['월', '반종류', '과목', '반', '회차', '날짜', '내용', '범위', '과제'],
     // 계획서머리: 계획서 위쪽 칸 (반 종류·과목마다 가장 최근 것을 씀)
-    '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법']
+    '계획서머리': ['월', '반종류', '과목', '반', '부제', '강의명', '강의목표', '담당강사', '연락처', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법'],
+    // 질문: 학생 QnA (2026-11-24). 공개 = Y/N (학생이 질문마다 고름), 상태 = 대기/답변, 사진·답변사진 = 파일ID 를 쉼표로 이은 문자열.
+    //   시험 ID 처럼 「질문ID」 로 찾음. 서버 마이그레이션은 supabase/migrations/002_qna.sql (001 과 따로)
+    '질문': ['질문ID', '번호', '과목', '제목', '내용', '공개', '작성일', '상태', '답변', '답변일', '사진', '답변사진']
   };
   /** 서버·화면 코드 버전 — tools/sync-gas.sh 가 core.js·logic.js·Code.gs 내용으로 자동으로 바꿈. 화면이 서버 응답의 ver 와 비교해 다르면 경고 */
-  var VERSION = '30cdea792e';
+  var VERSION = '0080aa0973';
   /** 숫자로 바뀌면 안 되는 열(앞자리 0, 긴 숫자열) — Code.gs 가 텍스트 서식으로 고정 */
-  var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '오답답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감'];
+  var TEXT_COLS = ['시험지ID', '일련번호', '번호', '정답', '답안', '오답답안', '틀린번호', '반코드', '시험ID', '숙제ID', '파일ID', '월', '시험일', '개강', '종강', '휴강', '마감', '질문ID', '작성일', '답변일', '사진', '답변사진'];
   var STU_TTL = 6 * 3600;            // 학생 로그인 열쇠 유효 시간
   var PHOTO_MAX_B64 = 4 * 1024 * 1024; // 사진 한 장 3MB (base64 로는 약 4MB)
   var PHOTO_MAX_PER_HW = 24;         // 숙제 하나에 한 학생 사진 최대 (화면은 한 번에 12장)
@@ -992,10 +996,222 @@ var Logic = (function () {
     return ok(env.readImage(id));
   }
 
-  var STUDENT = { login: login, hwPhoto: hwPhoto, hwFinish: hwFinish, practiceList: practiceList, practiceSubmit: practiceSubmit };
+  /* ---------- 커리큘럼 (2026-11-24): 학생이 지금 듣는 반마다 월별 수업계획서 ----------
+   * 자료는 강사 화면 「강의계획서」와 같은 「계획서」·「계획서머리」·「달력」 표. 반코드 ↔ 계획서 줄 연결도 같은 규칙(docs/assets/plan.js):
+   *   실전 = 반종류 「실전」 + 반 「D/E」(반코드 끝 글자), 개념·단풀 = 반종류 + 과목 (과목은 그 달 그 반의 시험·숙제 이름에서 — 강사 화면 subjIn 과 같음).
+   *   그 달 그 반의 과목을 모르면 그 달 그 반종류 계획서의 과목이 하나뿐일 때만 그 과목으로 봄.
+   * 학생에게 안 보내는 것: 머리말의 「연락처」(강사 연락처/톡ID) — 월·반종류·과목·반은 식별용이라 따로 안 보냄(month·subj 로 줌). */
+  var CUR_HEAD = ['강의명', '부제', '강의목표', '담당강사', '강의기간', '강의시간', '강의실', '교재', '질문시간', '질문방법', '평가방법'];
+  var SUBJ_LIST = ['경제', '정치', '지리', '현사', '현대사회', '세계사', '역사', '일본사'];
+  function subjNorm(x) { x = S(x).trim(); return x === '현대사회' ? '현사' : x === '세계사' ? '역사' : x; }
+  function subjShow(x) { x = subjNorm(x); return x === '현사' ? '현대사회' : x; }
+  function subjInClass(env, code, month) {
+    var hit = '';
+    exams(env).concat(homework(env)).some(function (x) {
+      if (x.cls !== code || x.month !== month) return false;
+      var w = S(x.label).split(' ')[0]; if (SUBJ_LIST.indexOf(w) < 0) return false;
+      hit = subjNorm(w); return true;
+    });
+    return hit;
+  }
+  function curriculumOf(env, c, bank, cal) {
+    var months = {}, ban = c.code.split('-').pop();
+    bank.rows.concat(bank.heads).forEach(function (r) { if (r['반종류'] === c.kind) months[r['월']] = 1; });
+    var out = [];
+    Object.keys(months).sort().reverse().forEach(function (m) {
+      var subj = '', pick;
+      if (c.kind === '실전') pick = function (r) { return r['반'] === ban; };
+      else {
+        subj = subjInClass(env, c.code, m);
+        if (!subj) {
+          var seen = {}; bank.rows.concat(bank.heads).forEach(function (r) { if (r['월'] === m && r['반종류'] === c.kind) seen[subjNorm(r['과목'])] = 1; });
+          var ks = Object.keys(seen); if (ks.length === 1) subj = ks[0];
+        }
+        if (!subj) return;
+        pick = function (r) { return subjNorm(r['과목']) === subj; };
+      }
+      var inM = function (r) { return r['월'] === m && r['반종류'] === c.kind && pick(r); };
+      var rows = bank.rows.filter(inM).sort(function (a, b) { return num(a['회차']) - num(b['회차']); });
+      var hr = bank.heads.filter(inM)[0] || null;
+      if (!rows.length && !hr) return;
+      var head = null;
+      if (hr) { head = {}; CUR_HEAD.forEach(function (k) { head[k] = hr[k]; }); }
+      out.push({ month: m, subj: subjShow(subj), head: head,
+        rows: rows.map(function (r) { return { round: r['회차'], date: r['날짜'], content: r['내용'], range: r['범위'], homework: r['과제'] }; }),
+        cal: cal[m] ? { start: cal[m].start, end: cal[m].end, off: cal[m].off.slice() } : null });
+    });
+    return out;
+  }
+  /** 학생: 내가 지금 듣는 반(수강 + 반 활성)의 월별 수업계획서. 최근 달이 먼저 */
+  function curriculum(env, p) {
+    var stu = studentFor(env, p), bank = planBank(env), cal = calendar(env), out = [];
+    stu.classes.forEach(function (code) {
+      var c = classes(env).filter(function (x) { return x.code === code; })[0];
+      if (!c || !c.active) return;
+      out.push({ code: c.code, name: c.name, kind: c.kind, time: c.time, months: curriculumOf(env, c, bank, cal) });
+    });
+    return ok({ classes: out });
+  }
+
+  /* ---------- QnA (2026-11-24): 학생이 질문(공개/비공개는 질문마다) → 선생님이 답변 ----------
+   * 답변이 달린 공개 질문은 모든 학생이 봄(작성자는 「배○성」식으로 가림, 번호·이름은 안 보냄).
+   * 사진: 질문·답변 각각 최대 3장. 파일 이름에 학생 번호를 넣지 않음(공개 질문 사진의 파일ID 가 다른 학생에게 가므로). 학생은 qnaPhoto 로만 읽음. */
+  var QNA_SUBJECTS = ['정치', '경제', '현대사회', '지리', '역사', '기타'];
+  var QNA_TITLE_MAX = 80, QNA_BODY_MAX = 2000, QNA_ANSWER_MAX = 3000, QNA_PHOTOS = 3, QNA_RATE = 5, QNA_RATE_SEC = 60, QNA_PUB_MAX = 300;
+  function qnaRows(env) {
+    var rows; try { rows = env.store.all('질문'); } catch (e) { return []; }
+    return rows.filter(function (r) { return S(r['질문ID']); });
+  }
+  function ids(v) { return S(v).split(',').map(function (x) { return x.trim(); }).filter(Boolean); }
+  function maskName(n) {
+    var a = Array.from(C.baseName(n)), L = a.length;
+    if (L <= 1) return '○';
+    if (L === 2) return a[0] + '○';
+    var mid = ''; for (var i = 0; i < L - 2; i++) mid += '○';
+    return a[0] + mid + a[L - 1];
+  }
+  function qOf(r, code, who) {
+    var mine = S(r['번호']) === code;
+    return { id: S(r['질문ID']), subject: S(r['과목']) || '기타', title: S(r['제목']), body: S(r['내용']), public: S(r['공개']) === 'Y', at: S(r['작성일']),
+      status: S(r['상태']) === '답변' ? '답변' : '대기', answer: S(r['답변']), answerAt: S(r['답변일']), photos: ids(r['사진']), answerPhotos: ids(r['답변사진']),
+      mine: mine, who: mine ? '나' : who };
+  }
+  function qBool(v) { return v === true || v === 1 || /^(y|yes|true|1)$/i.test(S(v).trim()); }
+  /** [{b64}] → 검사만 (저장 전). 문제 있으면 오류 문장, 없으면 '' */
+  function qPhotoCheck(list, max) {
+    if (list === undefined || list === null || list === '') return '';
+    if (!Array.isArray(list)) return '사진 목록이 이상해요.';
+    if (list.length > max) return '사진은 ' + max + '장까지 올릴 수 있어요.';
+    for (var i = 0; i < list.length; i++) {
+      var b64 = S(list[i] && typeof list[i] === 'object' ? list[i].b64 : list[i]);
+      if (!b64) return '사진이 비어 있어요.';
+      if (b64.length > PHOTO_MAX_B64) return '사진이 너무 커요 (한 장 3MB까지). 다시 찍어 주세요.';
+      if (b64.slice(0, 4) !== '/9j/') return '사진 파일(JPEG)만 올릴 수 있어요.';
+    }
+    return '';
+  }
+  function qPhotoSave(env, qid, kind, list) {   // kind: 'q' 질문 사진 · 'a' 답변 사진
+    return (list || []).map(function (x, i) {
+      var b64 = S(typeof x === 'object' ? x.b64 : x);
+      return env.saveImage({ folders: ['질문', C.monthOf(env.now())], name: 'QNA_' + qid + '_' + kind + env.rand32().toString(36) + '_' + ('0' + (i + 1)).slice(-2) + '.jpg', mime: 'image/jpeg', b64: b64 });
+    });
+  }
+  function qPhotoTrash(env, fileIds) { if (env.trashImage) fileIds.forEach(function (id) { try { env.trashImage(id); } catch (e) { /* 파일이 이미 없으면 그냥 둠 */ } }); }
+
+  function qnaList(env, p) {
+    var stu = studentFor(env, p), rows = qnaRows(env), names = {};
+    // 같은 시각이면 나중에 올린 것이 먼저 (줄 순서로 — 정렬은 안정 정렬)
+    var mine = rows.slice().reverse().filter(function (r) { return S(r['번호']) === stu.code; }).map(function (r) { return qOf(r, stu.code, '나'); })
+      .sort(function (a, b) { return b.at.localeCompare(a.at); });
+    students(env).forEach(function (s) { names[s.code] = s.name; });
+    var pub = rows.slice().reverse().filter(function (r) { return S(r['번호']) !== stu.code && S(r['공개']) === 'Y' && S(r['상태']) === '답변'; })
+      .map(function (r) { return qOf(r, stu.code, maskName(names[S(r['번호'])] || '')); })
+      .sort(function (a, b) { return b.answerAt.localeCompare(a.answerAt); }).slice(0, QNA_PUB_MAX);
+    return ok({ mine: mine, pub: pub });
+  }
+
+  function qnaAsk(env, p) {
+    var stu = studentFor(env, p);
+    var subject = S(p.subject).trim(), title = S(p.title).trim(), body = S(p.body).trim();
+    if (QNA_SUBJECTS.indexOf(subject) < 0) return fail('과목을 골라 주세요.');
+    if (!title) return fail('제목을 적어 주세요.');
+    if (!body) return fail('질문 내용을 적어 주세요.');
+    if (title.length > QNA_TITLE_MAX) return fail('제목은 ' + QNA_TITLE_MAX + '자까지 쓸 수 있어요.');
+    if (body.length > QNA_BODY_MAX) return fail('내용은 ' + QNA_BODY_MAX + '자까지 쓸 수 있어요. (지금 ' + body.length + '자)');
+    var bad = qPhotoCheck(p.photos, QNA_PHOTOS); if (bad) return fail(bad);
+    var rk = 'qna:rate:' + stu.code, n = num(env.cache.get(rk));
+    if (n >= QNA_RATE) return fail('질문을 너무 빨리 올리고 있어요. 1분 뒤에 다시 해 주세요.');
+    env.cache.put(rk, String(n + 1), QNA_RATE_SEC);
+    var id = newId(env, 'Q'), files = qPhotoSave(env, id, 'q', p.photos);
+    env.store.append('질문', { '질문ID': id, '번호': stu.code, '과목': subject, '제목': title, '내용': body, '공개': qBool(p.public) ? 'Y' : 'N', '작성일': stamp(env),
+      '상태': '대기', '답변': '', '답변일': '', '사진': files.join(','), '답변사진': '' });
+    return ok({ id: id });
+  }
+
+  /** 사진 파일ID 가 든 질문 줄 찾기 (질문 사진 또는 답변 사진) */
+  function qnaRowOfPhoto(env, fileId) {
+    return qnaRows(env).filter(function (r) { return ids(r['사진']).indexOf(fileId) >= 0 || ids(r['답변사진']).indexOf(fileId) >= 0; })[0] || null;
+  }
+  function qnaReadImage(env, fileId) {
+    var im = env.readImage ? env.readImage(fileId) : null;
+    if (!im || !im.b64) return fail('사진을 찾지 못했어요.');
+    return ok({ mime: im.mime || 'image/jpeg', b64: im.b64 });
+  }
+  function qnaPhoto(env, p) {
+    var stu = studentFor(env, p), id = S(p.id), r = id ? qnaRowOfPhoto(env, id) : null;
+    // 내 질문의 사진(답변 사진 포함)이거나, 공개 + 답변된 질문의 사진만
+    if (!r || !(S(r['번호']) === stu.code || (S(r['공개']) === 'Y' && S(r['상태']) === '답변'))) return fail('사진을 찾지 못했어요.');
+    return qnaReadImage(env, id);
+  }
+  function qnaDelete(env, p) {
+    var stu = studentFor(env, p), id = S(p.id);
+    var r = qnaRows(env).filter(function (x) { return S(x['질문ID']) === id && S(x['번호']) === stu.code; })[0];
+    if (!r) return fail('질문을 찾지 못했어요.');
+    if (S(r['상태']) === '답변') return fail('답변이 달린 질문은 지울 수 없어요.');
+    env.store.remove('질문', function (x) { return S(x['질문ID']) === id; });
+    qPhotoTrash(env, ids(r['사진']).concat(ids(r['답변사진'])));
+    return ok({ removed: id });
+  }
+
+  /** 강사: 모든 질문 (대기 먼저 · 오래된 순, 답변은 최근 답변 먼저). 번호·실제 이름·지금 듣는 반 이름 포함. status = '대기' | '답변' 로 거름 */
+  function qnaAdminOf(env, r, stuBy, clsBy) {
+    var code = S(r['번호']), s = stuBy[code], o = qOf(r, '', '');
+    o.mine = false; o.who = s ? s.name : '';
+    o.code = code; o.name = s ? s.name : ''; o.classes = s ? s.classes.map(function (c) { return clsBy[c] ? clsBy[c].name : c; }) : [];
+    return o;
+  }
+  function qnaAdminMaps(env) {
+    var stuBy = {}, clsBy = {};
+    students(env).forEach(function (s) { stuBy[s.code] = s; }); classes(env).forEach(function (c) { clsBy[c.code] = c; });
+    return { stuBy: stuBy, clsBy: clsBy };
+  }
+  function qnaAdminList(env, p) {
+    var want = S(p.status).trim(), m = qnaAdminMaps(env);
+    var list = qnaRows(env).map(function (r) { return qnaAdminOf(env, r, m.stuBy, m.clsBy); }).filter(function (q) { return !want || q.status === want; });
+    list.sort(function (a, b) {   // 같은 시각이면 줄 순서 그대로(안정 정렬): 대기는 먼저 올린 것부터
+      if (a.status !== b.status) return a.status === '대기' ? -1 : 1;
+      return a.status === '대기' ? a.at.localeCompare(b.at) : b.answerAt.localeCompare(a.answerAt);
+    });
+    return ok(list);
+  }
+  /** 답변 저장 (다시 부르면 수정). photos = 새로 올릴 사진, removePhotos = 지울 기존 답변 사진 파일ID, public 을 생략하면 학생이 고른 값 그대로 */
+  function qnaAnswer(env, p) {
+    var id = S(p.id), r = qnaRows(env).filter(function (x) { return S(x['질문ID']) === id; })[0];
+    if (!r) return fail('질문을 찾지 못했어요.');
+    var answer = S(p.answer).trim();
+    if (!answer) return fail('답변을 적어 주세요.');
+    if (answer.length > QNA_ANSWER_MAX) return fail('답변은 ' + QNA_ANSWER_MAX + '자까지 쓸 수 있어요.');
+    var old = ids(r['답변사진']), drop = (Array.isArray(p.removePhotos) ? p.removePhotos : []).map(S).filter(function (x) { return old.indexOf(x) >= 0; });
+    var keep = old.filter(function (x) { return drop.indexOf(x) < 0; });
+    var bad = qPhotoCheck(p.photos, QNA_PHOTOS); if (bad) return fail(bad);
+    if (keep.length + (Array.isArray(p.photos) ? p.photos.length : 0) > QNA_PHOTOS) return fail('답변 사진은 ' + QNA_PHOTOS + '장까지 올릴 수 있어요.');
+    var added = qPhotoSave(env, id, 'a', p.photos);
+    var patch = { '답변': answer, '답변일': stamp(env), '상태': '답변', '답변사진': keep.concat(added).join(',') };
+    if (p.public !== undefined && p.public !== null) patch['공개'] = qBool(p.public) ? 'Y' : 'N';
+    env.store.update('질문', function (x) { return S(x['질문ID']) === id; }, patch);
+    qPhotoTrash(env, drop);
+    var m = qnaAdminMaps(env), now = qnaRows(env).filter(function (x) { return S(x['질문ID']) === id; })[0];
+    return ok(qnaAdminOf(env, now, m.stuBy, m.clsBy));
+  }
+  function qnaAdminDelete(env, p) {
+    var id = S(p.id), r = qnaRows(env).filter(function (x) { return S(x['질문ID']) === id; })[0];
+    if (!r) return fail('질문을 찾지 못했어요.');
+    env.store.remove('질문', function (x) { return S(x['질문ID']) === id; });
+    qPhotoTrash(env, ids(r['사진']).concat(ids(r['답변사진'])));
+    return ok({ removed: id });
+  }
+  function qnaAdminPhoto(env, p) {
+    var id = S(p.id);
+    if (!id || !qnaRowOfPhoto(env, id)) return fail('사진을 찾지 못했어요.');
+    return qnaReadImage(env, id);
+  }
+
+  var STUDENT = { login: login, hwPhoto: hwPhoto, hwFinish: hwFinish, practiceList: practiceList, practiceSubmit: practiceSubmit,
+    curriculum: curriculum, qnaList: qnaList, qnaAsk: qnaAsk, qnaPhoto: qnaPhoto, qnaDelete: qnaDelete };
   var ADMIN = { bootstrap: bootstrap, saveResult: saveResult, saveRetry: saveRetry, deleteResult: deleteResult, addExam: addExam, updateExamKey: updateExamKey, setExamSubjs: setExamSubjs,
     deleteExam: deleteExam, addHomework: addHomework, deleteHomework: deleteHomework, setChecked: setChecked, proxyHw: proxyHw,
-    hwPhotos: hwPhotos, ocrRoster: ocrRoster, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs, accessLog: accessLog, photo: photo };
+    hwPhotos: hwPhotos, ocrRoster: ocrRoster, importRoster: importRoster, setClasses: setClasses, saveEval: saveEval, setHwDue: setHwDue, studentAs: studentAs, accessLog: accessLog, photo: photo,
+    qnaAdminList: qnaAdminList, qnaAnswer: qnaAnswer, qnaAdminDelete: qnaAdminDelete, qnaAdminPhoto: qnaAdminPhoto };
 
   function handle(env, action, p) {
     p = p || {};
@@ -1025,7 +1241,7 @@ var Logic = (function () {
 
   /** 쓰기 요청인지 (서버에서 잠금 걸 때 사용) */
   var WRITES = ['hwPhoto', 'hwFinish', 'practiceSubmit', 'saveResult', 'saveRetry', 'deleteResult', 'addExam', 'updateExamKey', 'setExamSubjs', 'deleteExam', 'addHomework',
-    'deleteHomework', 'setChecked', 'proxyHw', 'importRoster', 'setClasses', 'saveEval', 'setHwDue'];
+    'deleteHomework', 'setChecked', 'proxyHw', 'importRoster', 'setClasses', 'saveEval', 'setHwDue', 'qnaAsk', 'qnaDelete', 'qnaAnswer', 'qnaAdminDelete'];
 
   return { TABLES: TABLES, ACCESS_HEAD: ACCESS_HEAD, TEXT_COLS: TEXT_COLS, WRITES: WRITES, VERSION: VERSION, handle: handle, cleanupPhotos: cleanupPhotos, itemStats: itemStats };
 })();

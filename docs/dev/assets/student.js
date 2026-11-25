@@ -780,6 +780,8 @@
   $('#sid').addEventListener('keydown', function (e) { if (e.key === 'Enter') login($('#sid').value); });
   $('#out').onclick = function () { UI.store.del('seiseki.code'); UI.store.del('seiseki.view'); view = null; code = ''; tok = ''; kindSel = ''; subjSel = ''; $('#app').hidden = true; $('#acts').hidden = true; $('#login').hidden = false; $('#sid').value = ''; };
   $('#refresh').onclick = function () { if (code) login(code, true); };
+  // 한 사이트 안의 퀴즈로 넘어가며 번호를 주소 조각(#sid=)으로 따라 보냄 — 서버로 가지 않고, 받는 쪽이 읽자마자 지움
+  $('#toQuiz').onclick = function () { this.href = 'quiz/' + (code ? '#sid=' + code : ''); };
 
   if (AS) {   // 강사 미리보기: 숙제 제출·나가기 없이 보기만
     document.body.classList.add('preview');

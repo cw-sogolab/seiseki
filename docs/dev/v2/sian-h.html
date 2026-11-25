@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>시안 H · 파란 하늘 · 3D 간판 타워</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Jua&family=Yellowtail&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --sky1:#1E9BE8; --sky2:#0F7FD6; --lime:#B8E36B; --yel:#F6E04F; --pink:#F7A8B8; --org:#F47B3C; --cream:#EFEBD8;
+  --green:#1E4D2B; --navy:#12305E; --sub:#3E557C; --paper:#FBFAF3;
+  --f-script:"Yellowtail","Pacifico",cursive;
+  --f-ko:"Jua","Pretendard Variable",Pretendard,sans-serif;
+  --f-band:"Archivo Black","Pretendard Variable",Pretendard,sans-serif;
+  --f-body:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Hiragino Sans","Noto Sans JP",sans-serif;
+  --f-jp:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic","Pretendard Variable",Pretendard,sans-serif;
+  --edge:linear-gradient(90deg,rgba(9,40,80,.27),rgba(9,40,80,0) 13%,rgba(255,255,255,.24) 44%,rgba(255,255,255,0) 60%,rgba(9,40,80,0) 87%,rgba(9,40,80,.27));
+  --rim:inset 0 3px 0 rgba(255,255,255,.55),inset 0 -4px 0 rgba(9,40,80,.16);
+  --drop:0 10px 16px -6px rgba(5,50,110,.5);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{min-height:100vh;background:linear-gradient(180deg,var(--sky1),var(--sky2));background-attachment:fixed;color:var(--navy);font-family:var(--f-body);-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-x:hidden;position:relative}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0;text-align:inherit}
+.sc{font-family:var(--f-script);font-weight:400}
+.ko{font-family:var(--f-ko);font-weight:400}
+.jp{font-family:var(--f-jp)}
+
+/* ── 하늘·구름 ── */
+.skybg{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.skybg svg{position:absolute;height:auto;animation:drift 26s ease-in-out infinite alternate}
+.cl{position:absolute;height:auto;pointer-events:none;animation:drift2 15s ease-in-out infinite alternate}
+.cl.b{animation-duration:21s;animation-direction:alternate-reverse}
+@keyframes drift{from{transform:translateX(-40px)}to{transform:translateX(40px)}}
+@keyframes drift2{from{transform:translateX(-9px)}to{transform:translateX(9px)}}
+
+/* ── 간판 패널 (곡면 전광판) ── */
+.pn{position:relative;display:block;border-radius:50%/10px;padding:14px 18px;background:var(--edge),var(--c,var(--cream));box-shadow:var(--rim),var(--drop);color:var(--navy)}
+.pn.lime{--c:var(--lime);color:var(--green)} .pn.yel{--c:var(--yel)} .pn.pink{--c:var(--pink)} .pn.org{--c:var(--org)} .pn.cream{--c:var(--cream)}
+.pn.flat{background:linear-gradient(90deg,rgba(9,40,80,.1),rgba(9,40,80,0) 8%,rgba(255,255,255,.2) 46%,rgba(9,40,80,0) 92%,rgba(9,40,80,.1)),var(--c,var(--cream));border-radius:50%/7px;box-shadow:inset 0 2px 0 rgba(255,255,255,.6),inset 0 -3px 0 rgba(9,40,80,.1),0 6px 12px -8px rgba(5,50,110,.45)}
+
+/* ── 머리말 ── */
+.top{position:relative;z-index:1;padding:34px 24px 6px;max-width:1560px;margin:0 auto}
+.tag{display:inline-block;background:var(--cream);color:var(--navy);font-weight:800;font-size:12px;letter-spacing:.02em;padding:6px 14px;border-radius:999px;box-shadow:0 3px 0 rgba(6,60,120,.3)}
+.top .hello{display:table;margin:18px 0 0;padding:6px 26px 8px;font-family:var(--f-script);font-size:clamp(22px,3vw,34px);line-height:1.1;transform:rotate(-2deg)}
+.top h1{font-family:var(--f-ko);font-weight:400;font-size:clamp(32px,5.6vw,72px);line-height:1.1;margin:10px 0 16px;color:#fff;text-shadow:0 3px 0 #0A5FAE,0 10px 18px rgba(4,50,110,.35)}
+.top .desc{max-width:780px;font-size:15px;line-height:1.65;margin:0;padding:14px 24px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0}
+.chips span{display:inline-flex;align-items:center;gap:8px;background:#fff;border-radius:999px;padding:5px 13px 5px 6px;font-size:12.5px;font-weight:700;color:var(--navy);box-shadow:0 3px 0 rgba(6,60,120,.25)}
+.chips i{width:18px;height:18px;border-radius:50%;display:block;box-shadow:inset 0 -3px 0 rgba(0,0,0,.14),inset 0 2px 0 rgba(255,255,255,.5)}
+.chips .f{padding-left:13px}
+
+/* ── 줄 제목(주황 띠) · 줄 ── */
+.band{position:relative;z-index:1;max-width:1560px;margin:30px auto 0;padding:0 24px}
+.band h2{margin:0;display:flex;align-items:baseline;gap:6px 14px;flex-wrap:wrap;background:var(--edge),var(--org);color:var(--navy);border-radius:50%/9px;padding:9px 30px 10px;font-family:var(--f-ko);font-weight:400;font-size:25px;box-shadow:var(--rim),var(--drop)}
+.band h2 small{font-family:var(--f-band);font-size:11.5px;letter-spacing:.16em}
+.band h2 span{font-family:var(--f-body);font-weight:700;font-size:13px}
+.row{position:relative;z-index:1;display:flex;gap:30px;overflow-x:auto;padding:22px 24px 40px;max-width:1560px;margin:0 auto;scroll-snap-type:x proximity}
+.col{flex:none;scroll-snap-align:start}
+.col h3{font-family:var(--f-ko);font-weight:400;font-size:23px;margin:0 0 7px;color:#fff;text-shadow:0 2px 0 #0A5FAE}
+.col h3 span{font:800 11.5px var(--f-body);background:var(--yel);color:var(--navy);border-radius:999px;padding:3px 9px;vertical-align:middle;text-shadow:none;margin-left:4px}
+.col .note{font-size:12.5px;line-height:1.5;margin:0 0 14px;width:340px;height:74px;overflow:hidden;background:rgba(255,255,255,.94);color:var(--navy);border-radius:14px;padding:8px 13px;display:flex;align-items:center}
+.col.wide .note{width:940px}
+
+/* ── 휴대폰 틀 340×700 (안쪽 328×688) ── */
+.ph{width:340px;height:700px;border:6px solid #fff;border-radius:46px;overflow:hidden;position:relative;background:linear-gradient(180deg,#36AAEF,#0F7FD6);box-shadow:0 24px 40px -14px rgba(4,50,110,.6),0 0 0 1px rgba(6,70,140,.25);display:flex;flex-direction:column}
+.scr{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;overflow:hidden}
+.bar{flex:none;height:54px;padding:14px 14px 0;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:3}
+.pill{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 13px;border-radius:999px;background:#fff;color:var(--navy);font-weight:800;font-size:13px;white-space:nowrap;box-shadow:0 3px 0 rgba(6,60,120,.28),inset 0 -2px 0 rgba(18,48,94,.08)}
+.pill.cream{background:var(--cream)}
+.pill .sun{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#FFF6A8,#F6C92E 70%);box-shadow:0 0 0 3px rgba(246,224,79,.45)}
+.ttl{font-family:var(--f-ko);font-size:28px;line-height:1;color:#fff;text-shadow:0 2px 0 #0A5FAE;display:flex;align-items:baseline;gap:8px}
+.ttl .sc{font-size:18px;color:#fff}
+.dock{flex:none;height:60px;margin:8px 12px 12px;background:#fff;border-radius:30px;display:flex;padding:5px;position:relative;z-index:3;box-shadow:0 8px 16px -4px rgba(4,50,110,.5),inset 0 -3px 0 rgba(18,48,94,.1)}
+.dock button{flex:1;min-width:0;border-radius:25px;color:#52688C;font-size:10.5px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;white-space:nowrap}
+.dock button svg{width:20px;height:20px}
+.dock button.on{background:var(--yel);color:var(--navy);box-shadow:inset 0 2px 0 rgba(255,255,255,.6),inset 0 -3px 0 rgba(9,40,80,.14)}
+.sp{flex:1;min-height:0}
+
+/* 타워 공통 */
+.shaft{position:absolute;left:50%;width:96px;margin-left:-48px;background:repeating-linear-gradient(180deg,rgba(60,90,120,0) 0 22px,rgba(60,90,120,.22) 22px 24px),linear-gradient(90deg,#6F879D,#C9D6E2 18%,#FFFFFF 38%,#EDF2F6 52%,#A9BBCB 78%,#6A8298)}
+.cap{position:absolute;left:50%;transform:translateX(-50%);height:26px;padding:0 20px;border-radius:50%/7px;background:var(--edge),var(--cream);box-shadow:var(--rim),0 6px 10px -4px rgba(5,50,110,.5);font-family:var(--f-band);font-size:10.5px;letter-spacing:.16em;color:var(--navy);display:flex;align-items:center;justify-content:center;white-space:nowrap;z-index:2}
+.ch{position:absolute;left:50%;transform:translateX(-50%);z-index:3}
+.ch svg{animation:bob 3.8s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-5px)}}
+
+/* ① 메인 : bar 54 + tower 456 + nx 72 + dock 80 = 662 ≤ 688 */
+.tower{flex:none;position:relative;height:456px}
+.sg{position:absolute;z-index:2;transition:transform .2s}
+.sg:hover{transform:translateY(-2px)}
+.sg .sc{display:block;font-size:17px;line-height:18px}
+.sg .ko{display:block;font-size:25px;line-height:30px;white-space:nowrap}
+.sg .sb{display:block;font-size:12px;font-weight:700;line-height:15px;white-space:nowrap}
+.sg1{left:18px;width:292px;top:164px;height:98px;padding:12px 70px 12px 22px}
+.sg1 .go{position:absolute;right:18px;top:50%;margin-top:-21px;width:42px;height:42px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:0 3px 0 rgba(30,77,43,.3)}
+.sg2,.sg3{top:270px;width:143px;height:78px}
+.sg2 .ko,.sg3 .ko{font-size:23px;line-height:25px}
+.sg2 .sb,.sg3 .sb{font-size:11.5px;line-height:14px}
+.sg2{left:18px;border-radius:92% 8% 8% 92%/10px 8px 8px 10px;background:linear-gradient(90deg,rgba(9,40,80,.3),rgba(9,40,80,0) 36%,rgba(255,255,255,.22)),var(--c);padding:10px 8px 10px 24px}
+.sg3{left:167px;border-radius:8% 92% 92% 8%/8px 10px 10px 8px;background:linear-gradient(270deg,rgba(9,40,80,.3),rgba(9,40,80,0) 36%,rgba(255,255,255,.22)),var(--c);padding:10px 24px 10px 8px;text-align:right}
+.ring{position:absolute;z-index:2;left:6px;width:316px;top:356px;height:36px;border-radius:50%/9px;background:var(--org);overflow:hidden;box-shadow:var(--drop)}
+.ring b{display:inline-block;white-space:nowrap;font:400 14px/36px var(--f-band);letter-spacing:.07em;color:var(--navy);animation:tk 24s linear infinite}
+.ring b i{font-family:var(--f-ko);font-style:normal;font-size:17px;letter-spacing:0}
+.ring::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,rgba(9,40,80,.42),rgba(9,40,80,0) 16%,rgba(255,255,255,.2) 46%,rgba(9,40,80,0) 84%,rgba(9,40,80,.42));box-shadow:inset 0 3px 0 rgba(255,255,255,.4),inset 0 -4px 0 rgba(9,40,80,.18);pointer-events:none}
+@keyframes tk{to{transform:translateX(-50%)}}
+.hint{position:absolute;z-index:4;left:50%;transform:translateX(-50%);top:412px;height:26px;padding:0 14px;border-radius:999px;background:#fff;color:var(--navy);font-size:11.5px;font-weight:800;display:flex;align-items:center;white-space:nowrap;box-shadow:0 3px 0 rgba(6,60,120,.28)}
+.nx{flex:none;height:72px;margin:0 14px;padding:0 18px;display:flex;align-items:center;gap:12px;z-index:3}
+.nx .ic{flex:none;width:46px;height:46px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:inset 0 -3px 0 rgba(18,48,94,.1)}
+.nx .ic svg{width:38px;height:30px}
+.nx b{display:block;font-size:13.5px;font-weight:800;line-height:17px}
+.nx small{display:block;font-size:11px;line-height:14px;color:var(--sub);font-weight:600}
+.prog{height:12px;border-radius:999px;background:#fff;overflow:hidden;margin:5px 0 4px;box-shadow:inset 0 2px 0 rgba(18,48,94,.12)}
+.prog i{display:block;height:100%;border-radius:999px;background:linear-gradient(180deg,#D3F291,#9BCB45)}
+
+/* ② 성적노트 : bar 54 + chips 40 + sum 74 + gp 156 + lst 146 + hw 104 + dock 80 = 654 ≤ 688 */
+.sub{flex:none;height:40px;padding:6px 14px;display:flex;gap:6px;position:relative;z-index:2}
+.sub span{height:28px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,.94);color:var(--navy);font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;white-space:nowrap;box-shadow:0 2px 0 rgba(6,60,120,.25)}
+.sub span.on{background:var(--yel);font-weight:800}
+.sum{flex:none;height:70px;margin:4px 14px 0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;position:relative;z-index:2}
+.sum .pn{padding:9px 4px 0;text-align:center;border-radius:50%/8px}
+.sum small{display:block;font-size:11px;font-weight:700;line-height:14px}
+.sum b{display:block;font-family:var(--f-ko);font-weight:400;font-size:25px;line-height:29px}
+.gp{flex:none;height:148px;margin:8px 14px 0;padding:10px 16px 8px}
+.gp .hd,.lst .hd{display:flex;justify-content:space-between;align-items:center;height:18px;font-size:12.5px;font-weight:800}
+.gp .hd span{font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;gap:4px;margin-left:8px}
+.gp .hd i{width:12px;height:4px;border-radius:2px;display:inline-block}
+.gp svg{display:block;width:100%;height:110px}
+.lst{flex:none;margin:8px 14px 0;padding:8px 16px}
+.lst.t{height:138px} .lst.h{height:96px}
+.lst .hd small{font-size:10.5px;color:var(--sub);font-weight:700}
+.trw{height:34px;display:flex;align-items:center;justify-content:space-between;border-top:1.5px dashed rgba(18,48,94,.2)}
+.trw b{display:block;font-size:13px;font-weight:800;line-height:16px}
+.trw small{display:block;font-size:11px;line-height:13px;color:var(--sub);font-weight:600}
+.trw .r{text-align:right}
+.trw .r b{font-family:var(--f-ko);font-weight:400;font-size:16px}
+.hrw{height:30px;display:flex;align-items:center;justify-content:space-between;border-top:1.5px dashed rgba(18,48,94,.2);font-size:12.5px;font-weight:700}
+.bdg{display:inline-flex;align-items:center;height:21px;padding:0 9px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap;box-shadow:inset 0 -2px 0 rgba(9,40,80,.12)}
+.bdg.ok{background:var(--lime);color:var(--green)} .bdg.ing{background:var(--yel);color:var(--navy)} .bdg.no{background:var(--org);color:var(--navy)} .bdg.yet{background:var(--pink);color:var(--navy)}
+
+/* ③ 퇴근 미션 : bar 54 + dots 34 + tag 36 + q 124 + ops 10+256 + fb 10+62 + next 10+52 = 648 ≤ 688 */
+.x{width:32px;height:32px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:0 3px 0 rgba(6,60,120,.28)}
+.home7{position:static;transform:none;font-family:var(--f-ko);font-size:16px;letter-spacing:0;height:30px}
+.cnt{font-family:var(--f-band);font-size:13px;color:#fff;text-shadow:0 2px 0 #0A5FAE;min-width:32px;text-align:right}
+.dots{flex:none;height:34px;padding:0 14px;display:flex;align-items:center;gap:4px;position:relative;z-index:2}
+.dots i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.4);flex:none}
+.dots i.d{background:var(--lime);box-shadow:inset 0 -2px 0 rgba(30,77,43,.3)}
+.dots i.n{background:var(--yel);box-shadow:0 0 0 3px rgba(246,224,79,.4)}
+.dots svg{width:18px;height:18px;margin-left:2px;flex:none}
+.tagr{flex:none;height:36px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:2}
+.tagr .tg{height:26px;padding:0 13px;border-radius:999px;background:var(--pink);color:var(--navy);font-size:12.5px;font-weight:800;display:inline-flex;align-items:center;box-shadow:0 3px 0 rgba(6,60,120,.25)}
+.tagr .sc{font-size:20px;color:#fff;text-shadow:0 2px 0 #0A5FAE}
+.q{flex:none;height:124px;margin:0 14px;padding:0 18px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.q .jp{font-size:42px;font-weight:800;line-height:50px;letter-spacing:.04em}
+.q .ko{font-size:21px;line-height:28px}
+.ops{flex:none;margin:10px 14px 0;display:grid;gap:8px}
+.op{height:58px;padding:0 16px;display:flex;align-items:center;gap:12px;border-radius:50%/8px}
+.op .n{flex:none;width:28px;height:28px;border-radius:50%;background:#fff;display:grid;place-items:center;font-family:var(--f-band);font-size:12px}
+.op .tx{flex:1;min-width:0}
+.op .tx b{display:block;font-family:var(--f-jp);font-size:18px;font-weight:800;line-height:22px}
+.op .tx small{display:block;font-size:11.5px;font-weight:600;line-height:14px}
+.op .ck{flex:none;width:28px;height:28px;border-radius:50%;background:var(--green);display:grid;place-items:center}
+.op.ok{outline:3px solid #fff;outline-offset:-1px}
+.fb{flex:none;height:62px;margin:10px 14px 0;padding:0 16px 0 20px;display:flex;align-items:center;gap:10px}
+.fb .ko{font-size:26px;line-height:1;white-space:nowrap}
+.fb p{margin:0;font-size:12px;font-weight:700;line-height:15px;flex:1}
+.fb .mini{flex:none;width:44px}
+.next{flex:none;height:52px;margin:10px 14px 0;border-radius:999px;background:var(--org);color:var(--navy);font-family:var(--f-ko);font-size:21px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:inset 0 3px 0 rgba(255,255,255,.4),inset 0 -5px 0 rgba(9,40,80,.2),0 8px 14px -4px rgba(5,50,110,.55)}
+
+/* ④ 어드민 940×620 (안쪽 930×610 = chrome 36 + 머리띠 50 + 본문 524) */
+.pc{width:940px;height:620px;border:5px solid #fff;border-radius:18px;overflow:hidden;background:var(--paper);display:flex;flex-direction:column;box-shadow:0 24px 40px -14px rgba(4,50,110,.6),0 0 0 1px rgba(6,70,140,.25);color:var(--navy)}
+.chrome{flex:none;height:36px;background:#fff;display:flex;align-items:center;gap:7px;padding:0 14px}
+.chrome i{width:11px;height:11px;border-radius:50%}
+.chrome span{margin-left:14px;flex:1;max-width:420px;height:22px;border-radius:999px;background:#F1EFE4;font-size:11.5px;font-weight:600;color:var(--sub);display:flex;align-items:center;padding:0 12px}
+.ahead{flex:none;height:50px;background:linear-gradient(180deg,#2BA3EC,#0F7FD6);color:#fff;display:flex;align-items:center;gap:10px;padding:0 18px;position:relative;overflow:hidden}
+.ahead b{font-family:var(--f-ko);font-weight:400;font-size:23px;text-shadow:0 2px 0 #0A5FAE;position:relative}
+.ahead .sc{font-size:19px;text-shadow:0 2px 0 #0A5FAE;position:relative}
+.ahead .r{margin-left:auto;display:flex;gap:8px;align-items:center;position:relative}
+.ahead .pill{height:26px;font-size:12px;box-shadow:0 2px 0 rgba(6,60,120,.3)}
+.abody{flex:1;min-height:0;display:flex}
+.aside{flex:none;width:160px;background:var(--cream);padding:12px 10px;display:flex;flex-direction:column;gap:4px}
+.aside .lg{height:44px;display:flex;align-items:center;gap:8px;padding:0 8px;font-family:var(--f-band);font-size:11px;letter-spacing:.1em;line-height:1.25}
+.aside a{height:38px;border-radius:50%/6px;display:flex;align-items:center;padding:0 16px;font-size:13.5px;font-weight:700;color:var(--navy);text-decoration:none}
+.aside a.on{background:var(--edge),var(--lime);color:var(--green);font-weight:800;box-shadow:inset 0 2px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(9,40,80,.14)}
+.amain{flex:1;min-width:0;padding:14px;display:flex;flex-direction:column;gap:12px}
+.cards{flex:none;height:76px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.cards .pn{padding:11px 20px 0;display:flex;justify-content:space-between;align-items:flex-start}
+.cards small{font-size:12.5px;font-weight:800;line-height:18px}
+.cards em{display:block;font-style:normal;font-size:11px;font-weight:600;line-height:14px;color:inherit}
+.cards b{font-family:var(--f-ko);font-weight:400;font-size:34px;line-height:50px;white-space:nowrap}
+.cards b i{font-style:normal;font-size:18px}
+.alow{flex:1;min-height:0;display:flex;gap:12px}
+.tbl{flex:1;min-width:0;padding:12px 14px}
+.tbl .hd{height:34px;display:flex;align-items:center;justify-content:space-between}
+.tbl .hd b{font-family:var(--f-ko);font-weight:400;font-size:20px}
+.tbl .hd span{font-size:12px;font-weight:700;color:var(--sub)}
+.tr,.th{display:grid;grid-template-columns:1.1fr .9fr 1.05fr .9fr 1.05fr 76px;align-items:center;padding:0 12px}
+.th{height:26px;font-size:11.5px;font-weight:800;color:var(--sub)}
+.tr{height:38px;margin-top:4px;border-radius:10px;background:var(--paper);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.tr b{font-weight:800}
+.tbl .ft{height:30px;display:flex;align-items:flex-end;font-size:11.5px;font-weight:600;color:var(--sub)}
+.code{flex:none;width:196px;padding:12px 14px;text-align:center}
+.code h4{margin:0;font-family:var(--f-ko);font-weight:400;font-size:19px;line-height:24px}
+.code .en{font-family:var(--f-band);font-size:9.5px;letter-spacing:.18em;line-height:14px;color:var(--sub)}
+.dg{display:flex;gap:6px;justify-content:center;margin-top:8px;height:58px}
+.dg span{width:36px;height:58px;border-radius:50%/7px;background:var(--edge),var(--yel);box-shadow:var(--rim);font-family:var(--f-ko);font-size:38px;line-height:58px;color:var(--navy)}
+.code p{margin:8px 0 0;font-size:11.5px;font-weight:600;line-height:17px;height:34px;color:var(--sub)}
+.code .qr{width:128px;height:128px;margin:10px auto 0}
+.code .qr svg{display:block;width:100%;height:100%}
+.code small{display:block;margin-top:6px;font-size:10.5px;font-weight:700;line-height:16px;color:var(--sub)}
+.code .rb{display:flex;align-items:center;justify-content:center;height:32px;margin-top:10px;border-radius:999px;background:#fff;font-size:12px;font-weight:800;box-shadow:inset 0 -3px 0 rgba(18,48,94,.1)}
+
+/* ⑤ 클리어 : 26 + 40 + 92 + podium 244 + rew 84 + 12 + bt 50 + 8 + bt 50 = 606 ≤ 688 */
+.s-clear{align-items:stretch;text-align:center}
+.rays{position:absolute;left:50%;top:250px;width:760px;height:760px;margin:-380px 0 0 -380px;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.17) 0 9deg,rgba(255,255,255,0) 9deg 18deg);-webkit-mask-image:radial-gradient(circle,#000 20%,transparent 68%);mask-image:radial-gradient(circle,#000 20%,transparent 68%);animation:spin 60s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.conf i{position:absolute;width:11px;height:19px;border-radius:5px;box-shadow:inset 0 -3px 0 rgba(9,40,80,.18),inset 0 2px 0 rgba(255,255,255,.5);animation:flt 3s ease-in-out infinite alternate}
+@keyframes flt{to{margin-top:9px}}
+.big1{flex:none;height:40px;margin-top:26px;font-size:34px;line-height:40px;color:var(--yel);text-shadow:0 2px 0 #0A5FAE,0 0 14px rgba(4,50,110,.4);position:relative;z-index:2;transform:rotate(-4deg)}
+.big2{flex:none;height:92px;font-size:88px;line-height:92px;color:#fff;text-shadow:0 5px 0 #0A5FAE,0 14px 22px rgba(4,50,110,.4);position:relative;z-index:2}
+.podium{flex:none;height:244px;position:relative}
+.rew{flex:none;height:84px;margin:0 16px;padding:0 20px;display:flex;align-items:center;gap:14px;text-align:left;z-index:3}
+.rew .ic{flex:none;width:56px;height:56px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:inset 0 -4px 0 rgba(18,48,94,.1)}
+.rew .ic svg{width:46px;height:36px}
+.rew small{display:block;font-size:12px;font-weight:800;line-height:15px}
+.rew .ko{display:block;font-size:25px;line-height:29px}
+.rew em{display:block;font-style:normal;font-size:12px;font-weight:700;line-height:15px}
+.bt{flex:none;height:50px;margin:8px 16px 0;border-radius:999px;background:#fff;color:var(--navy);font-family:var(--f-ko);font-size:19px;display:flex;align-items:center;justify-content:center;position:relative;z-index:3;box-shadow:inset 0 -5px 0 rgba(9,40,80,.12),0 8px 14px -4px rgba(5,50,110,.55)}
+.bt.pri{margin-top:12px;background:var(--org);box-shadow:inset 0 3px 0 rgba(255,255,255,.4),inset 0 -5px 0 rgba(9,40,80,.2),0 8px 14px -4px rgba(5,50,110,.55)}
+
+/* ⑥ 꾸미기 : bar 54 + pv 6+250 + tabs 48 + grid(2줄) 8+104+10+104+12 = 596 ≤ 688 */
+.pv{flex:none;height:250px;margin:6px 14px 0;border-radius:30px;border:4px solid #fff;background:linear-gradient(180deg,#7CCBFA,#2FA3EC);position:relative;overflow:hidden;box-shadow:var(--drop)}
+.tabs{flex:none;height:48px;display:flex;gap:7px;padding:12px 14px 6px}
+.tabs button{flex:1;height:30px;border-radius:999px;background:#fff;color:var(--navy);font-weight:800;font-size:13px;text-align:center;box-shadow:0 3px 0 rgba(6,60,120,.28)}
+.tabs button.on{background:var(--yel)}
+.grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:8px 14px 12px;overflow:auto;align-content:start}
+.it{height:104px;border-radius:50%/8px;background:var(--edge),var(--c,var(--cream));box-shadow:var(--rim),0 6px 10px -5px rgba(5,50,110,.5);padding:8px 5px 7px;text-align:center;font-size:12px;font-weight:800;color:var(--navy);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;line-height:15px}
+.it svg.icn{width:58px;height:44px;flex:none}
+.it.on{--c:var(--yel);outline:3px solid #fff;outline-offset:-1px}
+.it.lock{--c:#D3DCE4;color:var(--sub)}
+.it.lock.on{--c:var(--yel);color:var(--navy)}
+.it.lock svg.icn{opacity:.55}
+.it.lock.on svg.icn{opacity:1}
+.it em{font-style:normal;font-weight:700;font-size:10px;line-height:12px;color:var(--sub)}
+.it .lk{position:absolute;right:9px;top:9px;width:15px;height:15px}
+
+/* ⑦ 수업 맵 : bar 54 + hd 50 + path 484 + dock 80 = 668 ≤ 688 */
+.mhd{flex:none;height:50px;padding:6px 16px 0;position:relative;z-index:2}
+.mhd .ttl{font-size:30px}
+.path{flex:none;position:relative;height:484px;width:328px}
+.path svg.ln{position:absolute;inset:0;width:328px;height:484px}
+.nd{position:absolute;width:52px;height:46px;margin:-23px 0 0 -26px;border-radius:50%/8px;background:var(--edge),var(--c,var(--cream));box-shadow:var(--rim),0 6px 10px -4px rgba(5,50,110,.55);display:grid;place-items:center;font-family:var(--f-ko);font-size:22px;color:var(--navy);z-index:2}
+.nd.done{--c:var(--lime);color:var(--green)}
+.nd.now{--c:var(--yel);outline:3px solid #fff;animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{50%{outline-color:rgba(255,255,255,.35)}}
+.nd.lk{--c:#D3DCE4;color:var(--sub)}
+.nd small{position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:5px;font:800 10.5px var(--f-body);white-space:nowrap;background:#fff;color:var(--navy);border-radius:999px;padding:2px 8px}
+.nd .lki{position:absolute;right:-4px;top:-5px;width:16px;height:16px;border-radius:50%;background:#fff;display:grid;place-items:center}
+.goal{position:absolute;left:164px;top:34px;width:60px;height:60px;margin:-30px 0 0 -30px;border-radius:50%;background:radial-gradient(circle at 35% 28%,#FFFBD0,#F6E04F 62%,#D9B21C);display:grid;place-items:center;z-index:3;box-shadow:0 0 0 5px rgba(255,255,255,.45),0 8px 12px -4px rgba(5,50,110,.5)}
+.goal svg{width:46px;height:34px}
+.glb{position:absolute;left:204px;top:25px;z-index:3;font:800 10.5px/14px var(--f-body);white-space:nowrap;background:#fff;color:var(--navy);border-radius:999px;padding:2px 8px}
+.path .mini{position:absolute;width:46px;z-index:3}
+.path .mini svg,.fb .mini svg{animation:none}
+
+.foot{position:relative;z-index:1;max-width:1560px;margin:0 auto;padding:0 24px 60px}
+.foot p{margin:0;max-width:900px;font-size:13.5px;line-height:1.7;padding:12px 24px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<!-- 구름 원본 (여러 원을 겹치고 아래 그림자·위 하이라이트) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <radialGradient id="clg" cx=".36" cy=".28" r=".85"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".62" stop-color="#F3FAFF"/><stop offset="1" stop-color="#B9DCF8"/></radialGradient>
+  <g id="cshape"><circle cx="44" cy="74" r="26"/><circle cx="76" cy="52" r="34"/><circle cx="120" cy="48" r="38"/><circle cx="158" cy="72" r="28"/><circle cx="100" cy="80" r="30"/><rect x="30" y="70" width="142" height="32" rx="16"/></g>
+  <g id="cloud"><use href="#cshape" fill="#0B6CC0" opacity=".28" transform="translate(5 10)"/><use href="#cshape" fill="url(#clg)"/><ellipse cx="100" cy="97" rx="58" ry="6" fill="#A9D3F5" opacity=".7"/><ellipse cx="108" cy="21" rx="17" ry="5.5" fill="#FFFFFF" transform="rotate(-10 108 21)"/><ellipse cx="66" cy="29" rx="11" ry="4" fill="#FFFFFF" transform="rotate(-18 66 29)"/></g>
+</defs></svg>
+<div class="skybg" aria-hidden="true">
+  <svg viewBox="0 0 204 124" style="left:62%;top:4%;width:300px"><use href="#cloud"/></svg>
+  <svg viewBox="0 0 204 124" style="left:-4%;top:30%;width:240px;animation-duration:34s;animation-direction:alternate-reverse"><use href="#cloud"/></svg>
+  <svg viewBox="0 0 204 124" style="left:78%;top:52%;width:210px;animation-duration:30s"><use href="#cloud"/></svg>
+  <svg viewBox="0 0 204 124" style="left:30%;top:78%;width:340px;animation-duration:40s;animation-direction:alternate-reverse"><use href="#cloud"/></svg>
+</div>
+
+<header class="top">
+  <span class="tag">시안 H · 파란 하늘 · 3D 간판 타워 · 예시 화면 (숫자·이름은 가짜)</span>
+  <span class="pn lime hello">Hello, Sky Tower!</span>
+  <h1>하늘 위 간판 타워, 오늘도 한 층 더!</h1>
+  <p class="pn cream desc">쨍한 하늘과 몽실한 구름 위에 은빛 타워를 세우고, 메뉴를 타워 몸통에 두른 곡면 간판으로 만들었습니다. 연두·노랑·분홍 간판과 주황 띠는 다른 화면에서 카드 역할을 합니다. 「⑥ 꾸미기」에서 아이템을 눌러 보세요 — 안테나 로봇이 바로 바뀌고 메인·클리어 화면에도 반영됩니다.</p>
+  <div class="chips"><span><i style="background:var(--sky1)"></i>하늘 #1E9BE8</span><span><i style="background:var(--lime)"></i>연두 #B8E36B</span><span><i style="background:var(--yel)"></i>노랑 #F6E04F</span><span><i style="background:var(--pink)"></i>분홍 #F7A8B8</span><span><i style="background:var(--org)"></i>주황 #F47B3C</span><span><i style="background:var(--cream)"></i>크림 #EFEBD8</span><span><i style="background:var(--navy)"></i>남색 글씨</span><span class="f sc" style="font-size:16px">Yellowtail</span><span class="f ko" style="font-size:15px">Jua 주아</span><span class="f" style="font-family:var(--f-band);font-weight:400;letter-spacing:.08em">ARCHIVO BLACK</span><span class="f">본문 Pretendard</span></div>
+</header>
+
+<div class="band"><h2>필수 화면 <small>MUST HAVE</small><span>① 메인 · ② 성적노트 · ③ 퇴근 미션 · ④ 어드민</span></h2></div>
+<div class="row">
+  <!-- ① 메인 -->
+  <section class="col"><h3>① 메인</h3><p class="note">타워 꼭대기에 내 캐릭터, 몸통을 두른 간판이 곧 메뉴입니다. 연두 퇴근 미션 · 노랑 성적노트 · 분홍 수업 · 주황 띠 질문.</p>
+    <div class="ph"><div class="scr s-home">
+      <div class="bar"><span class="pill cream"><i class="sun"></i>4일 연속 출석</span><span class="pill">★ 240</span></div>
+      <div class="tower">
+        <svg class="cl" viewBox="0 0 204 124" style="left:-38px;top:30px;width:134px"><use href="#cloud"/></svg>
+        <svg class="cl b" viewBox="0 0 204 124" style="right:-34px;top:70px;width:120px"><use href="#cloud"/></svg>
+        <div class="shaft" style="top:150px;bottom:0"></div>
+        <div class="cap" style="top:130px">MY STUDY TOWER</div>
+        <div class="ch" data-ch="home" style="top:0;width:128px"></div>
+        <button class="pn lime sg sg1"><span class="sc">Today's Mission</span><span class="ko">퇴근 미션 20문제</span><span class="sb">전부 맞히면 퇴근 · 개념반 정치</span><i class="go"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1E4D2B" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg></i></button>
+        <button class="pn yel sg sg2"><span class="sc">Notes</span><span class="ko">성적노트</span><span class="sb">평균 정답률 78%</span></button>
+        <button class="pn pink sg sg3"><span class="sc">Class</span><span class="ko">수업</span><span class="sb">개념반 정치 5 / 8</span></button>
+        <div class="ring"><b><i>질문 있어요?</i> ✦ ASK ANYTHING ✦ QnA ✦ <i>질문 있어요?</i> ✦ ASK ANYTHING ✦ QnA ✦ <i>질문 있어요?</i> ✦ ASK ANYTHING ✦ QnA ✦ <i>질문 있어요?</i> ✦ ASK ANYTHING ✦ QnA ✦ </b></div>
+        <svg class="cl b" viewBox="0 0 204 124" style="left:-46px;top:380px;width:190px;z-index:3"><use href="#cloud"/></svg>
+        <svg class="cl" viewBox="0 0 204 124" style="right:-50px;top:388px;width:180px;z-index:3"><use href="#cloud"/></svg>
+        <span class="hint">돌려 보기 · 눌러서 들어가기</span>
+      </div>
+      <div class="pn cream nx"><div class="ic" data-item="beanie"></div><div style="flex:1;min-width:0"><b>다음 아이템까지 2회</b><div class="prog"><i style="width:80%"></i></div><small>비니 · 퀴즈 10회 참가 (8 / 10)</small></div></div>
+      <div class="sp"></div>
+      <nav class="dock"><button class="on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 3 11h2.200v8.500a1 1 0 0 0 1 1H10v-5.500h4v5.500h3.800a1 1 0 0 0 1-1V11H21z"/></svg>홈</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3h10a2 2 0 0 1 2 2v3h-2.500V5.500h-7v13h7V16H17v3a2 2 0 0 1-2 2H5zM16.500 8.500 21 12l-4.500 3.500V13.200H11v-2.400h5.500z"/></svg>퇴근 미션</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 20V11h4v9zm6 0V4h4v16zm6 0v-6.500h4V20z"/></svg>성적노트</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h10.500A2.500 2.500 0 0 1 19 5.500V21H7.500A2.500 2.500 0 0 1 5 18.500V4a1 1 0 0 1 1-1zm2.500 4v2.200h7V7z"/></svg>수업</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.500L8 21v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm3 5.400v2.200h8V9.400z"/></svg>질문</button></nav>
+    </div></div>
+  </section>
+
+  <!-- ② 성적노트 -->
+  <section class="col"><h3>② 성적노트</h3><p class="note">과목을 고르면 요약 숫자 3개와 점수 추이, 테스트·숙제가 간판 패널 한 장씩에 담깁니다.</p>
+    <div class="ph"><div class="scr s-note">
+      <svg class="cl" viewBox="0 0 204 124" style="right:-30px;top:-14px;width:150px"><use href="#cloud"/></svg>
+      <div class="bar"><span class="ttl">성적노트 <span class="sc">Notes</span></span></div>
+      <div class="sub"><span class="on">정치</span><span>경제</span><span>현대사회</span><span>지리</span><span>역사</span></div>
+      <div class="sum"><div class="pn yel"><small>평균 정답률</small><b>78%</b></div><div class="pn lime"><small>최근 테스트</small><b>17/20</b></div><div class="pn pink"><small>숙제</small><b>5/6</b></div></div>
+      <div class="pn cream gp"><div class="hd">점수 추이 · 정치<div><span><i style="background:var(--org)"></i>내 점수</span><span><i style="background:var(--sky2)"></i>반 평균</span></div></div><div id="gr"></div></div>
+      <div class="pn cream lst t"><div class="hd">테스트<small>최근 3회</small></div>
+        <div class="trw"><div><b>정치 3주차 소테스트</b><small>11/18</small></div><div class="r"><b>17/20</b><small>3등 / 18명</small></div></div>
+        <div class="trw"><div><b>정치 2주차 소테스트</b><small>11/11</small></div><div class="r"><b>15/20</b><small>7등 / 18명</small></div></div>
+        <div class="trw"><div><b>정치 1주차 소테스트</b><small>11/4</small></div><div class="r"><b>16/20</b><small>5등 / 18명</small></div></div>
+      </div>
+      <div class="pn cream lst h"><div class="hd">숙제<small>5 / 6 제출</small></div>
+        <div class="hrw">정치 3주차 복습 프린트<span class="bdg ok">제출 완료</span></div>
+        <div class="hrw">정치 4주차 예습 노트<span class="bdg no">미제출</span></div>
+      </div>
+      <div class="sp"></div>
+      <nav class="dock"><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 3 11h2.200v8.500a1 1 0 0 0 1 1H10v-5.500h4v5.500h3.800a1 1 0 0 0 1-1V11H21z"/></svg>홈</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3h10a2 2 0 0 1 2 2v3h-2.500V5.500h-7v13h7V16H17v3a2 2 0 0 1-2 2H5zM16.500 8.500 21 12l-4.500 3.500V13.200H11v-2.400h5.500z"/></svg>퇴근 미션</button><button class="on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 20V11h4v9zm6 0V4h4v16zm6 0v-6.500h4V20z"/></svg>성적노트</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h10.500A2.500 2.500 0 0 1 19 5.500V21H7.500A2.500 2.500 0 0 1 5 18.500V4a1 1 0 0 1 1-1zm2.500 4v2.200h7V7z"/></svg>수업</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.500L8 21v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm3 5.400v2.200h8V9.400z"/></svg>질문</button></nav>
+    </div></div>
+  </section>
+
+  <!-- ③ 퇴근 미션 -->
+  <section class="col"><h3>③ 퇴근 미션</h3><p class="note">한 문제씩 크게. 고른 보기가 연두 간판으로 켜지고, 남은 문제는 「집까지 몇 문제」로 셉니다.</p>
+    <div class="ph"><div class="scr s-quiz">
+      <svg class="cl b" viewBox="0 0 204 124" style="left:-40px;top:64px;width:130px"><use href="#cloud"/></svg>
+      <svg class="cl" viewBox="0 0 204 124" style="right:-44px;top:250px;width:140px"><use href="#cloud"/></svg>
+      <div class="bar"><span class="x" aria-label="닫기"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#12305E" stroke-width="3.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></span><span class="cap home7">집까지 7문제</span><span class="cnt">13/20</span></div>
+      <div class="dots" aria-label="20문제 중 13문제 통과"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 3 2.500 11.500h2.700V20a1 1 0 0 0 1 1h4v-5.500h3.600V21h4a1 1 0 0 0 1-1v-8.500h2.700z"/></svg></div>
+      <div class="tagr"><span class="tg">일본 지리</span><span class="sc">Question 13</span></div>
+      <div class="pn cream q"><div class="jp" lang="ja">長崎県</div><div class="ko">어느 지방에 속할까?</div></div>
+      <div class="ops">
+        <div class="pn cream op"><span class="n">1</span><span class="tx"><b lang="ja">中国地方</b><small>주고쿠 지방</small></span></div>
+        <div class="pn lime op ok"><span class="n">2</span><span class="tx"><b lang="ja">九州地方</b><small>규슈 지방</small></span><span class="ck"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.500 10 17.500 19 7"/></svg></span></div>
+        <div class="pn cream op"><span class="n">3</span><span class="tx"><b lang="ja">近畿地方</b><small>긴키 지방</small></span></div>
+        <div class="pn cream op"><span class="n">4</span><span class="tx"><b lang="ja">四国地方</b><small>시코쿠 지방</small></span></div>
+      </div>
+      <div class="pn yel fb"><span class="ko">정답!</span><p><span class="jp" lang="ja">長崎県</span>은 규슈 지방.<br>집까지 한 칸 더!</p><div class="mini" data-ch="quiz"></div></div>
+      <button class="next">다음 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#12305E" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>
+      <div class="sp"></div>
+    </div></div>
+  </section>
+
+  <!-- ④ 어드민 -->
+  <section class="col wide"><h3>④ 어드민</h3><p class="note">업무 화면이라 하늘색은 머리띠와 포인트에만 씁니다. 본문은 크림 패널 위의 표로 차분하게 두고, 상태 배지와 요약 카드에만 간판 색(연두·노랑·분홍)을 남겨 같은 체계로 읽히게 했습니다.</p>
+    <div class="pc">
+      <div class="chrome"><i style="background:var(--pink)"></i><i style="background:var(--yel)"></i><i style="background:var(--lime)"></i><span>관리 화면 · 퇴근 미션</span></div>
+      <div class="ahead">
+        <svg class="cl" viewBox="0 0 204 124" style="left:300px;top:8px;width:96px;opacity:.9"><use href="#cloud"/></svg>
+        <svg class="cl b" viewBox="0 0 204 124" style="left:520px;top:-22px;width:80px;opacity:.9"><use href="#cloud"/></svg>
+        <b>퇴근 미션</b><span class="sc">Mission Control</span>
+        <div class="r"><span class="pill cream">오늘 · 개념반 정치 6회차</span><span class="pill">관리자</span></div>
+      </div>
+      <div class="abody">
+        <nav class="aside">
+          <div class="lg"><svg viewBox="0 0 24 30" width="20" height="26"><rect x="9" y="6" width="6" height="24" rx="2" fill="#9FB3C5"/><rect x="2" y="9" width="20" height="6" rx="3" fill="#B8E36B"/><rect x="3" y="17" width="18" height="5" rx="2.5" fill="#F47B3C"/><circle cx="12" cy="4" r="3" fill="#F6E04F"/></svg><span>STUDY<br>TOWER</span></div>
+          <a>답안 입력</a><a>문항 분석</a><a>숙제</a><a>시험</a><a>학생</a><a class="on">퇴근 미션</a><a>QnA</a>
+        </nav>
+        <div class="amain">
+          <div class="cards">
+            <div class="pn flat lime"><div><small>오늘 통과</small><em>18명 중</em></div><b>14<i> / 18</i></b></div>
+            <div class="pn flat yel"><div><small>미제출 숙제</small><em>이번 주</em></div><b>6</b></div>
+            <div class="pn flat pink"><div><small>답 안 한 질문</small><em>QnA</em></div><b>2</b></div>
+            <div class="pn flat cream"><div><small>이번 주 테스트</small><em>소테스트</em></div><b>1</b></div>
+          </div>
+          <div class="alow">
+            <div class="pn flat cream tbl">
+              <div class="hd"><b>오늘의 퇴근 미션</b><span>20문제 · 전부 맞혀야 통과</span></div>
+              <div class="th"><span>이름</span><span>반</span><span>첫 시도 정답</span><span>도전 횟수</span><span>걸린 시간</span><span>상태</span></div>
+              <div class="tr"><b>김예시</b><span>개념 A</span><span>20 / 20</span><span>1회</span><span>4분 50초</span><span><i class="bdg ok" style="font-style:normal">통과</i></span></div>
+              <div class="tr"><b>이샘플</b><span>개념 A</span><span>18 / 20</span><span>2회</span><span>6분 12초</span><span><i class="bdg ok" style="font-style:normal">통과</i></span></div>
+              <div class="tr"><b>박테스트</b><span>개념 B</span><span>15 / 20</span><span>3회</span><span>9분 03초</span><span><i class="bdg ok" style="font-style:normal">통과</i></span></div>
+              <div class="tr"><b>최더미</b><span>개념 B</span><span>16 / 20</span><span>2회</span><span>8분 27초</span><span><i class="bdg ing" style="font-style:normal">푸는 중</i></span></div>
+              <div class="tr"><b>정연습</b><span>개념 A</span><span>12 / 20</span><span>3회</span><span>11분 40초</span><span><i class="bdg ing" style="font-style:normal">푸는 중</i></span></div>
+              <div class="tr"><b>한견본</b><span>개념 B</span><span>—</span><span>0회</span><span>—</span><span><i class="bdg yet" style="font-style:normal">아직</i></span></div>
+              <div class="ft">18명 중 6명 표시 · 통과한 학생에게는 퇴근증이 바로 나갑니다.</div>
+            </div>
+            <div class="pn flat cream code">
+              <h4>오늘 암호</h4><div class="en">TODAY'S CODE</div>
+              <div class="dg"><span>4</span><span>8</span><span>2</span><span>7</span></div>
+              <p>교실 화면에 띄우면<br>학생이 입력하고 시작합니다.</p>
+              <div class="qr" id="qr"></div>
+              <small>QR 자리 (예시 무늬)</small>
+              <div class="rb">암호 새로 만들기</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="band"><h2>추가 화면 <small>MORE</small><span>⑤ 클리어 · ⑥ 꾸미기 · ⑦ 수업 맵</span></h2></div>
+<div class="row">
+  <!-- ⑤ 클리어 -->
+  <section class="col"><h3>⑤ 클리어</h3><p class="note">전부 맞히면 타워 꼭대기에서 만세. 새 아이템은 노랑 간판에 뜨고 바로 꾸미러 갈 수 있습니다.</p>
+    <div class="ph"><div class="scr s-clear">
+      <div class="rays"></div>
+      <div class="conf" aria-hidden="true"><i style="left:9%;top:12%;background:var(--yel);transform:rotate(20deg)"></i><i style="left:85%;top:9%;background:var(--lime);transform:rotate(-30deg);animation-delay:-1s"></i><i style="left:78%;top:33%;background:var(--pink);transform:rotate(50deg);animation-delay:-2s"></i><i style="left:8%;top:38%;background:var(--org);transform:rotate(-16deg);animation-delay:-.5s"></i><i style="left:24%;top:4%;background:var(--cream);transform:rotate(70deg);animation-delay:-1.500s"></i><i style="left:66%;top:3%;background:var(--pink);transform:rotate(12deg);animation-delay:-2.500s"></i></div>
+      <div class="sc big1">All Clear!</div>
+      <div class="ko big2">퇴근!</div>
+      <div class="podium">
+        <div class="shaft" style="top:214px;bottom:0"></div>
+        <div class="cap" style="top:196px">20 / 20 · FIRST TRY</div>
+        <div class="ch" data-ch="clear" style="top:0;width:190px"></div>
+        <svg class="cl b" viewBox="0 0 204 124" style="left:-52px;top:150px;width:170px;z-index:1"><use href="#cloud"/></svg>
+        <svg class="cl" viewBox="0 0 204 124" style="right:-56px;top:164px;width:160px;z-index:1"><use href="#cloud"/></svg>
+      </div>
+      <div class="pn yel rew"><div class="ic" data-item="crown"></div><div><small>새 아이템</small><span class="ko">왕관 획득</span><em>★ +30 · 첫 도전에 통과</em></div></div>
+      <button class="bt pri" data-go="closet">꾸미러 가기</button>
+      <button class="bt">퇴근증 보기</button>
+      <div class="sp"></div>
+    </div></div>
+  </section>
+
+  <!-- ⑥ 꾸미기 -->
+  <section class="col" id="closet"><h3>⑥ 꾸미기 <span>눌러 보세요</span></h3><p class="note">색·모자·안경·키링. 잠긴 아이템에는 얻는 조건이 적혀 있습니다(시안이라 잠긴 것도 눌러 입혀 볼 수 있음).</p>
+    <div class="ph"><div class="scr s-closet">
+      <div class="bar"><span class="ttl">꾸미기 <span class="sc">Dress up</span></span><span class="pill">★ 240</span></div>
+      <div class="pv">
+        <svg class="cl" viewBox="0 0 204 124" style="left:-30px;top:18px;width:120px"><use href="#cloud"/></svg>
+        <svg class="cl b" viewBox="0 0 204 124" style="right:-26px;top:66px;width:104px"><use href="#cloud"/></svg>
+        <div class="shaft" style="top:200px;bottom:0"></div>
+        <div class="cap" style="top:182px">MY STUDY TOWER</div>
+        <div class="ch" data-ch="closet" style="top:28px;width:150px"></div>
+      </div>
+      <div class="tabs" id="tabs"></div>
+      <div class="grid" id="grid"></div>
+    </div></div>
+  </section>
+
+  <!-- ⑦ 수업 맵 -->
+  <section class="col"><h3>⑦ 수업 맵</h3><p class="note">타워를 감아 오르는 길 위에 회차가 놓입니다. 끝낸 칸은 연두, 이번 주는 노랑. 꼭대기에 닿으면 완강 보상.</p>
+    <div class="ph"><div class="scr s-map">
+      <svg class="cl" viewBox="0 0 204 124" style="left:-44px;top:96px;width:130px"><use href="#cloud"/></svg>
+      <div class="bar"><span class="pill cream">개념반 · 정치</span><span class="pill">5 / 8</span></div>
+      <div class="mhd"><span class="ttl">완강까지 3칸 <span class="sc">Class Map</span></span></div>
+      <div class="path">
+        <svg class="ln" viewBox="0 0 328 484" aria-hidden="true">
+          <defs><linearGradient id="msh" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6F879D"/><stop offset=".18" stop-color="#C9D6E2"/><stop offset=".4" stop-color="#FFFFFF"/><stop offset=".55" stop-color="#EDF2F6"/><stop offset=".8" stop-color="#A9BBCB"/><stop offset="1" stop-color="#6A8298"/></linearGradient></defs>
+          <!-- 뒤로 돌아가는 길 -->
+          <g fill="none" stroke="#FFFFFF" stroke-opacity=".38" stroke-width="10" stroke-linecap="round"><path d="M288 400 Q164 336 40 340"/><path d="M288 300 Q164 236 40 240"/><path d="M288 200 Q164 136 40 140"/><path d="M288 100 Q272 72 222 72"/></g>
+          <!-- 타워 몸통 -->
+          <rect x="129" y="74" width="70" height="410" fill="url(#msh)"/>
+          <g stroke="#3C5A78" stroke-opacity=".2" stroke-width="2"><path d="M129 120h70M129 170h70M129 220h70M129 270h70M129 320h70M129 370h70M129 420h70M129 470h70"/></g>
+          <rect x="102" y="62" width="124" height="22" rx="9" fill="#EFEBD8"/><rect x="102" y="78" width="124" height="6" rx="3" fill="#12305E" opacity=".14"/>
+          <!-- 앞쪽 길: 그림자 · 띠 · 하이라이트 -->
+          <g fill="none" stroke="#0A4F96" stroke-opacity=".35" stroke-width="16" stroke-linecap="round" transform="translate(0 6)"><path d="M40 440 Q164 456 288 400"/><path d="M40 340 Q164 356 288 300"/><path d="M40 240 Q164 256 288 200"/><path d="M40 140 Q164 156 288 100"/></g>
+          <g fill="none" stroke="#EFEBD8" stroke-width="16" stroke-linecap="round"><path d="M40 440 Q164 456 288 400"/><path d="M40 340 Q164 356 288 300"/><path d="M40 240 Q164 256 288 200"/><path d="M40 140 Q164 156 288 100" stroke="#C9DFF0"/></g>
+          <g fill="none" stroke="#FFFFFF" stroke-opacity=".8" stroke-width="3" stroke-linecap="round" transform="translate(0 -4)"><path d="M40 440 Q164 456 288 400"/><path d="M40 340 Q164 356 288 300"/><path d="M40 240 Q164 256 288 200"/></g>
+        </svg>
+        <svg class="cl b" viewBox="0 0 204 124" style="left:-50px;top:416px;width:150px;z-index:1"><use href="#cloud"/></svg>
+        <svg class="cl" viewBox="0 0 204 124" style="right:-60px;top:330px;width:120px;z-index:1"><use href="#cloud"/></svg>
+        <div class="nd done" style="left:102px;top:444px">1</div><div class="nd done" style="left:226px;top:424px">2</div>
+        <div class="nd done" style="left:102px;top:344px">3</div><div class="nd done" style="left:226px;top:324px">4</div>
+        <div class="nd done" style="left:102px;top:244px">5</div><div class="nd now" style="left:226px;top:224px">6<small>이번 주</small></div>
+        <div class="nd lk" style="left:102px;top:144px">7<i class="lki"><svg viewBox="0 0 24 24" width="11" height="11" fill="#3E557C"><path d="M7 10V8a5 5 0 0 1 10 0v2h1.500v10h-13V10zm2.200 0h5.600V8a2.800 2.800 0 0 0-5.600 0z"/></svg></i></div>
+        <div class="nd lk" style="left:226px;top:124px">8<i class="lki"><svg viewBox="0 0 24 24" width="11" height="11" fill="#3E557C"><path d="M7 10V8a5 5 0 0 1 10 0v2h1.500v10h-13V10zm2.200 0h5.600V8a2.800 2.800 0 0 0-5.600 0z"/></svg></i></div>
+        <div class="goal" data-item="crown"></div><span class="glb">완강 보상</span>
+        <div class="mini" data-ch="map" style="left:258px;top:156px"></div>
+      </div>
+      <div class="sp"></div>
+      <nav class="dock"><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 3 11h2.200v8.500a1 1 0 0 0 1 1H10v-5.500h4v5.500h3.800a1 1 0 0 0 1-1V11H21z"/></svg>홈</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3h10a2 2 0 0 1 2 2v3h-2.500V5.500h-7v13h7V16H17v3a2 2 0 0 1-2 2H5zM16.500 8.500 21 12l-4.500 3.500V13.200H11v-2.400h5.500z"/></svg>퇴근 미션</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 20V11h4v9zm6 0V4h4v16zm6 0v-6.500h4V20z"/></svg>성적노트</button><button class="on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h10.500A2.500 2.500 0 0 1 19 5.500V21H7.500A2.500 2.500 0 0 1 5 18.500V4a1 1 0 0 1 1-1zm2.500 4v2.200h7V7z"/></svg>수업</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.500L8 21v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm3 5.400v2.200h8V9.400z"/></svg>질문</button></nav>
+    </div></div>
+  </section>
+</div>
+<div class="foot"><p class="pn cream">※ 캐릭터(안테나 로봇)는 지금 SVG로 그린 예시입니다. 최종본에서는 유광 3D 렌더(PNG)로 바꿔 끼울 수 있게 「몸 + 모자 + 안경 + 키링」을 따로 겹치는 구조로 만들었습니다. 타워·구름·간판도 전부 SVG·CSS 입니다.</p></div>
+
+<script>
+/* ── 겹쳐 입히는 캐릭터 「안테나 로봇」 (몸 색 + 모자 + 안경 + 키링) · 좌표계 210×236 ──
+   머리 x36~174 y54~164 · 눈 (84,108)(126,108) · 몸통 x66~144 y150~212 · 키링 고리 (146,190) */
+var COL = { snow:['#FFFFFF','#E9F1F8','#A9BDD0'], lime:['#E6FAB4','#B8E36B','#77AA2C'], pink:['#FFE0E7','#F7A8B8','#D46C86'], yel:['#FFF8B0','#F6E04F','#CFA216'], org:['#FFC8A2','#F47B3C','#C24E18'] };
+var NAVY = '#12305E', uid = 0;
+function defs(p, c){
+  return '<defs>' +
+    '<radialGradient id="'+p+'b" cx=".32" cy=".24" r=".95"><stop offset="0" stop-color="'+c[0]+'"/><stop offset=".55" stop-color="'+c[1]+'"/><stop offset="1" stop-color="'+c[2]+'"/></radialGradient>' +
+    '<linearGradient id="'+p+'sh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".4"/><stop offset=".45" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="1" stop-color="#0A2A55" stop-opacity=".34"/></linearGradient>' +
+    '<linearGradient id="'+p+'s" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".5" stop-color="#C9D6E2"/><stop offset="1" stop-color="#7F95AA"/></linearGradient>' +
+    '<linearGradient id="'+p+'f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFDF3"/><stop offset="1" stop-color="#E2DCC2"/></linearGradient>' +
+    '<linearGradient id="'+p+'d" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3B5FA8"/><stop offset=".5" stop-color="#16305E"/><stop offset="1" stop-color="#0A1836"/></linearGradient>' +
+    '</defs>';
+}
+/* 같은 모양을 색 + 유광 음영으로 두 번 그림 (외곽선 없음) */
+function P(d, fill, p, extra){ return '<path d="'+d+'" fill="'+fill+'"'+(extra||'')+'/><path d="'+d+'" fill="url(#'+p+'sh)"/>'; }
+function starPath(cx, cy, R, r){
+  var s = '';
+  for (var i = 0; i < 10; i++){ var a = -Math.PI/2 + i*Math.PI/5, q = i%2 ? r : R; s += (i ? 'L' : 'M') + (cx + q*Math.cos(a)).toFixed(1) + ' ' + (cy + q*Math.sin(a)).toFixed(1); }
+  return s + 'Z';
+}
+function hat(k, p){                                   // 머리 위 (y 1~88)
+  if (k === 'cap') return P('M46 78 C46 42 70 26 105 26 C140 26 164 42 164 78 Z', '#2A55B0', p) +
+    '<path d="M148 70 C174 62 198 68 204 80 C186 89 164 87 146 80 Z" fill="#12305E"/><path d="M152 72 C174 66 192 70 199 78" stroke="#FFFFFF" stroke-opacity=".3" stroke-width="3" stroke-linecap="round" fill="none"/>' +
+    '<rect x="46" y="71" width="118" height="7" rx="3.5" fill="#12305E" opacity=".45"/><ellipse cx="80" cy="45" rx="20" ry="7" fill="#FFFFFF" opacity=".35" transform="rotate(-26 80 45)"/>';
+  if (k === 'beanie') return '<circle cx="105" cy="17" r="12" fill="url(#'+p+'f)"/><circle cx="101" cy="13" r="3.5" fill="#FFFFFF" opacity=".8"/>' +
+    P('M40 80 C40 40 66 22 105 22 C144 22 170 40 170 80 Z', '#F7A8B8', p) +
+    '<rect x="35" y="66" width="140" height="22" rx="11" fill="#EFEBD8"/><rect x="35" y="66" width="140" height="22" rx="11" fill="url(#'+p+'sh)"/>' +
+    '<ellipse cx="78" cy="42" rx="18" ry="6" fill="#FFFFFF" opacity=".45" transform="rotate(-28 78 42)"/>';
+  if (k === 'crown') return P('M60 54 L64 14 L86 38 L105 6 L124 38 L146 14 L150 54 Z', '#F6CE35', p, ' stroke="#F6CE35" stroke-width="3" stroke-linejoin="round"') +
+    '<rect x="58" y="46" width="94" height="17" rx="8.500" fill="#E8AC14"/><rect x="58" y="46" width="94" height="17" rx="8.500" fill="url(#'+p+'sh)"/>' +
+    '<circle cx="64" cy="14" r="5" fill="#F7A8B8"/><circle cx="105" cy="7" r="6" fill="#F47B3C"/><circle cx="146" cy="14" r="5" fill="#B8E36B"/>' +
+    '<circle cx="103" cy="5" r="2" fill="#FFFFFF" opacity=".8"/><circle cx="85" cy="54.500" r="3" fill="#FFFDF3"/><circle cx="105" cy="54.500" r="3.500" fill="#FFFDF3"/><circle cx="125" cy="54.500" r="3" fill="#FFFDF3"/>';
+  return '';
+}
+function glasses(k, p){                               // 눈 위치 (84,108)(126,108)
+  if (k === 'sun') return '<rect x="63" y="94" width="84" height="7" rx="3.500" fill="#0A1836"/><rect x="65" y="95" width="37" height="26" rx="11" fill="url(#'+p+'d)"/><rect x="108" y="95" width="37" height="26" rx="11" fill="url(#'+p+'d)"/>' +
+    '<path d="M72 102 l8 9 M115 102 l8 9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity=".55" fill="none"/>';
+  if (k === 'round') return '<circle cx="84" cy="108" r="15" fill="#FFFFFF" fill-opacity=".35" stroke="'+NAVY+'" stroke-width="4"/><circle cx="126" cy="108" r="15" fill="#FFFFFF" fill-opacity=".35" stroke="'+NAVY+'" stroke-width="4"/>' +
+    '<path d="M99 106 q6 -5 12 0" stroke="'+NAVY+'" stroke-width="4" stroke-linecap="round" fill="none"/><path d="M74 101 q4 -6 11 -6 M116 101 q4 -6 11 -6" stroke="#FFFFFF" stroke-width="2.500" stroke-linecap="round" fill="none" opacity=".9"/>';
+  return '';
+}
+function charm(k, p){                                 // 옆구리 (x140~176, y184~228)
+  if (!k || k === 'none') return '';
+  var ring = '<circle cx="146" cy="190" r="6" fill="none" stroke="url(#'+p+'s)" stroke-width="3.500"/><path d="M150 195 L158 203" stroke="#C9D6E2" stroke-width="3" stroke-linecap="round"/>';
+  var s = {
+    star: P(starPath(160, 213, 12.5, 5.6), '#F6E04F', p, ' stroke="#F6E04F" stroke-width="2.500" stroke-linejoin="round"') + '<circle cx="156" cy="208" r="2" fill="#FFFFFF" opacity=".85"/>',
+    bolt: P('M165 199 l-13 16 h8.500 l-4.500 12 15 -18 h-8.500z', '#B8E36B', p, ' stroke="#B8E36B" stroke-width="2.500" stroke-linejoin="round"') + '<circle cx="159" cy="206" r="1.800" fill="#FFFFFF" opacity=".85"/>',
+    heart: P('M160 226 c-17 -10 -15 -25 -7 -25 5 0 7 5 7 5 s2 -5 7 -5 c8 0 10 15 -7 25z', '#F7A8B8', p) + '<ellipse cx="154" cy="206" rx="3" ry="2" fill="#FFFFFF" opacity=".85" transform="rotate(-30 154 206)"/>'
+  }[k] || '';
+  return s ? ring + s : '';
+}
+function charSVG(st, mood){
+  st = st || {};
+  var p = 'c' + (++uid), c = COL[st.color] || COL.snow, happy = mood === 'happy', B = 'url(#'+p+'b)';
+  var ball = st.color === 'org' ? '#F6E04F' : '#F47B3C';
+  var noHat = !st.hat || st.hat === 'none';
+  var antTall = '<rect x="102.500" y="30" width="5" height="28" rx="2.500" fill="url(#'+p+'s)"/><circle cx="105" cy="24" r="9" fill="'+ball+'"/><circle cx="105" cy="24" r="9" fill="url(#'+p+'sh)"/><circle cx="102" cy="21" r="2.800" fill="#FFFFFF" opacity=".85"/>';
+  var antCap = '<rect x="103" y="12" width="4" height="16" rx="2" fill="url(#'+p+'s)"/><circle cx="105" cy="9" r="6.500" fill="'+ball+'"/><circle cx="105" cy="9" r="6.500" fill="url(#'+p+'sh)"/><circle cx="103" cy="7" r="2" fill="#FFFFFF" opacity=".85"/>';
+  var hands = happy
+    ? '<circle cx="27" cy="96" r="12" fill="'+B+'"/><circle cx="183" cy="96" r="12" fill="'+B+'"/><path d="M12 76 l-6 -7 M27 70 v-9 M198 76 l6 -7 M183 70 v-9" stroke="#FFFFFF" stroke-width="3.500" stroke-linecap="round" fill="none"/>'
+    : '<circle cx="54" cy="174" r="12" fill="'+B+'"/><circle cx="156" cy="174" r="12" fill="'+B+'"/>';
+  var eyes = st.glasses === 'sun' ? '' : (happy
+    ? '<path d="M75 111 q9 -12 18 0 M117 111 q9 -12 18 0" stroke="'+NAVY+'" stroke-width="5" stroke-linecap="round" fill="none"/>'
+    : '<ellipse cx="84" cy="108" rx="7.500" ry="9.500" fill="'+NAVY+'"/><ellipse cx="126" cy="108" rx="7.500" ry="9.500" fill="'+NAVY+'"/><circle cx="86.500" cy="104.500" r="2.800" fill="#FFFFFF"/><circle cx="128.500" cy="104.500" r="2.800" fill="#FFFFFF"/>');
+  var mouth = happy
+    ? '<path d="M94 124 q11 15 22 0z" fill="'+NAVY+'"/><path d="M100 130 q5 4 10 0" stroke="#F7A8B8" stroke-width="3" stroke-linecap="round" fill="none"/>'
+    : '<path d="M97 126 q8 6 16 0" stroke="'+NAVY+'" stroke-width="3.500" stroke-linecap="round" fill="none"/>';
+  return '<svg viewBox="0 0 210 236" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;overflow:visible" role="img" aria-label="내 캐릭터">' + defs(p, c) +
+    '<ellipse cx="105" cy="226" rx="52" ry="7" fill="#063E7A" opacity=".28"/>' +
+    '<ellipse cx="86" cy="216" rx="17" ry="9.500" fill="'+c[2]+'"/><ellipse cx="124" cy="216" rx="17" ry="9.500" fill="'+c[2]+'"/><ellipse cx="81" cy="212" rx="7" ry="2.500" fill="#FFFFFF" opacity=".4"/><ellipse cx="119" cy="212" rx="7" ry="2.500" fill="#FFFFFF" opacity=".4"/>' +
+    '<rect x="66" y="150" width="78" height="62" rx="28" fill="'+B+'"/>' +
+    '<circle cx="105" cy="186" r="7" fill="'+ball+'"/><circle cx="105" cy="186" r="7" fill="url(#'+p+'sh)"/><circle cx="103" cy="184" r="2" fill="#FFFFFF" opacity=".85"/>' +
+    '<ellipse cx="105" cy="166" rx="42" ry="7" fill="'+c[2]+'" opacity=".55"/>' +
+    hands + charm(st.charm, p) +
+    (noHat ? antTall : '') +
+    '<rect x="36" y="54" width="138" height="110" rx="50" fill="'+B+'"/>' +
+    '<ellipse cx="78" cy="70" rx="26" ry="8" fill="#FFFFFF" opacity=".6" transform="rotate(-16 78 70)"/><circle cx="50" cy="94" r="3.500" fill="#FFFFFF" opacity=".6"/>' +
+    '<rect x="54" y="78" width="102" height="64" rx="28" fill="'+c[2]+'" opacity=".55"/><rect x="56" y="80" width="98" height="60" rx="26" fill="url(#'+p+'f)"/>' +
+    '<path d="M70 88 q35 -7 70 0" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity=".8" fill="none"/>' +
+    '<circle cx="68" cy="124" r="7" fill="#F7A8B8" opacity=".6"/><circle cx="142" cy="124" r="7" fill="#F7A8B8" opacity=".6"/>' +
+    eyes + mouth + glasses(st.glasses, p) + hat(st.hat, p) + (st.hat === 'cap' ? antCap : '') + '</svg>';
+}
+function itemIcon(kind, k){
+  var p = 'i' + (++uid);
+  if (kind === 'color'){ var c = COL[k] || COL.snow;
+    return '<svg class="icn" viewBox="0 0 60 46">' + defs(p, c) + '<rect x="12" y="5" width="36" height="34" rx="15" fill="url(#'+p+'b)"/><rect x="18" y="14" width="24" height="16" rx="7" fill="url(#'+p+'f)"/><circle cx="25" cy="22" r="2.200" fill="'+NAVY+'"/><circle cx="35" cy="22" r="2.200" fill="'+NAVY+'"/><ellipse cx="23" cy="10" rx="7" ry="2.400" fill="#FFFFFF" opacity=".6" transform="rotate(-14 23 10)"/></svg>'; }
+  if (!k || k === 'none') return '<svg class="icn" viewBox="0 0 60 46"><path d="M21 14 l18 18 M39 14 l-18 18" stroke="'+NAVY+'" stroke-opacity=".4" stroke-width="4.500" stroke-linecap="round"/></svg>';
+  var vb = kind === 'hat' ? '28 0 180 92' : kind === 'glasses' ? '50 86 110 44' : '134 180 46 50';
+  var body = kind === 'hat' ? hat(k, p) : kind === 'glasses' ? glasses(k, p) : charm(k, p);
+  return '<svg class="icn" viewBox="'+vb+'">' + defs(p, COL.snow) + body + '</svg>';
+}
+/* 성적 추이 그래프 (내 점수 · 반 평균, 5개 시점) */
+function graphSVG(){
+  var lab = ['10/21','10/28','11/4','11/11','11/18'], mine = [65,70,80,75,85], avg = [62,66,70,71,74];
+  var x0 = 34, x1 = 254, y0 = 12, y1 = 86, n = lab.length;
+  function X(i){ return x0 + (x1 - x0) * i / (n - 1); }
+  function Y(v){ return y1 - (v - 50) / 50 * (y1 - y0); }
+  function line(a){ return a.map(function(v, i){ return (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1); }).join(' '); }
+  var s = '<svg viewBox="0 0 268 110" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="정치 점수 추이: 내 점수와 반 평균">';
+  [50, 75, 100].forEach(function(v){ s += '<path d="M'+x0+' '+Y(v).toFixed(1)+' H'+x1+'" stroke="#12305E" stroke-opacity=".16" stroke-width="1.500" stroke-dasharray="3 5"/><text x="'+(x0 - 8)+'" y="'+(Y(v) + 3.5).toFixed(1)+'" text-anchor="end" font-size="9.500" font-weight="700" fill="#3E557C">'+v+'</text>'; });
+  lab.forEach(function(t, i){ s += '<text x="'+X(i).toFixed(1)+'" y="104" text-anchor="middle" font-size="9.500" font-weight="700" fill="#3E557C">'+t+'</text>'; });
+  s += '<path d="'+line(avg)+'" fill="none" stroke="#0F7FD6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 7"/>';
+  avg.forEach(function(v, i){ s += '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="3" fill="#0F7FD6"/>'; });
+  s += '<path d="'+line(mine)+'" fill="none" stroke="#F47B3C" stroke-width="4.500" stroke-linecap="round" stroke-linejoin="round"/>';
+  mine.forEach(function(v, i){ s += '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(v).toFixed(1)+'" r="5" fill="#FFFFFF" stroke="#F47B3C" stroke-width="3.500"/>'; });
+  s += '<text x="'+(X(n - 1) - 2).toFixed(1)+'" y="'+(Y(mine[n - 1]) - 10).toFixed(1)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#12305E">17/20</text>';
+  return s + '</svg>';
+}
+/* QR 자리 — 진짜 QR 이 아니라 격자 무늬 */
+function qrSVG(){
+  var n = 21, s = 6, o = 6, seed = 4827, out = '<svg viewBox="0 0 138 138" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="QR 자리(예시 무늬)"><rect width="138" height="138" rx="12" fill="#FFFFFF"/>';
+  function rnd(){ seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+  for (var y = 0; y < n; y++) for (var x = 0; x < n; x++){
+    if ((x < 8 && y < 8) || (x >= n - 8 && y < 8) || (x < 8 && y >= n - 8)) continue;
+    if (rnd() < .48) out += '<rect x="'+(o + x*s)+'" y="'+(o + y*s)+'" width="6" height="6" fill="'+NAVY+'"/>';
+  }
+  [[0,0],[n-7,0],[0,n-7]].forEach(function(f){ var fx = o + f[0]*s, fy = o + f[1]*s;
+    out += '<rect x="'+fx+'" y="'+fy+'" width="42" height="42" rx="7" fill="'+NAVY+'"/><rect x="'+(fx+6)+'" y="'+(fy+6)+'" width="30" height="30" rx="4" fill="#FFFFFF"/><rect x="'+(fx+12)+'" y="'+(fy+12)+'" width="18" height="18" rx="4" fill="'+NAVY+'"/>'; });
+  return out + '</svg>';
+}
+/* 예시 아이템 (조건은 기획 확정 전 예시) */
+var ITEMS = {
+  color:   [['snow','구름 하양'],['lime','연두'],['pink','분홍'],['yel','노랑','★ 100'],['org','주황','7일 연속 출석']],
+  hat:     [['none','없음'],['cap','캡 모자'],['beanie','비니','퀴즈 10회 참가'],['crown','왕관','한 과목 완강']],
+  glasses: [['none','없음'],['round','동글 안경'],['sun','선글라스','월말 80% 이상']],
+  charm:   [['none','없음'],['star','별 키링'],['bolt','번개 키링','첫 도전 통과 3번'],['heart','하트 키링','QnA 첫 질문']]
+};
+var TABN = { color:'색', hat:'모자', glasses:'안경', charm:'키링' };
+var me = { color:'snow', hat:'cap', glasses:'none', charm:'star' }, tab = 'hat';
+var LOCK = '<svg class="lk" viewBox="0 0 24 24" fill="#3E557C"><path d="M7 10V8a5 5 0 0 1 10 0v2h1.500v10h-13V10zm2.200 0h5.600V8a2.800 2.800 0 0 0-5.600 0z"/></svg>';
+function tabsHTML(){ return Object.keys(TABN).map(function(k){ return '<button class="'+(k === tab ? 'on' : '')+'" data-tab="'+k+'">'+TABN[k]+'</button>'; }).join(''); }
+function gridHTML(){
+  return ITEMS[tab].map(function(x){
+    var lock = !!x[2], on = me[tab] === x[0];
+    return '<button class="it'+(on ? ' on' : '')+(lock ? ' lock' : '')+'" data-k="'+x[0]+'">'+(lock ? LOCK : '')+itemIcon(tab, x[0])+x[1]+(lock ? '<em>'+x[2]+'</em>' : '')+'</button>';
+  }).join('');
+}
+function draw(){
+  var set = function(sel, html){ document.querySelectorAll(sel).forEach(function(e){ e.innerHTML = html; }); };
+  var won = { color: me.color, hat: 'crown', glasses: me.glasses, charm: me.charm };   // 클리어 화면: 방금 얻은 왕관을 쓴 모습
+  set('[data-ch="home"]', charSVG(me));
+  set('[data-ch="closet"]', charSVG(me));
+  set('[data-ch="map"]', charSVG(me));
+  set('[data-ch="quiz"]', charSVG(me, 'happy'));
+  set('[data-ch="clear"]', charSVG(won, 'happy'));
+  document.getElementById('tabs').innerHTML = tabsHTML();
+  document.getElementById('grid').innerHTML = gridHTML();
+  document.querySelectorAll('[data-item]').forEach(function(e){ e.innerHTML = itemIcon('hat', e.getAttribute('data-item')); });
+}
+if (typeof document !== 'undefined'){
+  document.getElementById('gr').innerHTML = graphSVG();
+  document.getElementById('qr').innerHTML = qrSVG();
+  document.addEventListener('click', function(e){
+    var t = e.target.closest('[data-tab]'); if (t){ tab = t.getAttribute('data-tab'); draw(); return; }
+    var it = e.target.closest('.it'); if (it){ me[tab] = it.getAttribute('data-k'); draw(); return; }   // 시안이라 잠긴 것도 입혀 볼 수 있게 둠
+    var g = e.target.closest('[data-go]');
+    if (g){ var el = document.getElementById(g.getAttribute('data-go')); var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', inline: 'center', block: 'nearest' }); }
+  });
+  draw();
+}
+</script>
+</body>
+</html>

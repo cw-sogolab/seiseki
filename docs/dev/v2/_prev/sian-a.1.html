@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>시안 A · 팝 스티커</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --peri:#8E9BFF; --peri-d:#6C7BFF; --cream:#F4F0E6; --ink:#16141F; --coral:#FF6B4A; --sun:#FFC83D; --mint:#3DDC97; --pink:#FF9EC4; --blue:#2B4BFF; --paper:#FFFDF7;
+  --f-disp:"Bagel Fat One","Pretendard Variable",Pretendard,sans-serif; --f-body:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif;
+  --f-jp:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP","Pretendard Variable",Pretendard,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--cream);color:var(--ink);font-family:var(--f-body);-webkit-font-smoothing:antialiased;word-break:keep-all}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+.top{padding:36px 24px 8px;max-width:1500px;margin:0 auto}
+.top .tag{display:inline-block;background:var(--ink);color:var(--sun);font-weight:800;font-size:12px;letter-spacing:.08em;padding:5px 12px;border-radius:999px}
+.top h1{font-family:var(--f-disp);font-weight:400;font-size:clamp(40px,7vw,88px);line-height:1;margin:14px 0 10px;letter-spacing:-.01em}
+.top h1 em{font-style:normal;color:var(--blue)}
+.top p{margin:0;max-width:720px;font-size:16px;line-height:1.6;color:#4a4658}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0}
+.chips span{display:inline-flex;align-items:center;gap:8px;border:2px solid var(--ink);border-radius:999px;padding:5px 12px 5px 6px;font-size:13px;font-weight:700;background:var(--paper)}
+.chips i{width:18px;height:18px;border-radius:50%;display:block;border:2px solid var(--ink)}
+/* 줄 제목 (필수 화면 / 추가 화면) */
+.sec{max-width:1500px;margin:30px auto 0;padding:0 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sec h2{font-family:var(--f-disp);font-weight:400;font-size:34px;line-height:1;margin:0}
+.sec .n{background:var(--ink);color:var(--sun);font-weight:800;font-size:12px;line-height:16px;padding:5px 12px;border-radius:999px}
+.sec .hint{font-size:13px;font-weight:700;color:#5b566b}
+.row{display:flex;gap:28px;overflow-x:auto;padding:16px 24px 44px;max-width:1500px;margin:0 auto;scroll-snap-type:x proximity}
+.row::after{content:"";flex:0 0 1px}
+.col{flex:none;scroll-snap-align:start}
+.col h3{font-family:var(--f-disp);font-weight:400;font-size:24px;line-height:30px;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+.col h3 .no{flex:none;width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--sun);display:grid;place-items:center;font-size:17px;line-height:1}
+.col .note{font-size:13px;color:#5b566b;margin:0 0 12px;max-width:340px;line-height:1.5;min-height:40px}
+.col.wide .note{max-width:940px}
+/* 휴대폰 틀 */
+.ph{width:340px;height:700px;border:3px solid var(--ink);border-radius:44px;overflow:hidden;position:relative;box-shadow:10px 10px 0 var(--ink);display:flex;flex-direction:column}
+.ph .scr{flex:1;min-height:0;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;font-weight:800;font-size:13px;padding:7px 13px;background:var(--ink);color:#fff;white-space:nowrap}
+.pill.sun{background:var(--sun);color:var(--ink)} .pill.coral{background:var(--coral);color:#fff} .pill.line{background:transparent;color:var(--ink);border:2px solid var(--ink)} .pill.cream{background:var(--cream);color:var(--ink)}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 0}
+.disp{font-family:var(--f-disp);font-weight:400;line-height:.98;letter-spacing:-.01em}
+/* 띠(티커) */
+.tick{background:var(--ink);color:var(--sun);font-family:var(--f-disp);font-size:15px;white-space:nowrap;overflow:hidden;padding:7px 0;transform:rotate(-2deg);margin:0 -10px}
+.tick b{display:inline-block;font-weight:400;animation:tk 14s linear infinite;padding-left:8px}
+@keyframes tk{to{transform:translateX(-50%)}}
+/* 아래 도크 */
+.dock{flex:none;margin:0 12px 12px;background:var(--ink);border-radius:26px;display:flex;padding:6px}
+.dock button{flex:1;min-width:0;color:#a9a5b8;font-size:10.5px;letter-spacing:-.02em;white-space:nowrap;font-weight:700;padding:7px 0 6px;border-radius:20px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.dock button svg{width:22px;height:22px}
+.dock button.on{background:var(--sun);color:var(--ink)}
+/* ① 메인 */
+.s-home{background:var(--peri)}
+.s-home .hi{padding:14px 18px 0;color:var(--ink)}
+.s-home .hi .disp{font-size:54px;color:var(--paper)} .s-home .hi .disp span{color:var(--ink)}
+.stage{position:relative;height:220px;display:flex;align-items:flex-end;justify-content:center}
+.stage::before{content:"";position:absolute;left:50%;bottom:8px;width:230px;height:230px;border-radius:50%;background:var(--cream);transform:translateX(-50%)}
+.stage .ch{position:relative;width:190px;animation:bob 3.6s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-8px) rotate(1.5deg)}}
+.stk{position:absolute;font-family:var(--f-disp);font-size:13px;padding:6px 11px;border-radius:999px;border:2px solid var(--ink);white-space:nowrap}
+.card{background:var(--paper);border:2.5px solid var(--ink);border-radius:26px;padding:14px 16px;margin:10px 14px 0;box-shadow:5px 5px 0 var(--ink)}
+.card small{font-size:12px;font-weight:700;color:#6a6578}
+.card .t{font-family:var(--f-disp);font-size:24px;line-height:1.1;margin:2px 0 10px}
+.prog{height:14px;border:2px solid var(--ink);border-radius:999px;background:#fff;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--mint);border-right:2px solid var(--ink)}
+/* ② 성적노트 */
+.s-note{background:var(--sun)}
+.subj{display:flex;gap:5px;padding:10px 14px 0}
+.subj span{border:2px solid var(--ink);border-radius:999px;padding:5px 9px;font-weight:800;font-size:12.5px;line-height:15px;background:var(--paper);white-space:nowrap}
+.subj span.on{background:var(--ink);color:var(--sun)}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 14px 0}
+.sum div{border:2.5px solid var(--ink);border-radius:18px;background:var(--paper);box-shadow:3px 3px 0 var(--ink);padding:7px 4px 8px;text-align:center}
+.sum small{display:block;font-size:11px;line-height:14px;font-weight:800}
+.sum b{display:block;font-family:var(--f-disp);font-weight:400;font-size:24px;line-height:26px}
+.gcard{margin:10px 14px 0;background:var(--paper);border:2.5px solid var(--ink);border-radius:22px;box-shadow:5px 5px 0 var(--ink);padding:9px 12px 6px}
+.gcard .gh{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;line-height:16px;font-weight:800}
+.gcard .lg{display:flex;gap:10px;font-size:11px;color:#3d394b}
+.gcard .lg i{display:inline-block;width:14px;height:0;border-top:3px solid var(--ink);vertical-align:middle;margin-right:4px}
+.gcard .lg i.av{border-top:3px dotted var(--peri-d)}
+.gcard svg{display:block;width:100%;height:108px;margin-top:2px}
+.lh{margin:9px 18px 0;font-size:12px;line-height:15px;font-weight:800;display:flex;justify-content:space-between}
+.list{margin:5px 14px 0;background:var(--paper);border:2.5px solid var(--ink);border-radius:18px;box-shadow:4px 4px 0 var(--ink);padding:2px 12px}
+.list .r{display:flex;align-items:center;gap:8px;min-height:38px;padding:4px 0;border-top:2px dashed #cfc9bb}
+.list .r:first-child{border-top:0}
+.list.s .r{min-height:30px}
+.list .tt{flex:1;min-width:0;font-size:12.5px;line-height:16px;font-weight:800;white-space:nowrap}
+.list .tt small{display:block;font-size:11px;line-height:14px;font-weight:700;color:#5b566b}
+.list .dt{font-size:11px;line-height:14px;font-weight:700;color:#5b566b;white-space:nowrap}
+.list .sc{font-family:var(--f-disp);font-size:17px;line-height:1;white-space:nowrap}
+.bdg{display:inline-flex;align-items:center;border:2px solid var(--ink);border-radius:999px;padding:2px 9px;font-size:11px;line-height:14px;font-weight:800;white-space:nowrap;background:var(--paper);color:var(--ink)}
+.bdg.ok{background:var(--mint)} .bdg.ing{background:var(--sun)} .bdg.no{background:var(--coral)} .bdg.yet{background:var(--cream);border-style:dashed}
+/* ③ 퇴근 미션 (문제 풀이) */
+.s-quiz{background:var(--pink)}
+.s-quiz .hd{padding:12px 18px 0}
+.s-quiz .hd .disp{font-size:36px;line-height:40px}
+.dots{display:flex;align-items:center;gap:3px;margin:10px 16px 0;height:18px}
+.dots i{flex:1;height:12px;border:2px solid var(--ink);border-radius:4px;background:var(--paper)}
+.dots i.d{background:var(--ink)}
+.dots i.n{background:var(--sun);height:18px}
+.dots svg{flex:none;width:20px;height:18px;margin-left:2px}
+.q{margin:12px 14px 0;background:var(--paper);border:2.5px solid var(--ink);border-radius:24px;box-shadow:5px 5px 0 var(--ink);padding:12px 16px 13px}
+.q .tg{display:flex;gap:6px;align-items:center}
+.q .jp{font-family:var(--f-jp);font-weight:900;font-size:34px;line-height:40px;margin-top:6px;letter-spacing:.02em}
+.q .ask{font-size:15px;line-height:20px;font-weight:800}
+.opts{display:grid;gap:8px;margin:12px 14px 0}
+.op{display:flex;align-items:center;gap:10px;width:100%;border:2.5px solid var(--ink);border-radius:18px;background:var(--paper);padding:7px 12px;text-align:left}
+.op .k{flex:none;width:26px;height:26px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;font-family:var(--f-disp);font-size:14px;line-height:1;background:var(--cream)}
+.op .jp{display:block;font-family:var(--f-jp);font-weight:800;font-size:17px;line-height:20px}
+.op small{display:block;font-size:11px;line-height:14px;font-weight:700;color:#5b566b}
+.op .ck{flex:none;width:26px;height:26px;margin-left:auto}
+.op.ok{background:var(--mint);box-shadow:4px 4px 0 var(--ink)}
+.op.ok .k{background:var(--ink);color:var(--sun)}
+.op.ok small{color:var(--ink)}
+.fb{flex:none;margin:0 14px;height:68px;display:flex;align-items:center;gap:10px;background:var(--sun);border:2.5px solid var(--ink);border-radius:20px;box-shadow:4px 4px 0 var(--ink);padding:0 12px 0 10px}
+.fb .ch{flex:none;width:46px}
+.fb .disp{font-size:24px;line-height:26px}
+.fb p{margin:0;font-size:12px;line-height:16px;font-weight:700}
+/* ④ 어드민 (PC 틀) */
+.pc{width:940px;height:620px;border:3px solid var(--ink);border-radius:20px;overflow:hidden;box-shadow:10px 10px 0 var(--ink);display:flex;flex-direction:column;background:var(--cream)}
+.pc .br{flex:none;height:38px;background:var(--ink);display:flex;align-items:center;gap:7px;padding:0 14px}
+.pc .br i{width:12px;height:12px;border-radius:50%}
+.pc .br .url{margin-left:10px;flex:1;max-width:420px;background:#2c2938;color:#d9d5e6;border-radius:999px;font-size:12px;line-height:22px;font-weight:700;padding:0 14px;white-space:nowrap;overflow:hidden}
+.pc .bd{flex:1;min-height:0;display:flex}
+.ad-side{flex:none;width:168px;background:var(--peri);border-right:2.5px solid var(--ink);padding:16px 12px;display:flex;flex-direction:column;gap:4px}
+.ad-side .lg{font-family:var(--f-disp);font-size:24px;line-height:26px;margin:0 6px}
+.ad-side .sub{font-size:11px;line-height:14px;font-weight:800;margin:0 6px 10px}
+.ad-side button{display:flex;align-items:center;gap:8px;border-radius:999px;padding:7px 12px;font-size:13.5px;line-height:18px;font-weight:800;text-align:left;border:2px solid transparent}
+.ad-side button.on{background:var(--ink);color:var(--sun);border-color:var(--ink)}
+.ad-side button .c{margin-left:auto;min-width:20px;height:20px;border-radius:999px;border:2px solid var(--ink);background:var(--paper);color:var(--ink);font-size:11px;line-height:16px;text-align:center;padding:0 4px}
+.ad-side .who{display:flex;align-items:center;gap:8px;background:var(--paper);border:2px solid var(--ink);border-radius:999px;padding:5px 10px 5px 6px;font-size:12px;line-height:16px;font-weight:800}
+.ad-side .who i{width:22px;height:22px;border-radius:50%;background:var(--sun);border:2px solid var(--ink)}
+.ad-main{flex:1;min-width:0;padding:16px 18px;display:flex;flex-direction:column}
+.ad-top{flex:none;display:flex;align-items:center;gap:10px;height:36px}
+.ad-top .disp{font-size:28px;line-height:30px}
+.ad-top .mt{font-size:12.5px;font-weight:700;color:#4a4658;white-space:nowrap}
+.ad-sum{flex:none;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
+.ad-sum div{border:2.5px solid var(--ink);border-radius:18px;box-shadow:4px 4px 0 var(--ink);padding:9px 14px 10px;background:var(--paper)}
+.ad-sum small{display:block;font-size:12px;line-height:16px;font-weight:800}
+.ad-sum b{display:block;font-family:var(--f-disp);font-weight:400;font-size:28px;line-height:30px}
+.ad-sum b span{font-size:17px}
+.ad-row{flex:1;min-height:0;display:flex;gap:16px;margin-top:16px;align-items:flex-start}
+.ad-tbl{flex:1;min-width:0;background:var(--paper);border:2.5px solid var(--ink);border-radius:20px;box-shadow:5px 5px 0 var(--ink);overflow:hidden}
+.ad-tbl .th{display:flex;align-items:center;gap:6px;padding:0 14px;height:46px}
+.ad-tbl .th .disp{font-size:19px;line-height:22px;margin-right:auto;white-space:nowrap}
+.fl{border:2px solid var(--ink);border-radius:999px;padding:3px 10px;font-size:11.5px;line-height:15px;font-weight:800;background:var(--paper);white-space:nowrap}
+.fl.on{background:var(--ink);color:var(--sun)}
+.ad-tbl table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}
+.ad-tbl th{height:30px;background:var(--ink);color:var(--sun);font-size:12px;font-weight:800;text-align:left;padding:0 8px;white-space:nowrap}
+.ad-tbl td{height:44px;padding:0 8px;border-top:2px dashed #d9d3c5;font-weight:700;white-space:nowrap}
+.ad-tbl tbody tr:first-child td{border-top:0}
+.ad-tbl th:first-child,.ad-tbl td:first-child{padding-left:14px}
+.ad-tbl .nm{display:flex;align-items:center;gap:8px;font-weight:800}
+.ad-tbl .nm i{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--ink)}
+.mb{display:inline-block;width:34px;height:9px;border:2px solid var(--ink);border-radius:999px;background:#fff;overflow:hidden;vertical-align:middle;margin-left:6px}
+.mb i{display:block;height:100%;background:var(--mint)}
+.ad-tbl .ft{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-top:2.5px solid var(--ink);font-size:12px;font-weight:800;background:var(--cream)}
+.ad-code{flex:none;width:200px;background:var(--sun);border:2.5px solid var(--ink);border-radius:20px;box-shadow:5px 5px 0 var(--ink);padding:12px 14px 14px;text-align:center}
+.ad-code small{display:block;font-size:12px;line-height:16px;font-weight:800}
+.ad-code .cap{font-size:11px;line-height:14px;font-weight:700}
+.ad-code .num{display:flex;gap:6px;justify-content:center;margin:8px 0}
+.ad-code .num b{width:36px;height:48px;border:2.5px solid var(--ink);border-radius:12px;background:var(--paper);display:grid;place-items:center;font-family:var(--f-disp);font-weight:400;font-size:30px;line-height:1}
+.ad-code .qr{width:124px;height:124px;margin:10px auto 6px;border:2.5px solid var(--ink);border-radius:14px;background:var(--paper);padding:8px}
+.ad-code .qr svg{display:block;width:100%;height:100%}
+.ad-code .pill{margin-top:10px;font-size:12px;line-height:16px;padding:7px 14px}
+/* ⑤ 클리어 */
+.s-clear{background:var(--coral);align-items:center;text-align:center}
+.s-clear .big{font-size:86px;color:var(--cream);transform:rotate(-5deg);margin-top:26px;text-shadow:5px 5px 0 var(--ink)}
+.s-clear .ch{width:200px;margin-top:-6px;animation:pop 1.6s cubic-bezier(.3,1.6,.5,1) infinite alternate}
+@keyframes pop{from{transform:translateY(6px) scale(.97)}to{transform:translateY(-8px) scale(1.02)}}
+.conf{position:absolute;inset:0;pointer-events:none}
+.conf i{position:absolute;width:12px;height:20px;border-radius:4px;border:2px solid var(--ink)}
+.rew{background:var(--paper);border:2.5px solid var(--ink);border-radius:22px;box-shadow:5px 5px 0 var(--ink);margin:6px 16px 0;padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;align-self:stretch}
+.rew .ic{width:58px;height:58px;border-radius:16px;background:var(--sun);border:2.5px solid var(--ink);display:grid;place-items:center;flex:none}
+.btn{display:block;border-radius:999px;padding:14px;font-weight:800;font-size:16px;background:var(--ink);color:#fff;margin:10px 16px 0;align-self:stretch;text-align:center}
+.btn.line{background:transparent;color:var(--ink);border:2.5px solid var(--ink)}
+/* ⑥ 꾸미기 */
+.s-closet{background:var(--cream)}
+.s-closet .pv{margin:12px 14px 0;height:214px;border-radius:28px;border:2.5px solid var(--ink);background:var(--peri);display:flex;align-items:flex-end;justify-content:center;position:relative;overflow:hidden;transition:background .25s}
+.s-closet .pv .ch{width:176px}
+.tabs{display:flex;gap:6px;padding:12px 14px 4px;overflow:auto}
+.tabs button{border:2px solid var(--ink);border-radius:999px;padding:6px 14px;font-weight:800;font-size:13px;background:var(--paper);white-space:nowrap}
+.tabs button.on{background:var(--ink);color:var(--sun)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:8px 14px 12px;overflow:auto;flex:1;min-height:0;align-content:start}
+.it{border:2.5px solid var(--ink);border-radius:18px;background:var(--paper);padding:8px 4px 7px;text-align:center;font-size:11.5px;font-weight:800;position:relative;min-height:92px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px}
+.it svg{width:52px;height:46px}
+.it.on{background:var(--sun);box-shadow:3px 3px 0 var(--ink)}
+.it.lock{background:#e6e1d6;color:#6d6878;border-style:dashed}
+.it.lock svg:not(.lk){opacity:.35;filter:grayscale(1)}
+.it.lock em{font-style:normal;font-weight:700;font-size:10px;line-height:1.25;color:#56516a}
+.it .lk{position:absolute;right:6px;top:6px;width:18px;height:18px}
+/* 잠긴 아이템도 입어 보는 중이면 선택 표시가 보이게 */
+.it.lock.on{background:var(--sun);color:var(--ink);border-style:solid;box-shadow:3px 3px 0 var(--ink)}
+.it.lock.on svg:not(.lk){opacity:1;filter:none}
+.it.lock.on em{color:var(--ink)}
+/* ⑦ 수업 맵 */
+.s-map{background:var(--mint)}
+.s-map .hd{padding:14px 18px 0}
+.s-map .hd .disp{font-size:40px}
+.path{position:relative;flex:none;height:430px;width:334px;margin:auto 0 16px}
+.path svg.ln{position:absolute;inset:0;width:100%;height:100%}
+.nd{position:absolute;width:58px;height:58px;border-radius:50%;border:3px solid var(--ink);display:grid;place-items:center;font-family:var(--f-disp);font-size:22px;background:var(--paper);transform:translate(-50%,-50%)}
+.nd.done{background:var(--ink);color:var(--sun)}
+.nd.now{background:var(--coral);color:#fff;box-shadow:0 0 0 7px rgba(22,20,31,.16);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 13px rgba(22,20,31,.06)}}
+.nd.lkd{background:#e6e1d6;color:#56516a;border-style:dashed}
+.nd.lkd svg{position:absolute;right:-7px;top:-7px;width:22px;height:22px;padding:2px;border-radius:50%;background:var(--paper);border:2px solid var(--ink)}
+.nd.goal{width:76px;height:76px;background:var(--sun)}
+.nd small{position:absolute;top:100%;margin-top:4px;font:800 11px var(--f-body);white-space:nowrap;color:var(--ink)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.foot{max-width:1500px;margin:0 auto;padding:0 24px 60px;font-size:14px;color:#5b566b;line-height:1.7}
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="tag">시안 A · 팝 스티커 · 예시 화면 (숫자·이름은 가짜)</span>
+  <h1>공부하면<br>캐릭터가 <em>자란다.</em></h1>
+  <p>큰 글자, 납작한 원색 면, 알약 버튼, 그리고 스티커처럼 붙는 캐릭터. 공부한 만큼 아이템이 쌓이고, 꾸민 캐릭터가 메인·퇴근 미션·클리어 화면까지 따라옵니다. 「꾸미기」 화면의 아이템을 눌러 보세요 — 캐릭터가 바로 바뀝니다.</p>
+  <div class="chips"><span><i style="background:var(--peri)"></i>페리윙클</span><span><i style="background:var(--cream)"></i>크림</span><span><i style="background:var(--ink)"></i>잉크</span><span><i style="background:var(--coral)"></i>코랄</span><span><i style="background:var(--sun)"></i>선</span><span><i style="background:var(--mint)"></i>민트</span><span><i style="background:var(--pink)"></i>핑크</span><span style="font-family:var(--f-disp);font-weight:400;padding-left:12px">제목 Bagel Fat One</span><span style="padding-left:12px">본문 Pretendard</span></div>
+</header>
+
+<!-- ───────── 첫째 줄: 필수 화면 ───────── -->
+<div class="sec"><span class="n">첫째 줄</span><h2>필수 화면</h2><span class="hint">메인 · 성적노트 · 퇴근 미션 · 어드민 — 옆으로 밀어 보세요 →</span></div>
+<div class="row">
+  <!-- ① 메인 -->
+  <section class="col"><h3><span class="no">1</span>메인</h3><p class="note">들어오면 내 캐릭터가 먼저 보입니다. 오늘 할 일 하나와 다음 아이템까지 남은 거리만.</p>
+    <div class="ph"><div class="scr s-home">
+      <div class="bar"><span class="pill">김예시</span><span class="pill sun">★ 240</span></div>
+      <div class="hi"><div class="disp">오늘도<br><span>출석!</span></div></div>
+      <div class="stage"><span class="stk" style="left:14px;top:26px;background:var(--sun);transform:rotate(-10deg)">🔥 4일 연속</span><span class="stk" style="right:12px;top:58px;background:var(--pink);transform:rotate(8deg)">Lv.3</span><div class="ch" data-ch="home"></div></div>
+      <div class="tick"><b>퇴근 미션 ✦ 성적노트 ✦ 수업 ✦ 질문 ✦ 꾸미기 ✦ 퇴근 미션 ✦ 성적노트 ✦ 수업 ✦ 질문 ✦ 꾸미기 ✦ 퇴근 미션 ✦ 성적노트 ✦ 수업 ✦ 질문 ✦ 꾸미기 ✦ 퇴근 미션 ✦ 성적노트 ✦ 수업 ✦ 질문 ✦ 꾸미기 ✦ </b></div>
+      <div class="card"><small>오늘의 미션</small><div class="t">퇴근 미션 20문제</div><div style="display:flex;align-items:center;gap:10px"><div class="prog" style="flex:1"><i style="width:60%"></i></div><span style="font-size:12px;font-weight:800">다음 아이템까지 2회</span></div></div>
+      <div style="flex:1"></div>
+      <nav class="dock"><button class="on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 3 11h2v9h5v-6h4v6h5v-9h2z"/></svg>홈</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>퇴근 미션</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z"/></svg>성적노트</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3h11a3 3 0 0 1 3 3v15H7a2 2 0 0 1-2-2zm3 4v2h8V7z"/></svg>수업</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 16h-2v-2h2zm1.6-6.9c-.9.7-1.6 1.2-1.6 2.4h-2c0-2 1.100-2.800 2-3.500.7-.5 1.200-.9 1.200-1.700a2.200 2.200 0 0 0-4.400 0H7.800a4.200 4.200 0 0 1 8.400 0c0 1.800-1 2.500-1.600 2.800z"/></svg>질문</button></nav>
+    </div></div>
+  </section>
+
+  <!-- ② 성적노트 -->
+  <section class="col"><h3><span class="no">2</span>성적노트</h3><p class="note">과목을 고르면 숫자 셋과 추이가 먼저. 테스트와 숙제는 스티커 같은 줄로 짧게.</p>
+    <div class="ph"><div class="scr s-note">
+      <div class="bar"><span class="disp" style="font-size:28px">성적노트</span><span class="pill">개념반 · 11월</span></div>
+      <div class="subj"><span class="on">정치</span><span>경제</span><span>현대사회</span><span>지리</span><span>역사</span></div>
+      <div class="sum"><div><small>평균 정답률</small><b>78%</b></div><div style="background:var(--mint)"><small>최근 테스트</small><b>17/20</b></div><div style="background:var(--peri)"><small>숙제</small><b>5/6</b></div></div>
+      <div class="gcard">
+        <div class="gh"><span>정치 · 최근 5회 (%)</span><span class="lg"><span><i></i>나</span><span><i class="av"></i>반 평균</span></span></div>
+        <svg viewBox="0 0 280 108" role="img" aria-label="정치 점수 추이. 내 점수 70, 75, 80, 80, 85. 반 평균 68, 72, 70, 74, 76.">
+          <path d="M30 12H272M30 48H272M30 84H272" fill="none" stroke="#d9d3c5" stroke-width="1.5" stroke-dasharray="3 5"/>
+          <g font-size="10" font-weight="700" fill="#5b566b" text-anchor="end"><text x="24" y="15.5">100</text><text x="24" y="51.5">75</text><text x="24" y="87.5">50</text></g>
+          <g font-size="10" font-weight="700" fill="#5b566b" text-anchor="middle"><text x="40" y="103">10/21</text><text x="95" y="103">10/28</text><text x="150" y="103">11/4</text><text x="205" y="103">11/11</text><text x="260" y="103">11/18</text></g>
+          <polyline points="40,58.1 95,52.3 150,55.2 205,49.4 260,46.6" fill="none" stroke="#6C7BFF" stroke-width="3.5" stroke-dasharray="1 7" stroke-linecap="round"/>
+          <g fill="#FFFDF7" stroke="#6C7BFF" stroke-width="2.5"><circle cx="40" cy="58.1" r="3.5"/><circle cx="95" cy="52.3" r="3.5"/><circle cx="150" cy="55.2" r="3.5"/><circle cx="205" cy="49.4" r="3.5"/><circle cx="260" cy="46.6" r="3.5"/></g>
+          <polyline points="40,55.2 95,48 150,40.8 205,40.8 260,33.6" fill="none" stroke="#16141F" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+          <g fill="#FFC83D" stroke="#16141F" stroke-width="2.5"><circle cx="40" cy="55.2" r="5"/><circle cx="95" cy="48" r="5"/><circle cx="150" cy="40.8" r="5"/><circle cx="205" cy="40.8" r="5"/><circle cx="260" cy="33.6" r="6.5" fill="#FF6B4A"/></g>
+          <rect x="236" y="4" width="40" height="18" rx="9" fill="#FFC83D" stroke="#16141F" stroke-width="2"/><text x="256" y="17" font-size="11" font-weight="800" fill="#16141F" text-anchor="middle">85%</text>
+        </svg>
+      </div>
+      <div class="lh"><span>테스트</span><span>전체 보기 ›</span></div>
+      <div class="list">
+        <div class="r"><div class="tt">정치 3주차 소테스트<small>11/18</small></div><span class="bdg">3등 / 18명</span><span class="sc">17/20</span></div>
+        <div class="r"><div class="tt">정치 2주차 소테스트<small>11/11</small></div><span class="bdg">5등 / 18명</span><span class="sc">16/20</span></div>
+        <div class="r"><div class="tt">정치 1주차 소테스트<small>11/4</small></div><span class="bdg">6등 / 18명</span><span class="sc">16/20</span></div>
+      </div>
+      <div class="lh"><span>숙제</span><span>5 / 6 제출</span></div>
+      <div class="list s">
+        <div class="r"><div class="tt">정치 6회차 복습 프린트</div><span class="dt">11/20</span><span class="bdg ok">제출 완료</span></div>
+        <div class="r"><div class="tt">정치 7회차 예습 노트</div><span class="dt">11/27까지</span><span class="bdg no">미제출</span></div>
+      </div>
+      <div style="flex:1"></div>
+      <nav class="dock"><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 3 11h2v9h5v-6h4v6h5v-9h2z"/></svg>홈</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>퇴근 미션</button><button class="on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z"/></svg>성적노트</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3h11a3 3 0 0 1 3 3v15H7a2 2 0 0 1-2-2zm3 4v2h8V7z"/></svg>수업</button><button><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 16h-2v-2h2zm1.6-6.9c-.9.7-1.6 1.2-1.6 2.4h-2c0-2 1.100-2.800 2-3.500.7-.5 1.200-.9 1.200-1.700a2.200 2.200 0 0 0-4.400 0H7.800a4.200 4.200 0 0 1 8.400 0c0 1.800-1 2.500-1.600 2.800z"/></svg>질문</button></nav>
+    </div></div>
+  </section>
+
+  <!-- ③ 퇴근 미션 -->
+  <section class="col"><h3><span class="no">3</span>퇴근 미션</h3><p class="note">한 화면에 한 문제. 남은 문제 수가 「집까지」 거리로 보이고, 맞히면 캐릭터가 같이 기뻐합니다.</p>
+    <div class="ph"><div class="scr s-quiz">
+      <div class="bar"><span class="pill">퇴근 미션</span><span class="pill cream">13 / 20</span></div>
+      <div class="hd"><div class="disp">집까지 7문제!</div></div>
+      <div class="dots" role="img" aria-label="20문제 중 13번째"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><svg viewBox="0 0 24 22"><path d="M12 2.5 2.5 11H5v8.5h14V11h2.5z" fill="#FFC83D" stroke="#16141F" stroke-width="2.5" stroke-linejoin="round"/></svg></div>
+      <div class="q"><div class="tg"><span class="bdg ing">일본 지리</span><span class="bdg">Q13</span></div><div class="jp" lang="ja">長崎県</div><div class="ask">— 어느 지방에 속할까?</div></div>
+      <div class="opts">
+        <button class="op"><span class="k">1</span><span><span class="jp" lang="ja">中国地方</span><small>주고쿠 지방</small></span></button>
+        <button class="op ok"><span class="k">2</span><span><span class="jp" lang="ja">九州地方</span><small>규슈 지방</small></span><svg class="ck" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="#16141F"/><path d="M7 12.5l3.5 3.5L17 9" fill="none" stroke="#3DDC97" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="op"><span class="k">3</span><span><span class="jp" lang="ja">近畿地方</span><small>긴키 지방</small></span></button>
+        <button class="op"><span class="k">4</span><span><span class="jp" lang="ja">四国地方</span><small>시코쿠 지방</small></span></button>
+      </div>
+      <div style="flex:1"></div>
+      <div class="fb"><div class="ch" data-ch="quiz"></div><div><div class="disp">정답!</div><p>나가사키현은 규슈 북서쪽 끝이에요.</p></div></div>
+      <button class="btn" style="margin-bottom:14px">다음</button>
+    </div></div>
+  </section>
+
+  <!-- ④ 어드민 -->
+  <section class="col wide"><h3><span class="no">4</span>어드민 <span style="font:800 12px var(--f-body);background:var(--ink);color:var(--sun);border-radius:999px;padding:3px 9px">PC 화면</span></h3><p class="note">선생님 화면. 누가 통과했고 누가 아직 푸는 중인지 한눈에. 장식은 줄이고 색·굵은 테두리·알약 모양은 그대로 가져갑니다.</p>
+    <div class="pc">
+      <div class="br"><i style="background:var(--coral)"></i><i style="background:var(--sun)"></i><i style="background:var(--mint)"></i><span class="url">학습 허브 › 관리 › 퇴근 미션</span></div>
+      <div class="bd">
+        <aside class="ad-side">
+          <div class="lg">관리실</div><div class="sub">선생님용 · 예시 화면</div>
+          <button>답안 입력</button><button>문항 분석</button><button>숙제<span class="c">6</span></button><button>시험</button><button>학생</button><button class="on">퇴근 미션</button><button>QnA<span class="c">2</span></button>
+          <div style="flex:1"></div>
+          <div class="who"><i></i>예시 선생님</div>
+        </aside>
+        <div class="ad-main">
+          <div class="ad-top"><span class="disp">퇴근 미션</span><span class="pill line">11/25 (수)</span><span class="mt">개념반 정치 6회차 · 20문제</span><span style="flex:1"></span><span class="pill line">문제 20개 보기</span><span class="pill">미션 닫기</span></div>
+          <div class="ad-sum">
+            <div style="background:var(--mint)"><small>오늘 통과</small><b>14 <span>/ 18</span></b></div>
+            <div style="background:var(--coral)"><small>미제출 숙제</small><b>6</b></div>
+            <div style="background:var(--pink)"><small>답 안 한 질문</small><b>2</b></div>
+            <div style="background:var(--peri)"><small>이번 주 테스트</small><b>1</b></div>
+          </div>
+          <div class="ad-row">
+            <div class="ad-tbl">
+              <div class="th"><span class="disp">오늘의 퇴근 미션</span><span class="fl on">전체 18</span><span class="fl">통과 14</span><span class="fl">푸는 중 3</span><span class="fl">아직 1</span></div>
+              <table>
+                <colgroup><col style="width:23%"><col style="width:12%"><col style="width:22%"><col style="width:14%"><col style="width:14%"><col style="width:15%"></colgroup>
+                <thead><tr><th>이름</th><th>반</th><th>첫 시도 정답</th><th>도전 횟수</th><th>걸린 시간</th><th>상태</th></tr></thead>
+                <tbody>
+                  <tr><td><span class="nm"><i style="background:#6C7BFF"></i>김예시</span></td><td>개념반</td><td>18 / 20<span class="mb"><i style="width:90%"></i></span></td><td>2회</td><td>6:12</td><td><span class="bdg ok">통과</span></td></tr>
+                  <tr><td><span class="nm"><i style="background:#FF5A36"></i>이샘플</span></td><td>개념반</td><td>20 / 20<span class="mb"><i style="width:100%"></i></span></td><td>1회</td><td>4:40</td><td><span class="bdg ok">통과</span></td></tr>
+                  <tr><td><span class="nm"><i style="background:#1FBF7A"></i>박테스트</span></td><td>개념반</td><td>15 / 20<span class="mb"><i style="width:75%"></i></span></td><td>3회</td><td>9:05</td><td><span class="bdg ok">통과</span></td></tr>
+                  <tr><td><span class="nm"><i style="background:#FFB300"></i>최더미</span></td><td>단풀반</td><td>16 / 20<span class="mb"><i style="width:80%"></i></span></td><td>2회</td><td>7:30</td><td><span class="bdg ing">푸는 중</span></td></tr>
+                  <tr><td><span class="nm"><i style="background:#FF7DB0"></i>정연습</span></td><td>단풀반</td><td>12 / 20<span class="mb"><i style="width:60%"></i></span></td><td>4회</td><td>11:48</td><td><span class="bdg ing">푸는 중</span></td></tr>
+                  <tr><td><span class="nm"><i style="background:#e6e1d6"></i>한견본</span></td><td>개념반</td><td>—</td><td>0회</td><td>—</td><td><span class="bdg yet">아직</span></td></tr>
+                </tbody>
+              </table>
+              <div class="ft"><span>18명 중 6명 표시</span><span>전체 보기 ›</span></div>
+            </div>
+            <div class="ad-code">
+              <small>오늘 암호</small>
+              <div class="num"><b>4</b><b>8</b><b>2</b><b>7</b></div>
+              <div class="cap">교실에서만 알려 주는 숫자 4자리</div>
+              <div class="qr"><svg viewBox="0 0 21 21" role="img" aria-label="QR 자리"><defs><pattern id="QG" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="#16141F"/><rect x="1" y="1" width="1" height="1" fill="#16141F"/></pattern></defs><rect width="21" height="21" fill="url(#QG)"/><g fill="#FFFDF7"><rect width="8" height="8"/><rect x="13" width="8" height="8"/><rect y="13" width="8" height="8"/></g><g fill="#16141F"><rect width="7" height="7"/><rect x="14" width="7" height="7"/><rect y="14" width="7" height="7"/></g><g fill="#FFFDF7"><rect x="1" y="1" width="5" height="5"/><rect x="15" y="1" width="5" height="5"/><rect x="1" y="15" width="5" height="5"/></g><g fill="#16141F"><rect x="2" y="2" width="3" height="3"/><rect x="16" y="2" width="3" height="3"/><rect x="2" y="16" width="3" height="3"/></g></svg></div>
+              <div class="cap">QR 자리</div>
+              <span class="pill">크게 띄우기</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ───────── 둘째 줄: 추가 화면 ───────── -->
+<div class="sec"><span class="n">둘째 줄</span><h2>추가 화면</h2><span class="hint">클리어 · 꾸미기 · 수업 맵</span></div>
+<div class="row">
+  <!-- ⑤ 클리어 -->
+  <section class="col"><h3><span class="no">5</span>클리어</h3><p class="note">전부 맞히면 퇴근증과 함께 보상이 떨어집니다. 새 아이템은 바로 써 볼 수 있게.</p>
+    <div class="ph"><div class="scr s-clear">
+      <div class="conf"><i style="left:8%;top:14%;background:var(--sun);transform:rotate(20deg)"></i><i style="left:84%;top:10%;background:var(--mint);transform:rotate(-30deg)"></i><i style="left:74%;top:38%;background:var(--peri);transform:rotate(50deg)"></i><i style="left:10%;top:44%;background:var(--pink);transform:rotate(-16deg)"></i><i style="left:46%;top:5%;background:var(--cream);transform:rotate(70deg)"></i></div>
+      <div class="disp big">CLEAR!</div>
+      <div class="ch" data-ch="clear"></div>
+      <div class="rew"><div class="ic" data-item="crown"></div><div><small style="font-size:12px;font-weight:800;color:#6a6578">새 아이템</small><div class="disp" style="font-size:24px">왕관 획득</div><div style="font-size:12px;font-weight:700">★ +30 · 첫 도전에 통과</div></div></div>
+      <button class="btn">꾸미러 가기</button><button class="btn line">퇴근증 보기</button>
+      <div style="flex:1"></div>
+      <div class="tick" style="align-self:stretch;margin-bottom:26px"><b>퇴근! ✦ 오늘도 수고했어 ✦ 집에 가자 ✦ 퇴근! ✦ 오늘도 수고했어 ✦ 집에 가자 ✦ 퇴근! ✦ 오늘도 수고했어 ✦ 집에 가자 ✦ 퇴근! ✦ 오늘도 수고했어 ✦ 집에 가자 ✦ </b></div>
+    </div></div>
+  </section>
+
+  <!-- ⑥ 꾸미기 -->
+  <section class="col"><h3><span class="no">6</span>꾸미기 <span style="font:800 12px var(--f-body);background:var(--coral);color:#fff;border-radius:999px;padding:3px 9px">눌러 보세요</span></h3><p class="note">색·모자·안경·키링. 잠긴 아이템에는 얻는 조건이 적혀 있습니다(조건은 예시).</p>
+    <div class="ph"><div class="scr s-closet">
+      <div class="bar"><span class="disp" style="font-size:28px">꾸미기</span><span class="pill sun">★ 240</span></div>
+      <div class="pv" id="pv"><div class="ch" data-ch="closet"></div></div>
+      <div class="tabs" id="tabs"></div>
+      <div class="grid" id="grid"></div>
+    </div></div>
+  </section>
+
+  <!-- ⑦ 수업 맵 -->
+  <section class="col"><h3><span class="no">7</span>수업 맵</h3><p class="note">커리큘럼을 스테이지처럼. 회차를 끝낼 때마다 한 칸씩, 끝까지 가면 완강 보상.</p>
+    <div class="ph"><div class="scr s-map">
+      <div class="bar"><span class="pill">개념반 · 정치</span><span class="pill cream">5 / 8</span></div>
+      <div class="hd"><div class="disp">완강까지<br>3칸!</div></div>
+      <div class="path">
+        <svg class="ln" viewBox="0 0 340 430" preserveAspectRatio="none"><path d="M70 395 C 200 395, 280 360, 270 315 S 80 290, 70 240 S 270 215, 270 165 S 120 130, 170 60" fill="none" stroke="#16141F" stroke-width="6" stroke-dasharray="2 14" stroke-linecap="round"/></svg>
+        <div class="nd done" style="left:70px;top:395px">1</div><div class="nd done" style="left:200px;top:372px">2</div><div class="nd done" style="left:270px;top:315px">3</div><div class="nd done" style="left:160px;top:282px">4</div><div class="nd done" style="left:70px;top:240px">5</div>
+        <div class="nd now" style="left:190px;top:205px">6<small>이번 주</small></div>
+        <div class="nd lkd" style="left:270px;top:165px">7<svg viewBox="0 0 24 24" fill="#16141F"><path d="M7 10V8a5 5 0 0 1 10 0v2h1.500v10h-13V10zm2 0h6V8a3 3 0 0 0-6 0z"/></svg></div>
+        <div class="nd lkd" style="left:185px;top:118px">8<svg viewBox="0 0 24 24" fill="#16141F"><path d="M7 10V8a5 5 0 0 1 10 0v2h1.500v10h-13V10zm2 0h6V8a3 3 0 0 0-6 0z"/></svg></div>
+        <div class="nd goal" style="left:170px;top:52px" data-item="crown"></div>
+        <span class="stk" style="left:218px;top:28px;background:var(--paper);transform:rotate(6deg)">완강 보상</span>
+      </div>
+    </div></div>
+  </section>
+</div>
+<p class="foot">※ 캐릭터는 지금 SVG로 그린 예시입니다. 최종본은 3D 렌더(PNG)로 바꿔 끼울 수 있게 「몸 + 모자 + 안경 + 키링」을 따로 겹치는 구조로 만들었습니다. 화면 속 이름·숫자·날짜는 전부 가짜입니다.</p>
+
+<script>
+/* ── 겹쳐 입히는 캐릭터 (몸 색 + 모자 + 안경 + 키링) ── */
+var COL = { peri:['#C3CAFF','#6C7BFF'], coral:['#FFB3A0','#FF5A36'], mint:['#A2F5D0','#1FBF7A'], sun:['#FFEB9E','#FFB300'], pink:['#FFD0E3','#FF7DB0'] };
+var uid = 0;
+function hat(k){
+  if(k==='cap') return '<path d="M50 80 Q100 8 150 80 Z" fill="#2B4BFF"/><path d="M50 80 Q100 8 150 80 Z" fill="url(#GL)" opacity=".5"/><path d="M118 74 q44 -8 60 12 q-34 6 -62 -2z" fill="#16141F"/><circle cx="100" cy="44" r="5" fill="#FFC83D"/>';
+  if(k==='crown') return '<path d="M56 70 L62 28 L84 52 L100 18 L116 52 L138 28 L144 70 Z" fill="#FFC83D" stroke="#16141F" stroke-width="4" stroke-linejoin="round"/><circle cx="62" cy="27" r="6" fill="#FF6B4A" stroke="#16141F" stroke-width="3"/><circle cx="100" cy="17" r="6" fill="#3DDC97" stroke="#16141F" stroke-width="3"/><circle cx="138" cy="27" r="6" fill="#FF9EC4" stroke="#16141F" stroke-width="3"/><rect x="56" y="62" width="88" height="12" rx="6" fill="#FFB300" stroke="#16141F" stroke-width="4"/>';
+  if(k==='beanie') return '<circle cx="100" cy="20" r="13" fill="#F4F0E6" stroke="#16141F" stroke-width="4"/><path d="M48 82 Q100 0 152 82 Z" fill="#FF6B4A" stroke="#16141F" stroke-width="4" stroke-linejoin="round"/><rect x="44" y="70" width="112" height="18" rx="9" fill="#F4F0E6" stroke="#16141F" stroke-width="4"/>';
+  return '';
+}
+function glasses(k){
+  if(k==='sun') return '<rect x="56" y="90" width="42" height="32" rx="13" fill="#16141F" stroke="#FF6B4A" stroke-width="5"/><rect x="102" y="90" width="42" height="32" rx="13" fill="#16141F" stroke="#FF6B4A" stroke-width="5"/><path d="M98 102 h4" stroke="#FF6B4A" stroke-width="5"/><path d="M64 98 l10 12 M110 98 l10 12" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/>';
+  if(k==='round') return '<circle cx="78" cy="106" r="22" fill="#fff" fill-opacity=".25" stroke="#16141F" stroke-width="5"/><circle cx="122" cy="106" r="22" fill="#fff" fill-opacity=".25" stroke="#16141F" stroke-width="5"/><path d="M100 104 h0" stroke="#16141F" stroke-width="6" stroke-linecap="round"/>';
+  return '';
+}
+function charm(k){
+  if(!k||k==='none') return '';
+  var ring='<circle cx="168" cy="142" r="8" fill="none" stroke="#16141F" stroke-width="4"/><path d="M170 150 l6 16" stroke="#16141F" stroke-width="3"/>';
+  var s={ star:'<path d="M178 160 l6 13 14 2 -10 10 2 14 -12 -7 -12 7 2 -14 -10 -10 14 -2z" fill="#FFC83D" stroke="#16141F" stroke-width="3.5" stroke-linejoin="round"/>',
+          heart:'<path d="M178 196 c-22 -14 -20 -34 -8 -34 6 0 8 6 8 6 s2 -6 8 -6 c12 0 14 20 -8 34z" fill="#FF9EC4" stroke="#16141F" stroke-width="3.5" stroke-linejoin="round"/>',
+          bolt:'<path d="M186 160 l-18 22 h11 l-6 18 20 -24 h-11z" fill="#3DDC97" stroke="#16141F" stroke-width="3.5" stroke-linejoin="round"/>' }[k]||'';
+  return ring+s;
+}
+function charSVG(st, mood){
+  var id='g'+(++uid), c=COL[st.color]||COL.peri;
+  var eyes = st.glasses==='sun' ? '' :
+    '<ellipse cx="78" cy="106" rx="16" ry="19" fill="#fff"/><ellipse cx="122" cy="106" rx="16" ry="19" fill="#fff"/>' +
+    (mood==='happy' ? '<path d="M68 110 q10 -12 20 0 M112 110 q10 -12 20 0" stroke="#16141F" stroke-width="5" stroke-linecap="round" fill="none"/>'
+                    : '<circle cx="82" cy="109" r="8" fill="#16141F"/><circle cx="126" cy="109" r="8" fill="#16141F"/><circle cx="85" cy="105" r="3" fill="#fff"/><circle cx="129" cy="105" r="3" fill="#fff"/>');
+  var mouth = mood==='happy' ? '<path d="M86 134 q14 20 28 0z" fill="#16141F"/><path d="M93 142 q7 6 14 0" fill="#FF6B4A"/>' : '<path d="M88 136 q12 11 24 0" stroke="#16141F" stroke-width="4.5" stroke-linecap="round" fill="none"/>';
+  return '<svg viewBox="0 0 210 228" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;overflow:visible">' +
+    '<defs><linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+c[0]+'"/><stop offset="1" stop-color="'+c[1]+'"/></linearGradient>' +
+    '<radialGradient id="GL" cx=".3" cy=".2" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>' +
+    '<ellipse cx="100" cy="212" rx="56" ry="9" fill="#16141F" opacity=".18"/>' +
+    '<rect x="74" y="176" width="16" height="30" rx="8" fill="#16141F"/><rect x="110" y="176" width="16" height="30" rx="8" fill="#16141F"/><ellipse cx="78" cy="208" rx="15" ry="8" fill="#16141F"/><ellipse cx="122" cy="208" rx="15" ry="8" fill="#16141F"/>' +
+    '<circle cx="34" cy="132" r="14" fill="'+c[1]+'" stroke="#16141F" stroke-width="4"/><circle cx="166" cy="132" r="14" fill="'+c[1]+'" stroke="#16141F" stroke-width="4"/>' +
+    '<rect x="38" y="50" width="124" height="136" rx="54" fill="url(#'+id+')" stroke="#16141F" stroke-width="4.5"/>' +
+    '<ellipse cx="78" cy="82" rx="30" ry="18" fill="url(#GL)" opacity=".8" transform="rotate(-18 78 82)"/>' +
+    '<circle cx="60" cy="130" r="9" fill="#FF6B4A" opacity=".35"/><circle cx="140" cy="130" r="9" fill="#FF6B4A" opacity=".35"/>' +
+    eyes + mouth + glasses(st.glasses) + hat(st.hat) + charm(st.charm) + '</svg>';
+}
+function itemIcon(kind,k){
+  if(kind==='color') return '<svg viewBox="0 0 60 50"><rect x="12" y="6" width="36" height="38" rx="16" fill="'+COL[k][1]+'" stroke="#16141F" stroke-width="3.5"/><ellipse cx="24" cy="16" rx="8" ry="5" fill="#fff" opacity=".6"/></svg>';
+  var body = kind==='hat' ? '<g transform="translate(-22,6) scale(.52)">'+hat(k)+'</g>' : kind==='glasses' ? '<g transform="translate(-22,-30) scale(.52)">'+glasses(k)+'</g>' : '<g transform="translate(-62,-66) scale(.52)">'+charm(k)+'</g>';
+  return '<svg viewBox="0 0 60 50"><defs><radialGradient id="GL" cx=".3" cy=".2" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>'+(k==='none'?'<path d="M18 13 l24 24 M42 13 l-24 24" stroke="#16141F" stroke-width="4" stroke-linecap="round"/>':body)+'</svg>';
+}
+/* 예시 아이템 (조건은 기획 확정 전 예시) */
+var ITEMS = {
+  color:   [['peri','기본'],['coral','코랄'],['mint','민트'],['sun','선', '★ 100'],['pink','핑크','7일 연속 출석']],
+  hat:     [['none','없음'],['cap','캡 모자'],['beanie','비니','퀴즈 10회 참가'],['crown','왕관','한 과목 완강']],
+  glasses: [['none','없음'],['round','동글 안경'],['sun','선글라스','월말 80% 이상']],
+  charm:   [['none','없음'],['star','별 키링'],['bolt','번개 키링','첫 도전 통과 3번'],['heart','하트 키링','QnA 첫 질문']]
+};
+var TABN = { color:'색', hat:'모자', glasses:'안경', charm:'키링' }, BG = { peri:'#FFC83D', coral:'#8E9BFF', mint:'#FF9EC4', sun:'#8E9BFF', pink:'#3DDC97' };
+var me = { color:'peri', hat:'cap', glasses:'none', charm:'star' }, tab = 'hat';
+function draw(){
+  document.querySelector('[data-ch="home"]').innerHTML = charSVG(me);
+  document.querySelector('[data-ch="quiz"]').innerHTML = charSVG(me, 'happy');
+  document.querySelector('[data-ch="clear"]').innerHTML = charSVG({ color: me.color, hat:'crown', glasses: me.glasses, charm: me.charm }, 'happy');
+  document.querySelector('[data-ch="closet"]').innerHTML = charSVG(me);
+  document.getElementById('pv').style.background = BG[me.color] || '#8E9BFF';
+  document.getElementById('tabs').innerHTML = Object.keys(TABN).map(function(k){ return '<button class="'+(k===tab?'on':'')+'" data-tab="'+k+'">'+TABN[k]+'</button>'; }).join('');
+  document.getElementById('grid').innerHTML = ITEMS[tab].map(function(x){
+    var lock = !!x[2], on = me[tab]===x[0];
+    return '<button class="it'+(on?' on':'')+(lock?' lock':'')+'" data-k="'+x[0]+'"'+(lock?' data-lock="1"':'')+'>'+(lock?'<svg class="lk" viewBox="0 0 24 24" fill="#16141F"><path d="M7 10V8a5 5 0 0 1 10 0v2h1.500v10h-13V10zm2 0h6V8a3 3 0 0 0-6 0z"/></svg>':'')+itemIcon(tab,x[0])+x[1]+(lock?'<em>'+x[2]+'</em>':'')+'</button>';
+  }).join('');
+  document.querySelectorAll('[data-item="crown"]').forEach(function(e){ e.innerHTML = '<svg viewBox="50 10 100 68" style="width:70%"><g>'+hat('crown')+'</g></svg>'; });
+}
+document.addEventListener('click', function(e){
+  var t = e.target.closest('[data-tab]'); if (t) { tab = t.dataset.tab; draw(); return; }
+  var it = e.target.closest('.it'); if (it) { me[tab] = it.dataset.k; draw(); }   // 시안이라 잠긴 것도 입어 볼 수 있게 둠
+});
+draw();
+</script>
+</body>
+</html>
