@@ -2,312 +2,99 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<script>/* 학생·강사 화면이 한 주소 (2026-10-22): 강사 화면은 주소 + #teacher. admin.html 은 없앰 */window.SEISEKI_TEACHER=/^#(teacher|admin)$/.test(location.hash);if(window.SEISEKI_TEACHER){document.title='성적노트 관리 · cw-sogolab';}try{var q=location.search.replace(/^\?/,'').split('&').filter(function(x){return x&&!/^r=/.test(x);});var u=location.pathname+(q.length?'?'+q.join('&'):'')+(window.SEISEKI_TEACHER?'#teacher':location.hash);if(u!==location.pathname+location.search+location.hash)history.replaceState(null,'',u);}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>[개발판] cw-sogolab</title>
-<meta name="description" content="홈 · 성적 · 퇴실 퀴즈 · 커리큘럼 · QnA — cw-sogolab">
-<link rel="icon" href="assets/favicon-dev.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap">
+<title>내 성적 · cw-sogolab</title>
+<meta name="description" content="테스트 점수·틀린 문항·숙제 제출을 한곳에서 — cw-sogolab">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="cw-sogolab">
+<meta property="og:title" content="성적노트 · cw-sogolab">
+<meta property="og:description" content="내 번호로 들어가서 테스트 점수와 숙제를 확인하세요.">
+<meta property="og:image" content="https://cw-sogolab.github.io/seiseki/assets/og-2610.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F5F3FF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14122B" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="assets/favicon.svg?v=202611140941" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=202611140941">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800;900&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="assets/app.css">
-<link rel="stylesheet" href="qz/quiz.css?v=20261124f">
-<link rel="stylesheet" href="grades-native/gr.css?v=20261124f">
-<link rel="stylesheet" href="home/home.css?v=20261124f">
-<link rel="stylesheet" href="curriculum/cur.css?v=20261124f">
-<link rel="stylesheet" href="qna/qna.css?v=20261124f">
-<link rel="stylesheet" href="grades-admin/ga.css?v=20261124f">
-<style>
-/* 허브 틀 — 색·글꼴·카드는 성적노트 토큰(app.css :root)을 그대로 씀 */
-html,body{height:100%}
-body.hub{margin:0;display:flex;flex-direction:column;height:100dvh;background:var(--bg);color:var(--ink);font-family:var(--f-body)}
-.hub .devbar{flex:none}
-.hub-top{flex:none;display:flex;align-items:center;gap:10px;padding:8px 14px;padding-top:max(8px,env(safe-area-inset-top));background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);border-bottom:1px solid var(--line2);z-index:5}
-.hub-brand{display:flex;align-items:center;gap:8px;font-family:var(--f-round);font-weight:800;font-size:17px;color:var(--ink);text-decoration:none;white-space:nowrap}
-.hub-brand svg{width:30px;height:30px}
-.hub-who{font-size:13px;color:var(--muted);white-space:nowrap;max-width:30vw;overflow:hidden;text-overflow:ellipsis}
-.hub-tabs{margin-left:auto;display:flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px;box-shadow:var(--shadow)}
-.hub-tab{position:relative;display:flex;align-items:center;gap:6px;border:0;background:none;color:var(--muted);font:600 14px var(--f-body);padding:5px 12px 5px 8px;border-radius:999px;cursor:pointer;white-space:nowrap}
-.hub-tab svg{width:24px;height:24px;flex:none}
-.hub-tab[aria-selected="true"]{background:var(--blue);color:#fff;box-shadow:0 3px 10px rgba(91,75,240,.3)}
-.hub-tab .bd{position:absolute;right:2px;top:-3px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font:700 11px/18px var(--f-body);text-align:center}
-.hub-out{border:0;background:none;color:var(--muted);font:600 13px var(--f-body);padding:8px 8px;border-radius:10px;cursor:pointer}
-.hub-out:hover{background:var(--fill)}
-.hub-body{flex:1;min-height:0;position:relative}
-.hub-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
-.hub-frame[hidden]{display:none}
-.hub-pane{position:absolute;inset:0;overflow:auto;-webkit-overflow-scrolling:touch}
-.hub-pane[hidden]{display:none}
-.hub-soon{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted);text-align:center;padding:24px}
-.hub-soon b{font-family:var(--f-round);font-size:20px;color:var(--ink)}
-/* 아래 탭바(모바일) — 토스처럼 아이콘 + 짧은 글자 */
-.hub-bar{flex:none;display:none;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line2);padding:4px 6px calc(4px + env(safe-area-inset-bottom));z-index:5}
-.hub-bar .hub-tab{flex:1;flex-direction:column;gap:1px;padding:5px 2px 4px;border-radius:14px;font-size:11.5px;background:none;box-shadow:none;color:var(--faint)}
-.hub-bar .hub-tab svg{width:30px;height:30px}
-.hub-bar .hub-tab[aria-selected="true"]{background:var(--blue-soft);color:var(--blue-ink);box-shadow:none}
-.hub-bar .hub-tab .bd{right:calc(50% - 26px)}
-@media (max-width:760px){.hub-tabs{display:none}.hub-bar{display:flex}.hub-who{display:none}.hub-top{padding-bottom:6px}.hub-out{margin-left:auto}}
-@media (min-width:761px){.hub-brand svg{width:34px;height:34px}}
-/* 로그인 */
-.hub-login{height:100%;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:28px 18px 40px}
-.hub-hero{position:relative;width:min(340px,86vw);height:190px;margin:4px 0 6px}
-.hub-hero .m{position:absolute;filter:drop-shadow(0 14px 18px rgba(59,47,201,.16))}
-.hub-hero .m1{width:150px;left:10px;top:18px;animation:hubFloat 4.6s ease-in-out infinite}
-.hub-hero .m2{width:132px;right:6px;top:36px;animation:hubFloat 5.4s ease-in-out -1.8s infinite}
-.hub-hero .m3{width:58px;left:150px;top:2px;animation:hubFloat 3.8s ease-in-out -.8s infinite}
-@keyframes hubFloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-9px) rotate(2deg)}}
-@media (prefers-reduced-motion:reduce){.hub-hero .m{animation:none}}
-.hub-card{width:min(400px,100%);background:var(--surface);border-radius:var(--r-card);box-shadow:var(--shadow);padding:22px 20px 20px;border:1px solid var(--line2)}
-.hub-card h1{margin:0 0 4px;font-family:var(--f-round);font-size:24px;font-weight:800;letter-spacing:-.01em}
-.hub-card p{margin:0 0 16px;color:var(--muted);font-size:14.5px;line-height:1.5}
-.hub-field{width:100%;box-sizing:border-box;border:2px solid var(--line);background:var(--bg);border-radius:var(--r-ctl);padding:15px 16px;font:700 22px var(--f-mono);letter-spacing:.12em;text-align:center;color:var(--ink);text-transform:uppercase}
-.hub-field.pw{text-transform:none;letter-spacing:.04em;font-size:18px}
-.hub-field:focus{outline:0;border-color:var(--blue);background:var(--surface)}
-.hub-go{width:100%;margin-top:12px;border:0;border-radius:var(--r-ctl);padding:15px;background:var(--btn);color:#fff;font:700 17px var(--f-body);box-shadow:var(--btn-shadow);cursor:pointer}
-.hub-go:disabled{opacity:.55;cursor:default}
-.hub-go:active{transform:translateY(1px)}
-.hub-rem{display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--muted);font-size:14px}
-.hub-err{min-height:20px;margin-top:10px;color:var(--red);font-size:14px;font-weight:600;text-align:center}
-.hub-foot{margin-top:18px;color:var(--faint);font-size:12px;display:flex;align-items:center;gap:6px}
-.hub-foot svg{width:16px;height:16px}
-</style>
+<link rel="stylesheet" href="assets/app.css?v=202611140941">
 </head>
-<body class="hub">
+<body>
+<template id="sTpl">
+<div id="demo" class="demo" hidden>미리보기 모드예요. 예시 번호 KM482919로 들어가 보세요. 실제 성적이 아니고, 사진도 저장되지 않아요.</div>
+<header class="appbar"><div class="wrap stu">
+  <a class="brand" id="home" href="./" title="처음 화면으로"><img src="assets/favicon.svg" alt="" width="26" height="26">성적노트<span class="by"><picture><source srcset="assets/logo-mark-dark.svg" media="(prefers-color-scheme: dark)"><img src="assets/logo-mark-light.svg" alt="" width="16" height="16"></picture>cw-sogolab</span></a>
+  <div class="acts" id="acts" hidden><button id="refresh" class="linkbtn" type="button">새로고침</button><button id="out" class="linkbtn" type="button">나가기</button></div>
+</div></header>
 
-<!-- 3D 느낌 캐릭터 (SVG: 그라데이션 + 윗면 하이라이트 + 아랫면 그림자 + 눈). 같은 모양을 크기만 바꿔 씀 -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <defs>
-    <linearGradient id="gNote" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A89CFF"/><stop offset="1" stop-color="#5B4BF0"/></linearGradient>
-    <linearGradient id="gQuiz" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFB3C8"/><stop offset="1" stop-color="#FF6F93"/></linearGradient>
-    <linearGradient id="gMint" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7DF0CF"/><stop offset="1" stop-color="#0FA382"/></linearGradient>
-    <linearGradient id="gSun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE38A"/><stop offset="1" stop-color="#FFB02E"/></linearGradient>
-    <linearGradient id="gShade" x1="0" y1="0" x2="0" y2="1"><stop offset=".45" stop-color="#1E1B6A" stop-opacity="0"/><stop offset="1" stop-color="#1E1B6A" stop-opacity=".38"/></linearGradient>
-    <radialGradient id="gGloss" cx=".3" cy=".18" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-    <filter id="fBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.2"/></filter>
-
-    <!-- 성적노트: 보라 수첩 -->
-    <symbol id="m-note" viewBox="0 0 120 120">
-      <ellipse cx="60" cy="110" rx="34" ry="6.5" fill="#3B2FC9" opacity=".22" filter="url(#fBlur)"/>
-      <rect x="22" y="12" width="78" height="94" rx="24" fill="url(#gNote)"/>
-      <rect x="22" y="12" width="78" height="94" rx="24" fill="url(#gShade)"/>
-      <rect x="22" y="12" width="78" height="94" rx="24" fill="url(#gGloss)"/>
-      <g fill="#EEEBFF" stroke="#7466FF" stroke-width="1.4"><rect x="14" y="26" width="20" height="9" rx="4.5"/><rect x="14" y="48" width="20" height="9" rx="4.5"/><rect x="14" y="70" width="20" height="9" rx="4.5"/></g>
-      <rect x="44" y="70" width="42" height="24" rx="9" fill="#fff" opacity=".95"/>
-      <path d="M52 86l5-9 5 9M54 83.5h7" stroke="#5B4BF0" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <path d="M70 79h10M70 85h8" stroke="#A89CFF" stroke-width="2.6" stroke-linecap="round"/>
-      <g><ellipse cx="55" cy="45" rx="7.6" ry="9.6" fill="#fff"/><ellipse cx="79" cy="45" rx="7.6" ry="9.6" fill="#fff"/>
-         <circle cx="57" cy="47" r="4.6" fill="#1E1B3A"/><circle cx="81" cy="47" r="4.6" fill="#1E1B3A"/>
-         <circle cx="58.6" cy="44.6" r="1.6" fill="#fff"/><circle cx="82.6" cy="44.6" r="1.6" fill="#fff"/></g>
-      <path d="M62 60q5 4 10 0" stroke="#1E1B3A" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-    </symbol>
-
-    <!-- 퇴실 퀴즈: 분홍 말풍선 -->
-    <symbol id="m-quiz" viewBox="0 0 120 120">
-      <ellipse cx="60" cy="108" rx="32" ry="6" fill="#C2335F" opacity=".2" filter="url(#fBlur)"/>
-      <path d="M20 40a24 24 0 0 1 24-24h34a24 24 0 0 1 24 24v26a24 24 0 0 1-24 24H58l-22 16 4-17A24 24 0 0 1 20 66z" fill="url(#gQuiz)"/>
-      <path d="M20 40a24 24 0 0 1 24-24h34a24 24 0 0 1 24 24v26a24 24 0 0 1-24 24H58l-22 16 4-17A24 24 0 0 1 20 66z" fill="url(#gShade)"/>
-      <path d="M20 40a24 24 0 0 1 24-24h34a24 24 0 0 1 24 24v26a24 24 0 0 1-24 24H58l-22 16 4-17A24 24 0 0 1 20 66z" fill="url(#gGloss)"/>
-      <g><ellipse cx="51" cy="48" rx="7.4" ry="9.4" fill="#fff"/><ellipse cx="75" cy="48" rx="7.4" ry="9.4" fill="#fff"/>
-         <circle cx="53" cy="50" r="4.5" fill="#1E1B3A"/><circle cx="77" cy="50" r="4.5" fill="#1E1B3A"/>
-         <circle cx="54.5" cy="47.6" r="1.5" fill="#fff"/><circle cx="78.5" cy="47.6" r="1.5" fill="#fff"/></g>
-      <path d="M57 64q6 6 12 0" stroke="#1E1B3A" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-      <circle cx="93" cy="22" r="14" fill="url(#gMint)"/><circle cx="93" cy="22" r="14" fill="url(#gGloss)"/>
-      <path d="M86.5 22.5l5 5 8-9.5" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </symbol>
-
-    <!-- 반짝이 별 -->
-    <symbol id="m-star" viewBox="0 0 60 60">
-      <path d="M30 4l7 17 17 7-17 7-7 17-7-17-17-7 17-7z" fill="url(#gSun)"/><path d="M30 4l7 17 17 7-17 7-7 17-7-17-17-7 17-7z" fill="url(#gGloss)"/>
-    </symbol>
-  </defs>
-</svg>
-
-<div class="devbar" id="devbar">개발판 — 합친 사이트 확인용입니다. 학생에게는 알려 주지 마세요.</div>
-
-<header class="hub-top" id="h-top" hidden>
-  <a class="hub-brand" href="./" id="h-brand"><svg><use href="#m-note"/></svg>cw-sogolab</a>
-  <span class="hub-who" id="h-who"></span>
-  <nav class="hub-tabs" role="tablist" id="h-tabs" aria-label="메뉴"></nav>
-  <button class="hub-out" id="h-out" type="button">나가기</button>
-</header>
-
-<main class="hub-body">
-  <section class="hub-login" id="h-login">
-    <div class="hub-hero" aria-hidden="true">
-      <svg class="m m1"><use href="#m-note"/></svg>
-      <svg class="m m2"><use href="#m-quiz"/></svg>
-      <svg class="m m3"><use href="#m-star"/></svg>
-    </div>
-    <div class="hub-card">
-      <h1>내 번호로 들어가기</h1>
-      <p>한 번만 입력하면 <b>성적</b>, <b>퇴실 퀴즈</b>, <b>커리큘럼</b>, <b>QnA</b>를 모두 볼 수 있어요.</p>
-      <input class="hub-field" id="h-sid" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" placeholder="KM 482919" aria-label="일련번호">
-      <label class="hub-rem"><input type="checkbox" id="h-rem"> 이 기기에서 기억하기</label>
-      <button class="hub-go" id="h-go" type="button">들어가기</button>
-      <div class="hub-err" id="h-err" role="alert"></div>
-    </div>
-    <div class="hub-foot"><svg><use href="#m-star"/></svg>made by cw-sogolab</div>
+<main class="wrap stu">
+  <section id="login" class="login">
+    <picture class="hero"><source srcset="assets/logo-dark.svg" media="(prefers-color-scheme: dark)"><img src="assets/logo-light.svg" alt="cw-sogolab ソーゴラボ · EJU 総合科目 현채원 研究室" width="540" height="490"></picture>
+    <h1 class="title">선생님께 받은<br>내 번호를 입력해 주세요</h1>
+    <p class="sub">퇴실퀴즈에 쓰는 번호와 같아요</p>
+    <label for="sid" class="sr">내 번호</label>
+    <input id="sid" type="text" class="idin" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="10" placeholder="KM482919" aria-describedby="loginMsg">
+    <label class="check"><input id="remember" type="checkbox"> 이 기기에서 번호 기억하기 (내 폰일 때만)</label>
+    <p id="loginMsg" class="msg err" role="alert"></p>
+    <button id="go" class="btn block" type="button">조회하기</button>
+    <p class="meta">영문 2자 + 숫자 6자리예요. 대소문자와 띄어쓰기는 상관없어요.<br>번호를 잊었으면 선생님께 말씀해 주세요.</p>
   </section>
-  <section class="hub-login" id="h-gate" hidden>
-    <div class="hub-hero" aria-hidden="true">
-      <svg class="m m1"><use href="#m-pencil"/></svg>
-      <svg class="m m2"><use href="#m-clock"/></svg>
-      <svg class="m m3"><use href="#m-star"/></svg>
-    </div>
-    <div class="hub-card">
-      <h1>선생님 로그인</h1>
-      <p>관리자 비밀번호를 한 번만 입력하면 <b>성적</b>, <b>퀴즈</b>, <b>QnA</b> 관리가 모두 열려요.</p>
-      <input class="hub-field pw" id="h-pw" type="password" autocomplete="current-password" aria-label="관리자 비밀번호" placeholder="비밀번호">
-      <button class="hub-go" id="h-pwgo" type="button">들어가기</button>
-      <div class="hub-err" id="h-pwerr" role="alert"></div>
-    </div>
-    <div class="hub-foot"><svg><use href="#m-star"/></svg>made by cw-sogolab</div>
+
+  <section id="app" hidden>
+    <h1 class="title"><span id="nm"></span>님의 성적</h1>
+    <p class="sub" id="idshow" style="font-family:var(--f-mono)"></p>
+    <div id="modes" class="seg modes" role="tablist" aria-label="보기"></div>
+    <div id="tabs" class="tabsrow" role="tablist" aria-label="내 반"></div>
+    <div id="months" class="tabsrow months" aria-label="달"></div>
+    <div id="panel"></div>
   </section>
-  <section class="hub-pane" id="p-home" hidden></section>
-  <section class="hub-pane" id="p-a" hidden></section>
-  <iframe class="hub-frame" id="f-a" title="" hidden></iframe>
-  <section class="hub-pane qz" id="p-b" hidden>
-    <div hidden><a id="logo"></a><a id="toGrades"></a><nav class="nav"><button id="nav-student"></button><button id="nav-teacher"></button></nav></div>
-    <main id="app" aria-live="polite"></main>
-  </section>
-  <section class="hub-pane" id="p-c" hidden></section>
-  <section class="hub-pane" id="p-d" hidden></section>
 </main>
-<nav class="hub-bar" role="tablist" id="h-bar" aria-label="메뉴"></nav>
+<footer class="foot"><picture><source srcset="assets/logo-mark-dark.svg" media="(prefers-color-scheme: dark)"><img src="assets/logo-mark-light.svg" alt="" width="16" height="16"></picture>성적노트 · made by <b>cw-sogolab</b></footer>
+</template>
+<template id="tTpl">
+<div id="demo" class="demo" hidden>미리보기 모드예요. 비밀번호 demo로 들어가세요. 예시 데이터이고, 새로고침하면 처음 상태로 돌아가요.</div>
+<header class="appbar admin"><div class="wrap">
+  <a class="brand" id="home" href="#teacher" title="처음 화면으로"><img src="assets/favicon.svg" alt="" width="26" height="26">성적노트 <small>선생님</small><span class="by"><picture><source srcset="assets/logo-mark-dark.svg" media="(prefers-color-scheme: dark)"><img src="assets/logo-mark-light.svg" alt="" width="16" height="16"></picture>cw-sogolab</span></a>
+  <div class="acts" id="topRight" hidden>
+    <label for="month" class="sr">달</label>
+    <select id="month" class="pillsel"></select>
+    <button id="logout" class="linkbtn" type="button">나가기</button>
+  </div>
+</div>
+<div class="wrap"><nav id="nav" class="main" role="tablist" aria-label="관리 메뉴" hidden></nav></div></header>
 
-<script src="assets/mascots.js"></script>
-<script>HubMascots.mount({ skip: ['m-note', 'm-quiz', 'm-star'] });</script>
-<script src="../assets/config.js"></script>
-<script src="assets/core.js"></script>
-<script src="hub-session.js?v=20261124f"></script>
-<script>
-(function () {
-  var $ = function (s) { return document.querySelector(s); };
-  var V = '20261124f';
-  var API = (window.SEISEKI_CONFIG && window.SEISEKI_CONFIG.API_URL && window.SEISEKI_CONFIG.API_URL.dev) || '';
-  var ENV = /\/dev\//.test(location.pathname) ? 'dev' : 'prod';
-  var KEY = 'hub-dev.sid';
-  var teacher = /^#(teacher|admin)$/.test(location.hash);
-  var sid = '', myName = '', cur = null, loaded = {};
-
-  /* ── 탭 정의: pane = 그려질 칸 id ── */
-  var STUDENT = [
-    { id: 'home', label: '홈', icon: 'm-rocket', pane: 'p-home', mount: mountHome },
-    { id: 'grades', label: '성적', icon: 'm-note', pane: 'p-a', mount: mountGrades },
-    { id: 'quiz', label: '퀴즈', icon: 'm-quiz', pane: 'p-b', mount: mountQuiz },
-    { id: 'curriculum', label: '커리큘럼', icon: 'm-book', pane: 'p-c', mount: mountCurriculum },
-    { id: 'qna', label: 'QnA', icon: 'm-pencil', pane: 'p-d', mount: mountQna }
-  ];
-  var TEACHER = [
-    { id: 'grades', label: '성적', icon: 'm-note', pane: 'p-a', mount: mountGradesAdmin },
-    { id: 'quiz', label: '퀴즈', icon: 'm-quiz', pane: 'p-b', mount: mountQuiz },
-    { id: 'qna', label: 'QnA 관리', icon: 'm-pencil', pane: 'p-d', mount: mountQnaAdmin }
-  ];
-  var TABS = teacher ? TEACHER : STUDENT;
-
-  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
-  // 안쪽 화면이 지난 사람의 번호를 기억하고 있으면 새 번호가 안 먹으니 먼저 지움
-  function wipeInner() { var k = ENV === 'dev' ? ['seiseki-dev.code', 'seiseki-dev.view', 'kitaku-dev.me'] : ['seiseki.code', 'seiseki.view', 'kitaku.me']; k.forEach(function (x) { store(x, null); }); }
-  function loadScript(src) { return new Promise(function (res, rej) { var e = document.createElement('script'); e.src = src; e.onload = res; e.onerror = rej; document.head.appendChild(e); }); }
-  function soon(el, what) { el.innerHTML = '<div class="hub-soon">' + HubMascots.svg('m-sleep', 96, 'hm-float') + '<b>' + what + ' 준비 중이에요</b><span>곧 열려요. 조금만 기다려 주세요.</span></div>'; }
-
-  /* ── 탭별 화면 붙이기 (처음 열 때 한 번) ── */
-  function mountHome(el) { return loadScript('home/home.js?v=' + V).then(function () { HubHome.mount(el, { session: HubSession, name: myName, go: show }); }); }
-  function mountGrades(el) { return loadScript('grades-native/gr.js?v=' + V).then(function () { HubGrades.mount(el, { code: sid, name: myName, apiUrl: API, env: ENV, onAuthError: function () { leave(); } }); }); }
-  function mountQuiz() {
-    window.HUB = 1; window.HUB_ENV = ENV;
-    if (!teacher) { try { localStorage.setItem((ENV === 'dev' ? 'kitaku-dev.' : 'kitaku.') + 'me', JSON.stringify({ id: sid, nm: myName })); } catch (e) {} }
-    return loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js').catch(function () {})
-      .then(function () { return loadScript('qz/data.js?v=' + V); }).then(function () { return loadScript('qz/quiz.js?v=' + V); });
-  }
-  function mountCurriculum(el) { return loadScript('curriculum/cur.js?v=' + V).then(function () { HubCurriculum.mount(el, { session: HubSession }); }, function () { soon(el, '커리큘럼'); }); }
-  function mountQna(el) { return loadScript('qna/qna.js?v=' + V).then(function () { HubQna.mount(el, { session: HubSession }); }, function () { soon(el, 'QnA'); }); }
-  function relogin() { HubSession.clear(); $('#h-top').hidden = true; ['p-home', 'p-a', 'f-a', 'p-b', 'p-c', 'p-d'].forEach(function (p) { $('#' + p).hidden = true; }); loaded = {}; $('#h-gate').hidden = false; $('#h-pwerr').textContent = '로그인이 풀렸어요. 다시 입력해 주세요.'; $('#h-pw').value = ''; $('#h-pw').focus(); }
-  function mountGradesAdmin(el) {
-    return loadScript('grades-admin/ga.js?v=' + V).then(function () {
-      HubGradesAdmin.mount(el, { session: HubSession, apiUrl: API, env: ENV, onAuthError: relogin });
-    }, function () {   // 새 강사 화면이 아직 없으면 옛 화면을 그대로 끼워 씀
-      var f = $('#f-a'); el.hidden = true; f.hidden = false; f.src = 'grades.html?embed=1#teacher';
-    });
-  }
-  function mountQnaAdmin(el) {
-    return loadScript('qna/qna.js?v=' + V).then(function () { HubQnaAdmin.mount(el, { session: HubSession, onPending: function (n) { badge('qna', n); }, onAuthError: relogin }); }, function () { soon(el, 'QnA 관리'); });
-  }
-  function badge(id, n) { document.querySelectorAll('.hub-tab[data-id="' + id + '"] .bd').forEach(function (b) { b.remove(); }); if (n > 0) document.querySelectorAll('.hub-tab[data-id="' + id + '"]').forEach(function (t) { var b = document.createElement('span'); b.className = 'bd'; b.textContent = n > 99 ? '99+' : n; t.appendChild(b); }); }
-
-  function tabsHtml() {
-    ['h-tabs', 'h-bar'].forEach(function (nid) {
-      var t = $('#' + nid); t.innerHTML = '';
-      TABS.forEach(function (x) {
-        var b = document.createElement('button'); b.className = 'hub-tab'; b.type = 'button'; b.setAttribute('role', 'tab'); b.dataset.id = x.id;
-        b.innerHTML = '<svg><use href="#' + x.icon + '"/></svg>' + x.label; b.onclick = function () { show(x.id); }; t.appendChild(b);
-      });
-    });
-  }
-  function show(id) {
-    var tab = TABS.filter(function (x) { return x.id === id; })[0] || TABS[0]; id = tab.id; cur = id;
-    TABS.forEach(function (x) { document.querySelectorAll('.hub-tab[data-id="' + x.id + '"]').forEach(function (b) { b.setAttribute('aria-selected', x.id === id); }); });
-    ['p-home', 'p-a', 'f-a', 'p-b', 'p-c', 'p-d'].forEach(function (p) { $('#' + p).hidden = p !== tab.pane; });
-    if (!loaded[id]) { loaded[id] = 1; Promise.resolve(tab.mount($('#' + tab.pane))).catch(function () { soon($('#' + tab.pane), tab.label); }); }
-    else if (id === 'grades' && window.HubGrades && !teacher) { /* 이미 열려 있음 */ }
-    try { history.replaceState(null, '', location.pathname + location.search + (teacher ? '#teacher' : (id === 'home' ? '' : '#' + id))); } catch (e) {}
-  }
-  function enter(s, nm) {
-    sid = s; myName = nm || ''; loaded = {};
-    HubSession.init({ code: s, name: nm, env: ENV, apiUrl: API });
-    $('#h-login').hidden = true; $('#h-top').hidden = false; $('#h-who').textContent = nm ? nm + ' 학생' : '';
-    tabsHtml(); var h = (location.hash || '').slice(1); show(STUDENT.some(function (x) { return x.id === h; }) ? h : 'home');
-  }
-  function leave() {
-    store(KEY, null); wipeInner(); HubSession.clear(); sid = ''; loaded = {};
-    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
-    location.reload();   // 퀴즈·성적이 페이지 안에서 돌고 있으니 새로 불러와 지난 사람의 상태를 모두 비움
-  }
-
-  var fails = 0, lockUntil = 0;
-  function login(raw, remember, quiet) {
-    var code = Core.normCode(raw), err = $('#h-err');
-    if (Date.now() < lockUntil) { err.textContent = '잠시 후 다시 시도해 주세요.'; return; }
-    var p = Core.codeProblem ? Core.codeProblem(code) : (Core.isValidCode(code) ? '' : 'format');
-    if (p) { err.textContent = p === 'short' ? '영문 2자 + 숫자 6자리를 모두 넣어 주세요.' : '번호를 다시 확인해 주세요.'; if (p === 'check' && ++fails >= 5) { lockUntil = Date.now() + 60000; fails = 0; } return; }
-    if (!API) { err.textContent = '서버 주소가 없어요. config.js 를 확인해 주세요.'; return; }
-    $('#h-go').disabled = true; err.textContent = '';
-    fetch(API + '?mode=who&id=' + encodeURIComponent(code)).then(function (r) { return r.json(); }).then(function (d) {
-      $('#h-go').disabled = false;
-      if (d && d.ok && d.member) { fails = 0; wipeInner(); if (remember) store(KEY, code); enter(code, d.nm); }
-      else if (d && d.error === 'busy') err.textContent = '잠시 후 다시 시도해 주세요.';
-      else { if (!quiet) err.textContent = '등록되지 않은 번호예요. 선생님께 확인해 주세요.'; if (++fails >= 5) { lockUntil = Date.now() + 60000; fails = 0; } store(KEY, null); }
-    }).catch(function () { $('#h-go').disabled = false; if (!quiet) err.textContent = '인터넷 연결을 확인하고 다시 눌러 주세요.'; });
-  }
-
-  $('#h-sid').addEventListener('input', function () { var v = Core.normCode(this.value); this.value = Core.fmtCode ? Core.fmtCode(v) : v; $('#h-err').textContent = ''; });
-  $('#h-sid').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#h-go').click(); });
-  $('#h-go').onclick = function () { login($('#h-sid').value, $('#h-rem').checked); };
-  $('#h-out').onclick = leave;
-  $('#h-brand').onclick = function (e) { e.preventDefault(); if (!$('#h-top').hidden) show(TABS[0].id); };
-
-  // 시작: 강사(#teacher)는 로그인 없이 강사 탭 / 학생은 #sid= 로 넘어왔거나 기억한 번호가 있으면 바로
-  if (teacher) {
-    HubSession.init({ code: '', name: '', env: ENV, apiUrl: API });
-    $('#h-login').hidden = true; $('#h-gate').hidden = false; $('#h-who').textContent = '선생님';
-    var gate = function () {
-      var pw = $('#h-pw').value; if (!pw) return; $('#h-pwgo').disabled = true; $('#h-pwerr').textContent = '';
-      HubSession.adminLogin(pw).then(function (r) {
-        $('#h-pwgo').disabled = false;
-        if (!r.ok) { $('#h-pwerr').textContent = r.error || '로그인하지 못했어요.'; return; }
-        $('#h-pw').value = ''; $('#h-gate').hidden = true; $('#h-top').hidden = false; $('#h-who').textContent = '선생님'; loaded = {};
-        tabsHtml(); var h = (location.hash || '').slice(1); show('grades');
-      });
-    };
-    $('#h-pwgo').onclick = gate; $('#h-pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') gate(); });
-    setTimeout(function () { $('#h-pw').focus(); }, 50);
-  }
-  else {
-    var hm = /[#&]sid=([A-Za-z0-9 -]{6,12})/.exec(location.hash), saved = store(KEY);
-    if (hm) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} login(hm[1], false); }
-    else if (saved) { $('#h-rem').checked = true; login(saved, true, true); }
-    else $('#h-sid').focus();
-  }
-})();
-</script>
+<main class="wrap">
+  <section id="login" class="gate" aria-labelledby="gateTitle">
+    <form class="gate-form" id="loginForm" novalidate>
+      <picture class="hero"><source srcset="assets/logo-dark.svg" media="(prefers-color-scheme: dark)"><img src="assets/logo-light.svg" alt="cw-sogolab ソーゴラボ · EJU 総合科目 현채원 研究室" width="540" height="490"></picture>
+      <h1 class="title" id="gateTitle">선생님 화면</h1>
+      <p class="sub">답안 입력, 시험·숙제 등록, 학생평가를 여기서 해요.</p>
+      <label for="pw">관리자 비밀번호</label>
+      <div class="pwrow">
+        <input id="pw" type="password" class="pin" autocomplete="current-password" aria-describedby="loginMsg">
+        <button id="pwShow" class="linkbtn" type="button" aria-pressed="false">보기</button>
+      </div>
+      <p id="loginMsg" class="msg err" role="alert"></p>
+      <button id="go" class="btn block" type="submit">들어가기</button>
+      <p class="gate-alt"><a href="./">학생 화면 열기</a></p>
+    </form>
+  </section>
+  <section id="period" class="period" hidden></section>
+  <section id="view" hidden></section>
+</main>
+<footer class="foot"><picture><source srcset="assets/logo-mark-dark.svg" media="(prefers-color-scheme: dark)"><img src="assets/logo-mark-light.svg" alt="" width="16" height="16"></picture>성적노트 · made by <b>cw-sogolab</b></footer>
+</template>
+<script>/* 학생 화면 또는 강사 화면(#teacher)을 꺼내 붙임 */(function(){var T=window.SEISEKI_TEACHER,t=document.getElementById(T?'tTpl':'sTpl');document.body.appendChild(t.content.cloneNode(true));if(T)document.body.classList.add('locked');})();</script>
+<script src="../assets/config.js?v=202611140941"></script>
+<script src="assets/core.js?v=202611140941"></script>
+<script src="assets/logic.js?v=202611140941"></script>
+<script src="assets/mock.js?v=202611140941"></script>
+<script src="assets/api.js?v=202611140941"></script>
+<script>/* 화면별 스크립트: 학생 student.js / 강사 monthxlsx·plan·admin.js (순서대로) */(function(){var v='?v=202611140941';(window.SEISEKI_TEACHER?['monthxlsx','plan','admin']:['student']).forEach(function(n){var s=document.createElement('script');s.src='assets/'+n+'.js'+v;s.async=false;document.body.appendChild(s);});addEventListener('hashchange',function(){if(/^#(teacher|admin)$/.test(location.hash)!==window.SEISEKI_TEACHER)location.reload();});})();</script>
 </body>
 </html>
