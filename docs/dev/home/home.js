@@ -46,7 +46,7 @@
     root.innerHTML =
       '<div class="hm-hero"><div class="hm-hi"><small>' + today() + '</small><h1>안녕하세요,<br>' + esc(name || '') + (name ? '님' : '') + '</h1><div class="hm-chips">' + chips + '</div></div>' + mas('m-note-happy', 112) + '</div>' +
       '<div class="hm-grid">' +
-        card('quiz', 'm-quiz-happy', '퇴근 미션', '오늘 문제 풀기') +
+        card('quiz', 'm-quiz-happy', '퇴실 퀴즈', '오늘 문제 풀기') +
         card('grades', 'm-note', '내 성적', '점수와 그래프') +
         card('curriculum', 'm-book', '커리큘럼', '수업 계획 보기') +
         card('qna', 'm-pencil', 'QnA', '선생님께 질문') +
